@@ -58,6 +58,32 @@ supabase/seed.sql      Boston market, cohorts (both closed), court directory
 scripts/db-test.sh     apply migrations to a scratch DB and run the suite
 ```
 
+## See it running
+
+**In a browser, no setup:** the demo build is published as an artifact (link in the
+session). It runs against an in-memory backend seeded with Boston players; other
+players reply on a short delay so the whole loop closes. Any phone number works and the
+code is `000000`. Enter a birthday under 18 to see the guardian flow; the You tab has
+demo controls for the parent's view and the cohort-closed state.
+
+**Locally:**
+
+```bash
+npm install
+npm run demo        # Expo web, demo backend, opens in your browser
+npm start           # then scan the QR with Expo Go on your phone (demo backend)
+```
+
+**Against Supabase:** apply `supabase/migrations` and `supabase/seed.sql` to a project,
+expose the `app` schema under Settings → API, enable phone OTP, then:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=... EXPO_PUBLIC_SUPABASE_ANON_KEY=... npm start
+```
+
+The Supabase client (`src/data/supabase.ts`) is written against the schema but has not
+been run against a live project yet -- see the build notes for what to verify first.
+
 ## Running the tests
 
 A minor-safety rule that isn't tested isn't a rule, so the RLS policies have an
@@ -78,12 +104,12 @@ construct."
 | Step | Status |
 | --- | --- |
 | 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 52 assertions passing |
-| 2. Auth, DOB gate, guardian linking | schema + policies done; auth wiring next |
-| 3. Profile, home court, availability | schema done |
-| 4. Court directory | schema + Boston seed done |
-| 5. Discovery feed (level delta first, distance second) | `app.discover()` done |
-| 6. Hit requests, accept/decline/counter, per-hit thread | schema + state machine done |
+| 2. Auth, DOB gate, guardian linking | app built; Supabase wiring untested against a live project |
+| 3. Profile, home court, availability | done |
+| 4. Court directory | done (Boston seed coordinates need verifying) |
+| 5. Discovery feed (level delta first, distance second) | done: swipe stack + list, filters, cohort countdown |
+| 6. Hit requests, accept/decline/counter, per-hit thread | done, incl. the waiting-on-parent state |
 | 7. Confirmation, ghost-suppression signals | done |
-| 8. Block/report + moderation queue | schema + policies done; reviewer surface pending |
-| 9. Invite codes | schema done; redemption flow pending |
-| 10. Match-found animation | not started, deliberately last |
+| 8. Block/report + moderation queue | block/report in app; reviewer surface pending |
+| 9. Invite codes | schema done; app flow pending |
+| 10. Match-found animation | done |
