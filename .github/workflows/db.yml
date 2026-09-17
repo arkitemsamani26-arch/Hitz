@@ -1,0 +1,33 @@
+name: database
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  rls-tests:
+    name: migrations + RLS policy tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 16, PostGIS and pgTAP
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            postgresql-16 postgresql-16-postgis-3 postgresql-16-pgtap postgresql-client-16
+
+      - name: Start PostgreSQL
+        run: |
+          sudo pg_ctlcluster 16 main start
+          sudo -u postgres psql -c "alter user postgres password 'postgres';"
+
+      - name: Run migrations and the pgTAP suite
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: ./scripts/db-test.sh

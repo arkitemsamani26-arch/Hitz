@@ -21,9 +21,21 @@ Anything that doesn't serve that loop is not v1.
   month" texture, yes; a dashboard of your winners and unforced errors, no.
 - **Not a DM app.** Messaging exists to close a hit request, not to host conversations.
 
+## The one metric
+
+**Confirmed hits per active user per month.**
+
+Not signups. Not DAU. Not messages sent. A hit that both sides confirmed happened.
+Above ~1.5 in a seeded market, Hits works; below 0.5, no amount of design saves it.
+
+Secondary diagnostics: request→accept rate, time-to-first-reply, and the percentage of
+users who get a reply *at all* — that last one is the loneliness metric, and it's the one
+that kills marketplaces quietly.
+
 ## Status
 
-Pre-build. This repo currently contains the proposal set requested before scaffolding:
+Schema, RLS policies and the safety test suite are in (`supabase/`). The proposal set
+that preceded them:
 
 | Doc | What's in it |
 | --- | --- |
@@ -33,4 +45,45 @@ Pre-build. This repo currently contains the proposal set requested before scaffo
 | [`docs/04-safety-by-design.md`](docs/04-safety-by-design.md) | Minor-safety architecture — designed in, not bolted on |
 | [`docs/05-open-questions.md`](docs/05-open-questions.md) | UTR API findings, payments call, and the decisions that need your input |
 
+| [`docs/06-seeding-strategy.md`](docs/06-seeding-strategy.md) | Resolving the strict-separation vs. seed-network contradiction |
+
 Read `01` and `04` first — they constrain everything else.
+
+## Repo layout
+
+```
+supabase/migrations/   schema, RLS policies, triggers, discovery RPC
+supabase/tests/        pgTAP suite -- the RLS policy tests are the point
+supabase/seed.sql      Boston market, cohorts (both closed), court directory
+scripts/db-test.sh     apply migrations to a scratch DB and run the suite
+```
+
+## Running the tests
+
+A minor-safety rule that isn't tested isn't a rule, so the RLS policies have an
+adversarial test suite that runs in CI and blocks the branch on failure. It needs
+PostgreSQL 16 with PostGIS and pgTAP:
+
+```bash
+sudo apt-get install -y postgresql-16 postgresql-16-postgis-3 postgresql-16-pgtap
+./scripts/db-test.sh
+```
+
+The suite asks the hostile version of each question — not "does the UI hide minors from
+adults" but "can an adult's session reach a minor's row by *any* query the client can
+construct."
+
+## Current state of the build
+
+| Step | Status |
+| --- | --- |
+| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 52 assertions passing |
+| 2. Auth, DOB gate, guardian linking | schema + policies done; auth wiring next |
+| 3. Profile, home court, availability | schema done |
+| 4. Court directory | schema + Boston seed done |
+| 5. Discovery feed (level delta first, distance second) | `app.discover()` done |
+| 6. Hit requests, accept/decline/counter, per-hit thread | schema + state machine done |
+| 7. Confirmation, ghost-suppression signals | done |
+| 8. Block/report + moderation queue | schema + policies done; reviewer surface pending |
+| 9. Invite codes | schema done; redemption flow pending |
+| 10. Match-found animation | not started, deliberately last |
