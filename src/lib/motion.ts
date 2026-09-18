@@ -1,24 +1,17 @@
-// Motion that feels like the sport: fast, with weight behind it. Things land, they
-// don't drift. Springs over linear easing, everywhere.
+// Motion is ball physics. Things arc, drop, bounce once and settle. Nothing drifts.
 import { useReducedMotion } from 'react-native-reanimated';
 
 export const spring = {
-  // The default. A ball hitting the strings.
-  snap: { damping: 18, stiffness: 320, mass: 0.8 },
-  // Heavier: big elements arriving.
-  land: { damping: 20, stiffness: 190, mass: 1.1 },
-  // Press feedback.
-  press: { damping: 22, stiffness: 500, mass: 0.6 },
-  // Cards leaving the stack.
+  // A ball into the strings: fast, one small overshoot.
+  snap: { damping: 16, stiffness: 340, mass: 0.7 },
+  // A ball landing on the court: heavier, settles with one bounce.
+  land: { damping: 14, stiffness: 220, mass: 1.0 },
+  press: { damping: 22, stiffness: 520, mass: 0.6 },
+  // Something flung off the court.
   fling: { damping: 26, stiffness: 260, mass: 0.9, overshootClamping: true },
 } as const;
 
-export const duration = {
-  instant: 90,
-  fast: 150,     // everything interactive responds inside this
-  normal: 240,
-  slow: 420,
-} as const;
+export const duration = { instant: 90, fast: 150, normal: 240, slow: 420 } as const;
 
 export function useMotion() {
   const reduced = useReducedMotion();

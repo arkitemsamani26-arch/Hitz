@@ -34,8 +34,7 @@ that kills marketplaces quietly.
 
 ## Status
 
-Schema, RLS policies and the safety test suite are in (`supabase/`). The proposal set
-that preceded them:
+The app (Expo), schema, RLS policies and the safety test suite are in. The docs, in order:
 
 | Doc | What's in it |
 | --- | --- |
@@ -46,6 +45,9 @@ that preceded them:
 | [`docs/05-open-questions.md`](docs/05-open-questions.md) | UTR API findings, payments call, and the decisions that need your input |
 
 | [`docs/06-seeding-strategy.md`](docs/06-seeding-strategy.md) | Resolving the strict-separation vs. seed-network contradiction |
+| [`docs/07-build-notes.md`](docs/07-build-notes.md) | First build: decisions, compromises |
+| [`docs/08-center-court-pass.md`](docs/08-center-court-pass.md) | Redesign to Center Court, Palo Alto, and the open items |
+| [`docs/09-supabase-setup.md`](docs/09-supabase-setup.md) | Standing up a live project |
 
 Read `01` and `04` first — they constrain everything else.
 
@@ -54,16 +56,17 @@ Read `01` and `04` first — they constrain everything else.
 ```
 supabase/migrations/   schema, RLS policies, triggers, discovery RPC
 supabase/tests/        pgTAP suite -- the RLS policy tests are the point
-supabase/seed.sql      Boston market, cohorts (both closed), court directory
+supabase/seed.sql      Palo Alto market, cohorts (both closed), court directory
+supabase/functions/    notify edge function (push delivery)
 scripts/db-test.sh     apply migrations to a scratch DB and run the suite
 ```
 
 ## See it running
 
 **In a browser, no setup:** the demo build is published as an artifact (link in the
-session). It runs against an in-memory backend seeded with Boston players; other
-players reply on a short delay so the whole loop closes. Any phone number works and the
-code is `000000`. Enter a birthday under 18 to see the guardian flow; the You tab has
+session). It runs against an in-memory backend seeded with Palo Alto players; other
+players reply on a short delay so the whole loop closes. Any phone number works, the
+code is `000000`, and the team code `PALY26` works. Enter a birthday under 18 to see the guardian flow; the You tab has
 demo controls for the parent's view and the cohort-closed state.
 
 **Locally:**
@@ -103,13 +106,14 @@ construct."
 
 | Step | Status |
 | --- | --- |
-| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 52 assertions passing |
+| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 59 assertions passing |
 | 2. Auth, DOB gate, guardian linking | app built; Supabase wiring untested against a live project |
 | 3. Profile, home court, availability | done |
 | 4. Court directory | done (Boston seed coordinates need verifying) |
 | 5. Discovery feed (level delta first, distance second) | done: swipe stack + list, filters, cohort countdown |
 | 6. Hit requests, accept/decline/counter, per-hit thread | done, incl. the waiting-on-parent state |
 | 7. Confirmation, ghost-suppression signals | done |
-| 8. Block/report + moderation queue | block/report in app; reviewer surface pending |
-| 9. Invite codes | schema done; app flow pending |
-| 10. Match-found animation | done |
+| 8. Block/report + moderation queue | block/report in app, guardian-side block; reviewer surface pending |
+| 9. Roster codes | done |
+| 10. Match-found animation | done (Center Court) |
+| Push notifications | outbox + edge function + app registration; unverified on device |

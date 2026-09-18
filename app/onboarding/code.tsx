@@ -32,11 +32,11 @@ export default function Code() {
     finally { setBusy(false); }
   };
   return (
-    <Screen bottom={<Centered><Button title="Let's go" onPress={() => go()} loading={busy} disabled={code.length < 6} /></Centered>}>
+    <Screen sky={200} bottom={<Centered><Button title="Let's go" kind="ball" onPress={() => go()} loading={busy} disabled={code.length < 6} /></Centered>}>
       <Centered>
         <Header />
-        <T v="display">Check your texts.</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.lg, marginBottom: space.xxl }}>Six digits, sent to {draft.phone}.</T>
+        <T v="display" style={{ marginTop: space.xl }}>Check your texts.</T>
+        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.xl }}>Six digits, sent to {draft.phone}.</T>
         <Field
           big value={code} onChangeText={t => { const c = t.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) void go(c); }}
           placeholder="••••••" keyboardType="number-pad" inputMode="numeric" textContentType="oneTimeCode" autoFocus maxLength={6}

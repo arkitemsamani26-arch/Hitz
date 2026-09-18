@@ -4,7 +4,7 @@ import { Screen, Centered } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
-import { ServiceBox } from '@/ui/Court';
+import { Sheet } from '@/ui/Screen';
 import { space } from '@/theme/tokens';
 import { useDraft, isMinor } from '@/store/onboarding';
 
@@ -30,18 +30,18 @@ export default function Birthday() {
   };
   const go = () => { if (!dob || tooYoung) return; patch({ dateOfBirth: dob }); router.push('/onboarding/level'); };
   return (
-    <Screen bottom={<Centered><Button title="Next" onPress={go} disabled={!dob || tooYoung} /></Centered>}>
+    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!dob || tooYoung} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>When's your{'\n'}birthday?</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.lg, marginBottom: space.xxl }}>Nobody else sees this. It decides one thing — see below.</T>
+        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Nobody else sees this. It decides one thing — see below.</T>
         <Field big value={v} onChangeText={onChange} placeholder="MM / DD / YYYY" keyboardType="number-pad" inputMode="numeric" autoFocus accessibilityLabel="Birthday, month day year" onSubmitEditing={go} />
-        {tooYoung && <T v="body" tone="danger" style={{ marginTop: space.lg }}>Hits is for players 13 and up. Come back on your birthday — we'll be here.</T>}
+        {tooYoung && <T v="body" tone="onCourt" style={{ marginTop: space.lg }}>Hits is for players 13 and up. Come back on your birthday — we'll be here.</T>}
         {dob && !tooYoung && (
-          <ServiceBox style={{ padding: space.lg, marginTop: space.xl }}>
+          <Sheet style={{ marginTop: space.lg }}>
             {minor
               ? <><T v="bodyM">Under 18: you find the hit, a parent approves the meetup.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>That's the only thing that's different. Browsing, requesting, chatting — all yours.</T></>
               : <><T v="bodyM">18+: you're set.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>You'll see adult players, and they'll see you.</T></>}
-          </ServiceBox>
+          </Sheet>
         )}
       </Centered>
     </Screen>

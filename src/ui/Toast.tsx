@@ -6,7 +6,7 @@ import { T } from './Text';
 import { Tap } from './Tap';
 import { color, radius, space } from '@/theme/tokens';
 
-type Toast = { id: number; text: string; action?: { label: string; onPress: () => void } ; ms: number };
+type Toast = { id: number; text: string; action?: { label: string; onPress: () => void }; ms: number };
 const Ctx = createContext<(text: string, action?: Toast['action'], ms?: number) => void>(() => {});
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -24,12 +24,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <Ctx.Provider value={show}>
       {children}
       {t && (
-        <Animated.View entering={FadeInDown.springify().damping(18)} exiting={FadeOutDown.duration(150)} style={[s.wrap, { bottom: insets.bottom + 84 }]} pointerEvents="box-none">
+        <Animated.View entering={FadeInDown.springify().damping(16)} exiting={FadeOutDown.duration(150)} style={[s.wrap, { bottom: insets.bottom + 90 }]} pointerEvents="box-none">
           <View style={s.toast}>
-            <T v="smallM" style={{ flex: 1 }}>{t.text}</T>
+            <T v="smallM" tone="onCourt" style={{ flex: 1 }}>{t.text}</T>
             {t.action && (
+              // The undo is a real button, not a link: big, ball-coloured, impossible to miss.
               <Tap onPress={() => { t.action!.onPress(); setT(null); }} style={s.action} accessibilityRole="button">
-                <T v="smallM" tone="ball">{t.action.label}</T>
+                <T v="smallM" tone="onBall">{t.action.label}</T>
               </Tap>
             )}
           </View>
@@ -42,6 +43,6 @@ export const useToast = () => useContext(Ctx);
 
 const s = StyleSheet.create({
   wrap: { position: 'absolute', left: space.lg, right: space.lg, alignItems: 'center' },
-  toast: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.court4, borderWidth: 1, borderColor: color.lineStrong, borderRadius: radius.lg, paddingVertical: space.md, paddingHorizontal: space.lg, width: '100%', maxWidth: 480 },
-  action: { minHeight: 40, justifyContent: 'center', paddingHorizontal: space.sm },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.ink, borderRadius: radius.lg, paddingVertical: space.md, paddingLeft: space.lg, paddingRight: space.sm, width: '100%', maxWidth: 480, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
+  action: { minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: color.ball, justifyContent: 'center' },
 });

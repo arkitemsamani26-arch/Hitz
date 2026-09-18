@@ -25,7 +25,7 @@ export default function Availability() {
       patch({ availabilityMask: mask });
       const p = await api.createProfile({
         displayName: draft.displayName, lastInitial: draft.lastInitial, dateOfBirth: draft.dateOfBirth!,
-        levelValue: draft.levelValue!, levelSource: draft.levelSource!, homeCourtId: draft.homeCourtId!, availabilityMask: mask,
+        levelValue: draft.levelValue!, levelSource: draft.levelSource!, homeCourtId: draft.homeCourtId!, availabilityMask: mask, rosterCode: draft.rosterCode,
       });
       setProfile(p);
       router.push(isMinor(draft.dateOfBirth) ? '/onboarding/guardian' : '/onboarding/ready');
@@ -34,13 +34,13 @@ export default function Availability() {
   };
   const groups = [SLOTS.slice(0, 3), SLOTS.slice(3)];
   return (
-    <Screen bottom={<Centered><Button title="Next" onPress={go} loading={busy} disabled={mask === 0} /></Centered>}>
+    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} loading={busy} disabled={mask === 0} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>When can you{'\n'}usually hit?</T>
         <T v="body" tone="ink2" style={{ marginTop: space.lg, marginBottom: space.xl }}>Rough is right. You'll pick exact times per hit.</T>
         {groups.map((g, gi) => (
           <View key={gi} style={{ marginBottom: space.xl }}>
-            <T v="micro" tone="ink3" style={{ marginBottom: space.sm }}>{g[0].label}s</T>
+            <T v="micro" tone="onCourt" style={{ marginBottom: space.sm }}>{g[0].label}s</T>
             <View style={{ flexDirection: 'row', gap: space.sm }}>
               {g.map(sl => {
                 const on = !!(mask & sl.bit);
@@ -53,12 +53,12 @@ export default function Availability() {
             </View>
           </View>
         ))}
-        {err && <T v="small" tone="danger">{err}</T>}
+        {err && <T v="small" tone="onCourt">{err}</T>}
       </Centered>
     </Screen>
   );
 }
 const s = StyleSheet.create({
-  tile: { flex: 1, minHeight: 68, borderRadius: radius.md, borderWidth: 1, borderColor: color.line, backgroundColor: color.court2, alignItems: 'center', justifyContent: 'center' },
-  on: { backgroundColor: color.ball, borderColor: color.ball },
+  tile: { flex: 1, minHeight: 68, borderRadius: radius.md, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center' },
+  on: { backgroundColor: color.ball },
 });

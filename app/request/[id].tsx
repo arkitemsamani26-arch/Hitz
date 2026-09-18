@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Screen, Centered } from '@/ui/Screen';
+import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Pill } from '@/ui/Pill';
@@ -11,7 +11,6 @@ import { Button } from '@/ui/Button';
 import { Header } from '@/ui/Header';
 import { Rally } from '@/ui/Rally';
 import { Score } from '@/ui/Score';
-import { Baseline } from '@/ui/Court';
 import { useToast } from '@/ui/Toast';
 import { color, hit, space } from '@/theme/tokens';
 import { api } from '@/data';
@@ -50,21 +49,21 @@ export default function Request() {
     } catch (e: any) { toast(e.message); setBusy(false); }
   };
 
-  if (!player || !courts) return <Screen><Centered><Header /><Rally /></Centered></Screen>;
+  if (!player || !courts) return <Screen sky={120}><Centered><Header /><Rally /></Centered></Screen>;
   return (
-    <Screen bottom={<Centered><Button title={isCounter ? 'Send the counter' : `Send to ${player.displayName}`} onPress={send} loading={busy} disabled={!chosenCourt} /></Centered>}>
+    <Screen sky={120} bottom={<Centered><Button kind="ball" title={isCounter ? 'Send the counter' : `Send to ${player.displayName}`} onPress={send} loading={busy} disabled={!chosenCourt} /></Centered>}>
       <Centered>
         <Header kicker={isCounter ? 'Counter' : 'Hit request'} />
-        <View style={s.who}>
+        <Sheet style={s.who}>
           <View style={{ flex: 1 }}>
             <T v="h1">{player.displayName} {player.lastInitial}.</T>
             <T v="small" tone="ink2">{[player.distanceBucket, player.homeCourtName].filter(Boolean).join(' · ')}</T>
           </View>
-          <Score value={player.levelValue} size="display" verified={player.levelVerified} />
-        </View>
-        <Baseline style={{ marginVertical: space.lg }} />
+          <Score value={player.levelValue} size="display" verified={player.levelVerified} tone="court" />
+        </Sheet>
+        <Sheet style={{ marginTop: space.md }}>
 
-        <T v="micro" tone="ink3" style={s.k}>Day</T>
+        <T v="micro" tone="ink3" style={[s.k, { marginTop: 0 }]}>Day</T>
         <View style={s.wrap}>{days.map((d, i) => <Pill key={i} label={dayShort(d)} on={day === i} onPress={() => setDay(i)} />)}</View>
 
         <T v="micro" tone="ink3" style={s.k}>Time</T>
@@ -91,6 +90,7 @@ export default function Request() {
             <Field value={note} onChangeText={setNote} placeholder="Down for sets or just drilling?" maxLength={140} />
           </>
         )}
+        </Sheet>
       </Centered>
     </Screen>
   );
@@ -100,6 +100,6 @@ const s = StyleSheet.create({
   k: { marginTop: space.xl, marginBottom: space.sm },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   court: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: hit.min + 4, paddingVertical: space.sm },
-  ring: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: color.lineStrong },
-  ringOn: { backgroundColor: color.ball, borderColor: color.ball },
+  ring: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: color.hair2 },
+  ringOn: { backgroundColor: color.ball, borderColor: color.ink },
 });

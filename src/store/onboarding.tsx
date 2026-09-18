@@ -13,11 +13,12 @@ export type Draft = {
   availabilityMask: number;
   guardianEmail: string;
   guardianPhone: string;
+  rosterCode: string | null;
 };
 
 const empty: Draft = {
   phone: '', displayName: '', lastInitial: '', dateOfBirth: null, levelValue: null, levelSource: null,
-  homeCourtId: null, availabilityMask: 0, guardianEmail: '', guardianPhone: '',
+  homeCourtId: null, availabilityMask: 0, guardianEmail: '', guardianPhone: '', rosterCode: null,
 };
 
 const Ctx = createContext<{ draft: Draft; patch: (p: Partial<Draft>) => void; reset: () => void } | null>(null);

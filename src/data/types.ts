@@ -22,6 +22,39 @@ export interface Profile {
   phoneVerified: boolean;
   guardianVerified: boolean;      // minors only; false for adults is meaningless
   guardianPending: boolean;
+  guardianSentAt: string | null;
+  guardianOpenedAt: string | null;  // the parent tapped the link
+  rosterName: string | null;
+}
+
+// Planned together while the parents decide. Small, one-tap choices both sides see.
+export interface HitPlan {
+  ballsBy: 'me' | 'them' | null;      // relative to the viewer? No: stored as a profile id
+  ballsById: string | null;
+  format: 'sets' | 'drills' | 'both' | null;
+  meetAt: 'gate' | 'court' | null;
+  lateById: string | null;            // who flagged "running 5 late"
+}
+
+// What a parent can honestly be told about the other side without identifying anyone.
+export interface Assurance {
+  otherGuardianVerified: boolean;
+  otherGuardianMonths: number | null;   // how long ago they verified
+  otherGuardianApprovals: number;       // hits they've approved before
+  otherPlayerHits: number;
+  otherPlayerReports: number;
+  otherPlayerMemberMonths: number;
+  otherPlayerLevelVerified: boolean;
+  bothMinors: boolean;
+}
+
+export interface Roster {
+  id: string;
+  name: string;
+  code: string;
+  cap: number;
+  joined: number;
+  createdAt: string;
 }
 
 // What discovery returns about someone else. Never a precise location.
@@ -71,6 +104,7 @@ export interface HitRequest {
   declineReason: string | null;
   other: Player;                 // the participant who is not me
   approvals: Approval[];         // one per minor participant, once accepted
+  plan: HitPlan;
   myConfirmation: boolean | null;
   theirConfirmation: boolean | null;
 }
@@ -83,6 +117,7 @@ export interface Approval {
   decision: boolean | null;
   decidedAt: string | null;
   createdAt?: string;
+  seenAt?: string | null;        // the parent has looked at it
 }
 
 export interface Message {
@@ -118,6 +153,7 @@ export interface ProfileInput {
   levelSource: LevelSource;
   homeCourtId: string;
   availabilityMask: number;
+  rosterCode?: string | null;
 }
 
 export interface GuardianChild {

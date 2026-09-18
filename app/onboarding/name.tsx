@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered } from '@/ui/Screen';
+import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { MemberCard } from '@/ui/MemberCard';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
@@ -16,16 +17,15 @@ export default function Name() {
   const ok = first.trim().length >= 2 && /^[A-Za-z]$/.test(last);
   const go = () => { patch({ displayName: first.trim(), lastInitial: last.toUpperCase() }); router.push('/onboarding/birthday'); };
   return (
-    <Screen bottom={<Centered><Button title="Next" onPress={go} disabled={!ok} /></Centered>}>
+    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!ok} /></Centered>}>
       <Centered>
-        <T v="display" style={{ marginTop: space.xl }}>What do we{'\n'}call you?</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.lg, marginBottom: space.xxl }}>
-          Players see "{first || 'Maya'} {last ? last.toUpperCase() : 'R'}." until a hit is confirmed.
-        </T>
-        <View style={{ flexDirection: 'row', gap: space.md }}>
+        <T v="display" style={{ marginTop: space.xl }}>Your member{'\n'}card.</T>
+        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Players see "{first || 'Maya'} {last ? last.toUpperCase() : 'R'}." until a hit is confirmed.</T>
+        <MemberCard name={first ? `${first} ${last.toUpperCase()}${last ? '.' : ''}` : ''} level={null} court={null} typing="name" />
+        <Sheet><View style={{ flexDirection: 'row', gap: space.md }}>
           <View style={{ flex: 3 }}><Field label="First name" value={first} onChangeText={setFirst} placeholder="Maya" autoFocus autoCapitalize="words" textContentType="givenName" /></View>
           <View style={{ flex: 1 }}><Field label="Last initial" value={last} onChangeText={t => setLast(t.slice(-1))} placeholder="R" autoCapitalize="characters" maxLength={1} onSubmitEditing={() => ok && go()} /></View>
-        </View>
+        </View></Sheet>
       </Centered>
     </Screen>
   );

@@ -4,8 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { color } from '@/theme/tokens';
 import { spring } from '@/lib/motion';
 
-// Onboarding progress as a baseline filling with ball-yellow. No step counter, no
-// "3 of 8" -- a line that gets longer.
+// Onboarding progress is a court line being painted.
 export function Progress({ value }: { value: number }) {
   const w = useSharedValue(0);
   useEffect(() => { w.value = withSpring(Math.max(0.04, Math.min(1, value)), spring.land); }, [value, w]);
@@ -17,6 +16,6 @@ export function Progress({ value }: { value: number }) {
   );
 }
 const s = StyleSheet.create({
-  track: { height: 3, backgroundColor: color.line, borderRadius: 2, overflow: 'hidden' },
-  fill: { height: 3, backgroundColor: color.ball, borderRadius: 2 },
+  track: { height: 4, backgroundColor: 'rgba(14,27,51,0.12)', borderRadius: 2, overflow: 'hidden' },
+  fill: { height: 4, backgroundColor: color.paper, borderRadius: 2 },
 });

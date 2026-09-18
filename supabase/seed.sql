@@ -1,51 +1,39 @@
--- Boston metro seed: the launch market.
+-- Palo Alto / Peninsula seed: the launch market.
 --
--- Anchored on Wellesley/Babson. Both cohorts start CLOSED -- discovery opens per cohort
--- only when that cohort clears its own density threshold, so adult signups can never
--- open the feed for juniors. See docs/06-seeding-strategy.md.
+-- Extremely dense junior tennis, year-round outdoor play, and a lot of high-level players
+-- packed into a small radius. The cohort threshold is 150 actives inside a default 10-mile
+-- circle (Menlo Park to Sunnyvale) -- density x activity, not headcount. Both cohorts
+-- start CLOSED; each opens on its own count. See docs/06-seeding-strategy.md.
 
 insert into app.markets (id, slug, name, center, radius_m, timezone)
 values (
-  '11111111-1111-1111-1111-111111111111',
-  'boston',
-  'Boston Metro',
-  ST_SetSRID(ST_MakePoint(-71.2920, 42.2960), 4326)::geography,  -- Wellesley
-  40234,                                                          -- ~25 miles
-  'America/New_York'
+  '22222222-2222-2222-2222-222222222222',
+  'palo-alto',
+  'Palo Alto',
+  ST_SetSRID(ST_MakePoint(-122.1430, 37.4419), 4326)::geography,   -- downtown Palo Alto
+  16093,                                                            -- 10 miles
+  'America/Los_Angeles'
 )
 on conflict (slug) do nothing;
 
-insert into app.market_cohorts (market_id, age_band, min_active_players, discovery_open)
-values
-  -- The wedge. Recruited through academies, high school teams and USTA New England
-  -- junior circuits -- in clusters, a whole team at a time.
-  ('11111111-1111-1111-1111-111111111111', 'minor', 200, false),
-  -- Parallel and self-funding, seeded through the Babson team and its opponents.
-  -- Opens on its own count, whenever that happens.
-  ('11111111-1111-1111-1111-111111111111', 'adult', 200, false)
+insert into app.market_cohorts (market_id, age_band, min_active_players, discovery_open) values
+  ('22222222-2222-2222-2222-222222222222', 'minor', 150, false),
+  ('22222222-2222-2222-2222-222222222222', 'adult', 150, false)
 on conflict (market_id, age_band) do nothing;
 
--- Court directory. Public and club facilities only -- never a residential address.
--- Indoor coverage matters here: Boston's junior season runs through the winter.
+-- Court directory. Public parks and known centers only -- never a residence.
 insert into app.courts (market_id, name, point, access, surface, indoor) values
-  ('11111111-1111-1111-1111-111111111111', 'Wellesley High School Courts',
-   ST_SetSRID(ST_MakePoint(-71.2856, 42.2968), 4326)::geography, 'public', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Babson College Courts',
-   ST_SetSRID(ST_MakePoint(-71.2650, 42.2970), 4326)::geography, 'club', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Needham High School Courts',
-   ST_SetSRID(ST_MakePoint(-71.2360, 42.2790), 4326)::geography, 'public', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Weston Town Courts',
-   ST_SetSRID(ST_MakePoint(-71.3030, 42.3670), 4326)::geography, 'public', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Newton Commonwealth Courts',
-   ST_SetSRID(ST_MakePoint(-71.2100, 42.3400), 4326)::geography, 'public', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Dover-Sherborn Regional Courts',
-   ST_SetSRID(ST_MakePoint(-71.2820, 42.2460), 4326)::geography, 'public', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Natick High School Courts',
-   ST_SetSRID(ST_MakePoint(-71.3490, 42.2830), 4326)::geography, 'public', 'hard', false),
-  ('11111111-1111-1111-1111-111111111111', 'Brookline High Courts',
-   ST_SetSRID(ST_MakePoint(-71.1220, 42.3320), 4326)::geography, 'public', 'hard', false)
+  ('22222222-2222-2222-2222-222222222222', 'Rinconada Park',          ST_SetSRID(ST_MakePoint(-122.1500, 37.4460), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Mitchell Park',           ST_SetSRID(ST_MakePoint(-122.1090, 37.4210), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Cubberley Courts',        ST_SetSRID(ST_MakePoint(-122.1030, 37.4160), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Burgess Park',            ST_SetSRID(ST_MakePoint(-122.1830, 37.4520), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Nealon Park',             ST_SetSRID(ST_MakePoint(-122.1970, 37.4420), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Stanford Taube Courts',   ST_SetSRID(ST_MakePoint(-122.1600, 37.4340), 4326)::geography, 'club',   'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Cuesta Park',             ST_SetSRID(ST_MakePoint(-122.0790, 37.3800), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Sunnyvale Tennis Center', ST_SetSRID(ST_MakePoint(-122.0270, 37.3650), 4326)::geography, 'club',   'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Los Altos Hills Courts',  ST_SetSRID(ST_MakePoint(-122.1370, 37.3790), 4326)::geography, 'public', 'hard', false),
+  ('22222222-2222-2222-2222-222222222222', 'Cupertino Tennis Center', ST_SetSRID(ST_MakePoint(-122.0560, 37.3120), 4326)::geography, 'club',   'hard', false)
 on conflict do nothing;
 
--- NOTE: court coordinates above are approximate placeholders for local development.
--- Verify every location against the real facility before the directory ships -- a hit
--- request sends two people to a physical place, so a wrong pin is a real-world problem.
+-- NOTE: coordinates are approximate placeholders. Verify each pin against the real facility
+-- before the directory ships: a hit request sends two people to a physical place.

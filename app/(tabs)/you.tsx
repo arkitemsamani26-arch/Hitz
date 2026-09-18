@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { Share, StyleSheet, Switch, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered } from '@/ui/Screen';
+import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
 import { Pill } from '@/ui/Pill';
+import { Field } from '@/ui/Field';
 import { Score } from '@/ui/Score';
-import { Baseline, ServiceBox } from '@/ui/Court';
+import { MemberCard } from '@/ui/MemberCard';
 import { useToast } from '@/ui/Toast';
 import { color, hit, space } from '@/theme/tokens';
 import { api, demo } from '@/data';
@@ -19,90 +20,103 @@ import { pct } from '@/lib/format';
 export default function You() {
   const router = useRouter();
   const toast = useToast();
-  const { profile, setProfile, setSession, listMode, setListMode, refresh } = useSession();
+  const { profile, setProfile, setSession, listMode, setListMode, refresh, tick } = useSession();
   const { data: courts } = useAsync(() => api.courts(), []);
+  const rosters = useAsync(() => api.myRosters(), [tick]);
   const [editingAvail, setEditingAvail] = useState(false);
+  const [teamName, setTeamName] = useState('');
+  const [creating, setCreating] = useState(false);
   if (!profile) return null;
   const looking = !!profile.lookingToHitUntil && new Date(profile.lookingToHitUntil) > new Date();
   const court = courts?.find(c => c.id === profile.homeCourtId)?.name ?? '—';
   const setLooking = async (v: boolean) => setProfile(await api.setLooking(v ? 7 : null));
   const toggleSlot = async (bit: number) => setProfile(await api.updateProfile({ availabilityMask: profile.availabilityMask ^ bit }));
+  const createTeam = async () => {
+    if (teamName.trim().length < 2) return;
+    setCreating(true);
+    try { const r = await api.createRoster(teamName.trim(), 20); setTeamName(''); await rosters.reload(); void Share.share({ message: `Join ${r.name} on Hits — code ${r.code}. Find hitting partners at your level in Palo Alto.` }).catch(() => {}); }
+    catch (e: any) { toast(e.message); } finally { setCreating(false); }
+  };
 
   return (
-    <Screen>
+    <Screen sky={150}>
       <Centered>
-        <View style={s.head}>
-          <View style={{ flex: 1 }}>
-            <T v="display" style={{ letterSpacing: -1.5 }}>{profile.displayName} {profile.lastInitial}.</T>
-            <T v="small" tone="ink2">{court}{profile.band === 'minor' ? ' · Under 18' : ''}</T>
-          </View>
-          <Score value={profile.levelValue} size="score" verified={profile.levelSource === 'utr_verified'} />
-        </View>
+        <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`} level={profile.levelValue} verified={profile.levelSource === 'utr_verified'} court={court} roster={profile.rosterName} minor={profile.band === 'minor'} />
 
-        <ServiceBox accent={looking} style={s.row}>
+        <Sheet accent={looking} style={s.row}>
           <View style={{ flex: 1 }}>
             <T v="bodyM">Looking to hit this week</T>
-            <T v="small" tone="ink2">Puts you at the top for players near your level. Expires on its own.</T>
+            <T v="small" tone="ink2">Puts you at the net for players near your level. Expires on its own.</T>
           </View>
-          <Switch value={looking} onValueChange={setLooking} trackColor={{ true: color.ball, false: color.court4 }} thumbColor={looking ? color.onBall : color.ink2} accessibilityLabel="Looking to hit this week" />
-        </ServiceBox>
+          <Switch value={looking} onValueChange={setLooking} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Looking to hit this week" />
+        </Sheet>
 
         {profile.band === 'minor' && (
-          <ServiceBox style={s.row}>
+          <Sheet style={s.row}>
             <View style={{ flex: 1 }}>
-              <T v="bodyM">{profile.guardianVerified ? 'Parent linked' : profile.guardianPending ? 'Waiting on your parent' : 'No parent linked'}</T>
+              <T v="bodyM">{profile.guardianVerified ? 'Parent linked' : profile.guardianOpenedAt ? 'Your parent opened the link' : profile.guardianPending ? 'Sent to your parent' : 'No parent linked'}</T>
               <T v="small" tone="ink2">{profile.guardianVerified ? 'They approve each meetup. Nothing else changes.' : 'Reaching out unlocks once they say yes.'}</T>
             </View>
             {!profile.guardianVerified && !profile.guardianPending && <Button title="Add" small onPress={() => router.push('/onboarding/guardian')} />}
-            {demo && !profile.guardianVerified && <Pill label="…" tone="faint" />}
-          </ServiceBox>
+          </Sheet>
         )}
 
-        <View style={s.stats}>
-          <View style={s.stat}><T v="h1">{profile.hitsConfirmed}</T><T v="micro" tone="ink3">Hits played</T></View>
-          <View style={s.stat}><T v="h1">{pct(profile.responseRate) ?? '—'}</T><T v="micro" tone="ink3">Reply rate</T></View>
-          <View style={s.stat}><T v="h1">{pct(profile.acceptRate) ?? '—'}</T><T v="micro" tone="ink3">Say yes</T></View>
-        </View>
-        <T v="small" tone="ink3" style={{ marginBottom: space.xl }}>Everyone sees these. Reply — even "no" — and they stay good.</T>
-
-        <Baseline />
-        <Tap onPress={() => setEditingAvail(e => !e)} style={s.line} accessibilityRole="button">
-          <View style={{ flex: 1 }}><T v="bodyM">Usually free</T><T v="small" tone="ink2">{slotsOf(profile.availabilityMask).join(', ') || 'Not set'}</T></View>
-          <T v="smallM" tone="cyan">{editingAvail ? 'Done' : 'Edit'}</T>
-        </Tap>
-        {editingAvail && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingBottom: space.lg }}>
-            {SLOTS.map(sl => <Pill key={sl.bit} label={`${sl.label} ${sl.part.toLowerCase()}`} on={!!(profile.availabilityMask & sl.bit)} onPress={() => toggleSlot(sl.bit)} />)}
+        <Sheet style={{ marginBottom: space.md }}>
+          <View style={s.stats}>
+            <View style={s.stat}><T v="h1" tone="court">{profile.hitsConfirmed}</T><T v="micro" tone="ink3">Hits played</T></View>
+            <View style={s.stat}><T v="h1" tone="court">{pct(profile.responseRate) ?? '—'}</T><T v="micro" tone="ink3">Reply rate</T></View>
+            <View style={s.stat}><T v="h1" tone="court">{pct(profile.acceptRate) ?? '—'}</T><T v="micro" tone="ink3">Say yes</T></View>
           </View>
-        )}
-        <Baseline />
-        <View style={s.line}>
-          <View style={{ flex: 1 }}><T v="bodyM">Browse as a list</T><T v="small" tone="ink2">Instead of the card stack.</T></View>
-          <Switch value={listMode} onValueChange={setListMode} trackColor={{ true: color.ball, false: color.court4 }} thumbColor={listMode ? color.onBall : color.ink2} accessibilityLabel="Browse as a list" />
-        </View>
-        <Baseline />
-        <Tap onPress={() => toast('Invite codes land with the next build.')} style={s.line} accessibilityRole="button">
-          <View style={{ flex: 1 }}><T v="bodyM">Bring a hitting partner</T><T v="small" tone="ink2">Every code you hand out opens the courts sooner.</T></View>
-          <T v="smallM" tone="cyan">Soon</T>
-        </Tap>
-        <Baseline />
-        <Tap onPress={() => router.push('/guardian/link')} style={s.line} accessibilityRole="button">
-          <View style={{ flex: 1 }}><T v="bodyM">What a parent sees</T><T v="small" tone="ink2">The page they get when you add them.</T></View>
-          <T v="smallM" tone="cyan">View</T>
-        </Tap>
-        <Baseline />
+          <T v="small" tone="ink3" style={{ marginTop: space.sm }}>Everyone sees these. Reply — even "no" — and they stay good.</T>
+        </Sheet>
 
-        <View style={{ marginTop: space.xxl, gap: space.md }}>
+        {/* Rosters: one code brings a whole team. */}
+        <Sheet style={{ marginBottom: space.md, gap: space.sm }}>
+          <T v="h2">Bring your team</T>
+          <T v="small" tone="ink2">Make a code for your team, academy group or club ladder. Everyone who joins with it counts toward opening the courts.</T>
+          {(rosters.data ?? []).map(r => (
+            <Tap key={r.id} onPress={() => void Share.share({ message: `Join ${r.name} on Hits — code ${r.code}.` }).catch(() => {})} style={s.roster} accessibilityRole="button">
+              <View style={{ flex: 1 }}><T v="bodyM">{r.name}</T><T v="small" tone="ink2">{r.joined} of {r.cap} joined</T></View>
+              <Pill label={r.code} tone="ball" />
+            </Tap>
+          ))}
+          <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'flex-end' }}>
+            <View style={{ flex: 1 }}><Field value={teamName} onChangeText={setTeamName} placeholder="Paly Girls Varsity" maxLength={40} /></View>
+            <Button title="Make a code" small onPress={createTeam} loading={creating} disabled={teamName.trim().length < 2} />
+          </View>
+        </Sheet>
+
+        <Sheet style={{ paddingVertical: 4, marginBottom: space.md }}>
+          <Tap onPress={() => setEditingAvail(e => !e)} style={s.line} accessibilityRole="button">
+            <View style={{ flex: 1 }}><T v="bodyM">Usually free</T><T v="small" tone="ink2">{slotsOf(profile.availabilityMask).join(', ') || 'Not set'}</T></View>
+            <T v="smallM" tone="court">{editingAvail ? 'Done' : 'Edit'}</T>
+          </Tap>
+          {editingAvail && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingBottom: space.lg }}>
+              {SLOTS.map(sl => <Pill key={sl.bit} label={`${sl.label} ${sl.part.toLowerCase()}`} on={!!(profile.availabilityMask & sl.bit)} onPress={() => toggleSlot(sl.bit)} />)}
+            </View>
+          )}
+          <View style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]}>
+            <View style={{ flex: 1 }}><T v="bodyM">Browse on the court</T><T v="small" tone="ink2">Players placed by level and distance, instead of the list.</T></View>
+            <Switch value={!listMode} onValueChange={v => setListMode(!v)} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Browse on the court" />
+          </View>
+          <Tap onPress={() => router.push('/guardian/link')} style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]} accessibilityRole="button">
+            <View style={{ flex: 1 }}><T v="bodyM">What a parent sees</T><T v="small" tone="ink2">The page they get when you add them.</T></View>
+            <T v="smallM" tone="court">View</T>
+          </Tap>
+        </Sheet>
+
+        <View style={{ gap: space.md }}>
           {demo && (() => { const d = demo; return (
-            <ServiceBox style={{ padding: space.lg, gap: space.md }}>
+            <Sheet style={{ gap: space.md }}>
               <T v="micro" tone="ink3">Demo controls</T>
               <View style={[s.line, { paddingVertical: 0 }]}>
                 <View style={{ flex: 1 }}><T v="bodyM">Cohort open</T><T v="small" tone="ink2">Off shows the countdown state.</T></View>
-                <Switch value={d.cohortOpen} onValueChange={v => { d.setCohortOpen(v); }} trackColor={{ true: color.ball, false: color.court4 }} thumbColor={d.cohortOpen ? color.onBall : color.ink2} />
+                <Switch value={d.cohortOpen} onValueChange={v => { d.setCohortOpen(v); }} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} />
               </View>
               {profile.band === 'minor' && <Button title="Open the parent's view" kind="line" onPress={async () => { d.switchToGuardian(); await refresh(); router.replace('/guardian'); }} />}
               <Button title="Reset demo" kind="ghost" onPress={async () => { await d.reset(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} small />
-            </ServiceBox>
+            </Sheet>
           ); })()}
           <Button title="Sign out" kind="ghost" onPress={async () => { await api.signOut(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} small />
         </View>
@@ -111,9 +125,9 @@ export default function You() {
   );
 }
 const s = StyleSheet.create({
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: space.lg, marginTop: space.md, marginBottom: space.xl },
-  row: { padding: space.lg, flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
-  stats: { flexDirection: 'row', marginTop: space.xl, marginBottom: space.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
+  stats: { flexDirection: 'row' },
   stat: { flex: 1, gap: 2 },
+  roster: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, borderTopWidth: 1, borderTopColor: color.hair, paddingVertical: space.sm },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: hit.row, paddingVertical: space.md },
 });

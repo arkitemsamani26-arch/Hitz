@@ -7,7 +7,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi } from './api';
 import type {
-  Approval, Court, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
+  Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
   MarketStatus, Message, Player, Profile, ProfileInput, Session,
 } from './types';
 import { DECLINE_COPY } from './types';
@@ -63,7 +63,7 @@ export class SupabaseApi implements HitsApi {
   async signOut() { await this.sb.auth.signOut(); this.uid = null; }
 
   // ---- me ----------------------------------------------------------------------
-  private mapProfile(r: any, extras: { guardianVerified: boolean; guardianPending: boolean }): Profile {
+  private mapProfile(r: any, extras: { guardianVerified: boolean; guardianPending: boolean; guardianSentAt?: string | null; guardianOpenedAt?: string | null; rosterName?: string | null }): Profile {
     return {
       id: r.id, displayName: r.display_name, lastInitial: r.last_initial, photoUrl: r.photo_url,
       band: new Date(r.adult_at) <= new Date() ? 'adult' : 'minor',
@@ -72,19 +72,21 @@ export class SupabaseApi implements HitsApi {
       lastActiveAt: r.last_active_at, lookingToHitUntil: r.looking_to_hit_until,
       responseRate: r.requests_received ? r.requests_responded / r.requests_received : null,
       acceptRate: r.requests_responded ? r.requests_accepted / r.requests_responded : null,
-      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, ...extras,
+      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, ...extras,
     };
   }
   async me() {
     if (!this.uid) return null;
     const { data } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle();
     if (!data) return null;
-    const links = (await this.sb.from('guardian_links').select('verified_at, revoked_at').eq('minor_profile_id', this.uid).is('revoked_at', null)).data ?? [];
-    return this.mapProfile(data, { guardianVerified: links.some(l => l.verified_at), guardianPending: links.length > 0 && !links.some(l => l.verified_at) });
+    const links = (await this.sb.from('guardian_links').select('verified_at, revoked_at, invited_at, opened_at').eq('minor_profile_id', this.uid).is('revoked_at', null)).data ?? [];
+    const roster = data.roster_id ? (await this.sb.from('rosters').select('name').eq('id', data.roster_id).maybeSingle()).data : null;
+    return this.mapProfile(data, { guardianVerified: links.some(l => l.verified_at), guardianPending: links.length > 0 && !links.some(l => l.verified_at),
+      guardianSentAt: links[0]?.invited_at ?? null, guardianOpenedAt: links[0]?.opened_at ?? null, rosterName: roster?.name ?? null });
   }
   async createProfile(input: ProfileInput) {
     if (!this.uid) throw new ApiError('not signed in');
-    const market = (await this.sb.from('markets').select('id').eq('slug', 'boston').single()).data;
+    const market = (await this.sb.from('markets').select('id').eq('slug', 'palo-alto').single()).data;
     const { error } = await this.sb.from('profiles').insert({
       id: this.uid, market_id: market?.id, display_name: input.displayName, last_initial: input.lastInitial,
       date_of_birth: input.dateOfBirth, level_value: input.levelValue, level_source: input.levelSource,
@@ -94,6 +96,7 @@ export class SupabaseApi implements HitsApi {
     if (error) this.fail(error);
     // Phone is verified by the OTP sign-in; stamp it server-side.
     await this.sb.rpc('stamp_phone_verified').then(() => {}, () => {});
+    if (input.rosterCode) await this.sb.rpc('redeem_roster_code', { p_code: input.rosterCode }).then(() => {}, () => {});
     return (await this.me())!;
   }
   async updateProfile(patch: Partial<Profile>) {
@@ -119,7 +122,7 @@ export class SupabaseApi implements HitsApi {
   async marketStatus(): Promise<MarketStatus | null> {
     const { data } = await this.sb.rpc('my_market_status');
     const r = data?.[0]; if (!r) return null;
-    return { marketSlug: r.market_slug, marketName: r.market_slug === 'boston' ? 'Boston' : r.market_slug, band: r.age_band, activePlayers: Number(r.active_players), minActivePlayers: r.min_active_players, discoveryOpen: r.discovery_open };
+    return { marketSlug: r.market_slug, marketName: r.market_slug === 'palo-alto' ? 'Palo Alto' : r.market_slug, band: r.age_band, activePlayers: Number(r.active_players), minActivePlayers: r.min_active_players, discoveryOpen: r.discovery_open };
   }
   async courts(): Promise<Court[]> {
     const { data } = await this.sb.from('courts').select('id, name, access, indoor, surface').eq('is_active', true).order('name');
@@ -168,7 +171,7 @@ export class SupabaseApi implements HitsApi {
     const otherId = r.from_profile_id === viewer ? r.to_profile_id : r.from_profile_id;
     const other = (await this.player(otherId)) ?? ({ id: otherId, displayName: 'Player', lastInitial: null } as Player);
     const approvals = (r.hit_guardian_approvals ?? []).map((a: any): Approval => ({
-      hitId: r.id, minorId: a.minor_profile_id, minorName: '', guardianUserId: a.guardian_user_id, decision: a.decision, decidedAt: a.decided_at,
+      hitId: r.id, minorId: a.minor_profile_id, minorName: '', guardianUserId: a.guardian_user_id, decision: a.decision, decidedAt: a.decided_at, seenAt: a.seen_at ?? null,
     }));
     const confs: any[] = r.hit_confirmations ?? [];
     return {
@@ -176,6 +179,7 @@ export class SupabaseApi implements HitsApi {
       courtName: r.courts?.name ?? 'Court', windowStart: r.window_start, windowEnd: r.window_end, note: r.note,
       state: r.state as HitState, awaitingId: r.awaiting_profile_id, expiresAt: r.expires_at, createdAt: r.created_at,
       confirmedAt: r.confirmed_at, declineReason: r.decline_reason ?? null, other, approvals,
+      plan: { ballsBy: null, ballsById: r.plan?.ballsById ?? null, format: r.plan?.format ?? null, meetAt: r.plan?.meetAt ?? null, lateById: r.plan?.lateById ?? null },
       myConfirmation: confs.find(c => c.profile_id === viewer)?.did_play ?? null,
       theirConfirmation: confs.find(c => c.profile_id === otherId)?.did_play ?? null,
     };
@@ -206,8 +210,42 @@ export class SupabaseApi implements HitsApi {
     if (error) this.fail(error);
     return (await this.hit(id))!.request;
   }
+  async updatePlan(id: string, patch: Partial<HitPlan>) {
+    const cur = (await this.hit(id))!.request;
+    const plan = { ...cur.plan, ...patch };
+    const { error } = await this.sb.from('hit_requests').update({ plan }).eq('id', id);
+    if (error) this.fail(error);
+    return (await this.hit(id))!.request;
+  }
+  async setPushToken(token: string) { await this.sb.rpc('set_push_token', { p_token: token }); }
+  async createRoster(name: string, cap: number): Promise<Roster> {
+    const { data, error } = await this.sb.rpc('create_roster', { p_name: name, p_cap: cap });
+    if (error) this.fail(error);
+    const r = Array.isArray(data) ? data[0] : data;
+    return { id: r.id, name: r.name, code: r.code, cap: r.cap, joined: r.joined ?? 0, createdAt: r.created_at };
+  }
+  async myRosters(): Promise<Roster[]> {
+    const { data } = await this.sb.from('rosters').select('*, profiles(count)').eq('created_by', this.uid!);
+    return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, code: r.code, cap: r.cap, joined: r.profiles?.[0]?.count ?? 0, createdAt: r.created_at }));
+  }
+  async checkCode(code: string) {
+    const { data } = await this.sb.rpc('check_roster_code', { p_code: code });
+    const r = Array.isArray(data) ? data[0] : data;
+    return { valid: !!r?.valid, rosterName: r?.roster_name ?? null };
+  }
+  async guardianBlock(childId: string, profileId: string) {
+    const { error } = await this.sb.from('blocks').insert({ blocker_id: childId, blocked_id: profileId });
+    if (error) this.fail(error);
+  }
+  async assurance(hitId: string): Promise<Assurance | null> {
+    const { data } = await this.sb.rpc('hit_assurance', { p_hit: hitId });
+    const r = Array.isArray(data) ? data[0] : data; if (!r) return null;
+    return { otherGuardianVerified: r.other_guardian_verified, otherGuardianMonths: r.other_guardian_months, otherGuardianApprovals: r.other_guardian_approvals,
+      otherPlayerHits: r.other_player_hits, otherPlayerReports: r.other_player_reports, otherPlayerMemberMonths: r.other_player_member_months,
+      otherPlayerLevelVerified: r.other_player_level_verified, bothMinors: r.both_minors };
+  }
   async decline(id: string, reason: DeclineReason) {
-    const { error } = await this.sb.from('hit_requests').update({ state: 'declined', awaiting_profile_id: null, note: DECLINE_COPY[reason] }).eq('id', id);
+    const { error } = await this.sb.from('hit_requests').update({ state: 'declined', awaiting_profile_id: null, decline_reason: DECLINE_COPY[reason] }).eq('id', id);
     if (error) this.fail(error);
     return (await this.hit(id))!.request;
   }
@@ -259,7 +297,7 @@ export class SupabaseApi implements HitsApi {
     return out;
   }
   async guardianDecide(hitId: string, minorId: string, decision: boolean) {
-    const { data, error } = await this.sb.from('hit_guardian_approvals').update({ decision }).eq('hit_request_id', hitId).eq('minor_profile_id', minorId).select().single();
+    const { data, error } = await this.sb.from('hit_guardian_approvals').update({ decision, seen_at: new Date().toISOString() }).eq('hit_request_id', hitId).eq('minor_profile_id', minorId).select().single();
     if (error) this.fail(error);
     return { hitId, minorId, minorName: '', guardianUserId: data.guardian_user_id, decision: data.decision, decidedAt: data.decided_at };
   }

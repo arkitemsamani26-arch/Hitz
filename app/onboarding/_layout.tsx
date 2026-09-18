@@ -12,11 +12,11 @@ export default function OnboardingLayout() {
   const step = STEPS.findIndex(s => path.endsWith(`/${s}`));
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ flex: 1, backgroundColor: color.court }}>
-      <View style={{ paddingTop: insets.top + space.md, paddingHorizontal: space.xl, width: '100%', maxWidth: 520, alignSelf: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: color.ground }}>
+      <View style={{ position: 'absolute', zIndex: 2, left: 0, right: 0, paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, width: '100%', maxWidth: 520, alignSelf: 'center' }}>
         <Progress value={(Math.max(step, 0) + 1) / STEPS.length} />
       </View>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.court }, animation: 'slide_from_right' }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground }, animation: 'slide_from_right' }} />
     </View>
   );
 }

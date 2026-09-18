@@ -1,5 +1,5 @@
 import type {
-  Approval, Court, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
+  Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
   MarketStatus, Message, Player, Profile, ProfileInput, Session,
 } from './types';
 
@@ -42,6 +42,13 @@ export interface HitsApi {
   counter(id: string, courtId: string, windowStart: Date, windowEnd: Date): Promise<HitRequest>;
   sendMessage(id: string, body: string): Promise<Message>;
   confirmPlayed(id: string, didPlay: boolean): Promise<HitRequest>;
+  updatePlan(id: string, patch: Partial<HitPlan>): Promise<HitRequest>;
+  setPushToken(token: string): Promise<void>;
+
+  // rosters: one code brings a whole team
+  createRoster(name: string, cap: number): Promise<Roster>;
+  myRosters(): Promise<Roster[]>;
+  checkCode(code: string): Promise<{ valid: boolean; rosterName: string | null }>;
 
   // safety
   block(profileId: string): Promise<void>;
@@ -52,6 +59,8 @@ export interface HitsApi {
   guardianChildren(): Promise<GuardianChild[]>;
   guardianDecide(hitId: string, minorId: string, decision: boolean): Promise<Approval>;
   guardianHit(hitId: string): Promise<{ request: HitRequest; messages: Message[]; child: Profile } | null>;
+  guardianBlock(childId: string, profileId: string): Promise<void>;
+  assurance(hitId: string): Promise<Assurance | null>;
 
   // subscriptions (lightweight; demo uses a tick)
   onChange(cb: () => void): () => void;

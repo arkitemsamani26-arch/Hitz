@@ -7,12 +7,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi } from './api';
 import type {
-  Approval, Court, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
+  Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
   MarketStatus, Message, Player, Profile, ProfileInput, Session,
 } from './types';
 import { DECLINE_COPY } from './types';
+import { notifyLocal } from '@/lib/push';
 
-const KEY = 'hits.demo.v3';
+const KEY = 'hits.demo.v4';
 const ME = 'me';
 const GUARDIAN = 'guardian-me';
 
@@ -23,41 +24,54 @@ type SeedPlayer = {
 };
 
 const COURTS: Court[] = [
-  { id: 'c-wellesley', name: 'Wellesley Town Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: 'under 1 mi' },
-  { id: 'c-babson', name: 'Babson Indoor', access: 'club', indoor: true, surface: 'hard', distanceBucket: '~2 mi' },
-  { id: 'c-needham', name: 'Needham High Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~4 mi' },
-  { id: 'c-weston', name: 'Weston Town Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~5 mi' },
-  { id: 'c-newton', name: 'Newton Commonwealth', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~6 mi' },
-  { id: 'c-longfellow', name: 'Longfellow Indoor', access: 'club', indoor: true, surface: 'hard', distanceBucket: '~7 mi' },
-  { id: 'c-natick', name: 'Natick High Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~4 mi' },
-  { id: 'c-brookline', name: 'Brookline High Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~9 mi' },
+  { id: 'c-rinconada', name: 'Rinconada Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: 'under 1 mi' },
+  { id: 'c-mitchell', name: 'Mitchell Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~2 mi' },
+  { id: 'c-cubberley', name: 'Cubberley Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~3 mi' },
+  { id: 'c-burgess', name: 'Burgess Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~3 mi' },
+  { id: 'c-nealon', name: 'Nealon Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~4 mi' },
+  { id: 'c-stanford', name: 'Stanford Taube Courts', access: 'club', indoor: false, surface: 'hard', distanceBucket: '~2 mi' },
+  { id: 'c-cuesta', name: 'Cuesta Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~6 mi' },
+  { id: 'c-sunnyvale', name: 'Sunnyvale Tennis Center', access: 'club', indoor: false, surface: 'hard', distanceBucket: '~9 mi' },
+  { id: 'c-losaltos', name: 'Los Altos Hills Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~7 mi' },
 ];
 
 const SEED: SeedPlayer[] = [
-  { id: 'p-maya', name: 'Maya', initial: 'R', band: 'minor', level: 8.6, miles: 2.1, activeHoursAgo: 0.5, response: 0.94, accept: 0.7, looking: true, court: 'c-babson', avail: 8 | 16 | 4, hits: 14 },
-  { id: 'p-theo', name: 'Theo', initial: 'K', band: 'minor', level: 8.9, miles: 3.8, activeHoursAgo: 5, response: 0.8, accept: 0.6, looking: true, court: 'c-needham', avail: 8 | 4, hits: 9 },
-  { id: 'p-priya', name: 'Priya', initial: 'S', band: 'minor', level: 8.1, miles: 1.4, activeHoursAgo: 20, response: 1.0, accept: 0.9, looking: false, court: 'c-wellesley', avail: 8 | 16 | 32, hits: 22, verified: true },
-  { id: 'p-jonah', name: 'Jonah', initial: 'L', band: 'minor', level: 9.4, miles: 6.2, activeHoursAgo: 30, response: 0.55, accept: 0.4, looking: false, court: 'c-newton', avail: 4 | 32, hits: 5 },
-  { id: 'p-elena', name: 'Elena', initial: 'M', band: 'minor', level: 7.9, miles: 4.9, activeHoursAgo: 2, response: 0.88, accept: 0.8, looking: true, court: 'c-natick', avail: 1 | 8 | 16, hits: 11 },
-  { id: 'p-sam', name: 'Sam', initial: 'D', band: 'minor', level: 8.3, miles: 8.7, activeHoursAgo: 70, response: null, accept: null, looking: false, court: 'c-brookline', avail: 8, hits: 0 },
-  { id: 'p-lucas', name: 'Lucas', initial: 'P', band: 'minor', level: 9.8, miles: 5.5, activeHoursAgo: 12, response: 0.7, accept: 0.5, looking: true, court: 'c-longfellow', avail: 2 | 4 | 16, hits: 17 },
-  { id: 'p-ava', name: 'Ava', initial: 'C', band: 'minor', level: 7.2, miles: 3.1, activeHoursAgo: 48, response: 0.6, accept: 0.7, looking: false, court: 'c-weston', avail: 8 | 16, hits: 3 },
-  { id: 'p-nico', name: 'Nico', initial: 'B', band: 'minor', level: 8.5, miles: 11.3, activeHoursAgo: 1, response: 0.9, accept: 0.85, looking: true, court: 'c-newton', avail: 4 | 8 | 32, hits: 8 },
+  { id: 'p-maya', name: 'Maya', initial: 'R', band: 'minor', level: 8.6, miles: 2.1, activeHoursAgo: 0.5, response: 0.94, accept: 0.7, looking: true, court: 'c-stanford', avail: 8 | 16 | 4, hits: 14 },
+  { id: 'p-theo', name: 'Theo', initial: 'K', band: 'minor', level: 8.9, miles: 3.8, activeHoursAgo: 5, response: 0.8, accept: 0.6, looking: true, court: 'c-mitchell', avail: 8 | 4, hits: 9 },
+  { id: 'p-priya', name: 'Priya', initial: 'S', band: 'minor', level: 8.1, miles: 1.4, activeHoursAgo: 20, response: 1.0, accept: 0.9, looking: false, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 22, verified: true },
+  { id: 'p-jonah', name: 'Jonah', initial: 'L', band: 'minor', level: 9.4, miles: 6.2, activeHoursAgo: 30, response: 0.55, accept: 0.4, looking: false, court: 'c-cuesta', avail: 4 | 32, hits: 5 },
+  { id: 'p-elena', name: 'Elena', initial: 'M', band: 'minor', level: 7.9, miles: 4.9, activeHoursAgo: 2, response: 0.88, accept: 0.8, looking: true, court: 'c-burgess', avail: 1 | 8 | 16, hits: 11 },
+  { id: 'p-sam', name: 'Sam', initial: 'D', band: 'minor', level: 8.3, miles: 8.7, activeHoursAgo: 70, response: null, accept: null, looking: false, court: 'c-sunnyvale', avail: 8, hits: 0 },
+  { id: 'p-lucas', name: 'Lucas', initial: 'P', band: 'minor', level: 9.8, miles: 5.5, activeHoursAgo: 12, response: 0.7, accept: 0.5, looking: true, court: 'c-losaltos', avail: 2 | 4 | 16, hits: 17 },
+  { id: 'p-ava', name: 'Ava', initial: 'C', band: 'minor', level: 7.2, miles: 3.1, activeHoursAgo: 48, response: 0.6, accept: 0.7, looking: false, court: 'c-nealon', avail: 8 | 16, hits: 3 },
+  { id: 'p-nico', name: 'Nico', initial: 'B', band: 'minor', level: 8.5, miles: 11.3, activeHoursAgo: 1, response: 0.9, accept: 0.85, looking: true, court: 'c-cuesta', avail: 4 | 8 | 32, hits: 8 },
 
-  { id: 'p-dan', name: 'Dan', initial: 'W', band: 'adult', level: 8.7, miles: 2.8, activeHoursAgo: 3, response: 0.9, accept: 0.7, looking: true, court: 'c-babson', avail: 4 | 8, hits: 31, verified: true },
-  { id: 'p-marisol', name: 'Marisol', initial: 'G', band: 'adult', level: 8.2, miles: 5.1, activeHoursAgo: 26, response: 0.75, accept: 0.6, looking: false, court: 'c-newton', avail: 1 | 8 | 16, hits: 12 },
-  { id: 'p-kenji', name: 'Kenji', initial: 'O', band: 'adult', level: 9.6, miles: 3.3, activeHoursAgo: 0.2, response: 0.97, accept: 0.8, looking: true, court: 'c-wellesley', avail: 4 | 32, hits: 40 },
-  { id: 'p-rachel', name: 'Rachel', initial: 'F', band: 'adult', level: 7.8, miles: 7.4, activeHoursAgo: 9, response: 0.65, accept: 0.5, looking: true, court: 'c-natick', avail: 8 | 16, hits: 6 },
-  { id: 'p-omar', name: 'Omar', initial: 'H', band: 'adult', level: 8.9, miles: 12.6, activeHoursAgo: 100, response: 0.4, accept: 0.3, looking: false, court: 'c-brookline', avail: 4, hits: 2 },
-  { id: 'p-grace', name: 'Grace', initial: 'T', band: 'adult', level: 8.4, miles: 1.9, activeHoursAgo: 15, response: 0.85, accept: 0.75, looking: true, court: 'c-wellesley', avail: 1 | 2 | 8, hits: 19 },
+  { id: 'p-dan', name: 'Dan', initial: 'W', band: 'adult', level: 8.7, miles: 2.8, activeHoursAgo: 3, response: 0.9, accept: 0.7, looking: true, court: 'c-stanford', avail: 4 | 8, hits: 31, verified: true },
+  { id: 'p-marisol', name: 'Marisol', initial: 'G', band: 'adult', level: 8.2, miles: 5.1, activeHoursAgo: 26, response: 0.75, accept: 0.6, looking: false, court: 'c-cuesta', avail: 1 | 8 | 16, hits: 12 },
+  { id: 'p-kenji', name: 'Kenji', initial: 'O', band: 'adult', level: 9.6, miles: 3.3, activeHoursAgo: 0.2, response: 0.97, accept: 0.8, looking: true, court: 'c-rinconada', avail: 4 | 32, hits: 40 },
+  { id: 'p-rachel', name: 'Rachel', initial: 'F', band: 'adult', level: 7.8, miles: 7.4, activeHoursAgo: 9, response: 0.65, accept: 0.5, looking: true, court: 'c-burgess', avail: 8 | 16, hits: 6 },
+  { id: 'p-omar', name: 'Omar', initial: 'H', band: 'adult', level: 8.9, miles: 12.6, activeHoursAgo: 100, response: 0.4, accept: 0.3, looking: false, court: 'c-sunnyvale', avail: 4, hits: 2 },
+  { id: 'p-grace', name: 'Grace', initial: 'T', band: 'adult', level: 8.4, miles: 1.9, activeHoursAgo: 15, response: 0.85, accept: 0.75, looking: true, court: 'c-rinconada', avail: 1 | 2 | 8, hits: 19 },
 ];
 
 type Row = {
   id: string; fromId: string; toId: string; courtId: string; windowStart: string; windowEnd: string;
   note: string | null; state: HitState; awaitingId: string | null; expiresAt: string; createdAt: string;
   confirmedAt: string | null; declineReason: string | null;
-  approvals: Approval[]; confirmations: Record<string, boolean>;
+  approvals: Approval[]; confirmations: Record<string, boolean>; plan: HitPlan;
 };
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const iso = (d: Date) => d.toISOString();
+const hoursAgo = (h: number) => iso(new Date(Date.now() - h * 3600000));
+
+const emptyPlan = (): HitPlan => ({ ballsBy: null, ballsById: null, format: null, meetAt: null, lateById: null });
+
+// Roster codes are handed out by a coach or captain. Known demo codes:
+const DEMO_ROSTERS: Roster[] = [
+  { id: 'r-paly', name: 'Paly Girls Varsity', code: 'PALY26', cap: 20, joined: 11, createdAt: hoursAgo(300) },
+  { id: 'r-menlo', name: 'Menlo Boys Varsity', code: 'MENLO26', cap: 20, joined: 7, createdAt: hoursAgo(200) },
+];
 
 type State = {
   session: Session | null;
@@ -66,7 +80,10 @@ type State = {
     levelSource: Profile['levelSource']; homeCourtId: string; availabilityMask: number;
     lookingToHitUntil: string | null; lastActiveAt: string;
     guardianEmail: string | null; guardianVerified: boolean;
+    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null;
   };
+  rosters: Roster[];
+  pushToken: string | null;
   requests: Row[];
   messages: Message[];
   blocked: string[];
@@ -77,12 +94,13 @@ type State = {
 
 const blank = (): State => ({
   session: null, profile: null, requests: [], messages: [], blocked: [],
-  cohortOpen: true, listMode: null, seenConfirmed: [],
+  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], pushToken: null,
 });
 
+// Bay Area sprawl: mile steps to 15, then fives. People here drive 280.
 function bucket(mi: number): string {
   if (mi < 1) return 'under 1 mi';
-  if (mi < 10) return `~${Math.round(mi)} mi`;
+  if (mi < 15) return `~${Math.round(mi)} mi`;
   return `~${Math.round(mi / 5) * 5} mi`;
 }
 
@@ -92,9 +110,6 @@ function bandOf(dob: string): 'minor' | 'adult' {
   return eighteen <= new Date() ? 'adult' : 'minor';
 }
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-const iso = (d: Date) => d.toISOString();
-const hoursAgo = (h: number) => iso(new Date(Date.now() - h * 3600000));
 
 export class DemoApi implements HitsApi {
   readonly mode = 'demo' as const;
@@ -121,8 +136,10 @@ export class DemoApi implements HitsApi {
     const now = Date.now();
     const age = (iso: string) => now - new Date(iso).getTime();
     let changed = false;
-    if (this.s.profile?.guardianEmail && !this.s.profile.guardianVerified && age(this.s.profile.lastActiveAt) > 8000) {
-      this.s.profile.guardianVerified = true; changed = true;
+    if (this.s.profile?.guardianEmail && !this.s.profile.guardianVerified && this.s.profile.guardianSentAt) {
+      const a = age(this.s.profile.guardianSentAt);
+      if (a > 4000 && !this.s.profile.guardianOpenedAt) { this.s.profile.guardianOpenedAt = iso(new Date()); changed = true; }
+      if (a > 8000) { this.s.profile.guardianVerified = true; changed = true; }
     }
     for (const r of this.s.requests) {
       const seedIsRecipient = r.toId !== ME;
@@ -202,15 +219,19 @@ export class DemoApi implements HitsApi {
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
+      guardianSentAt: p.guardianSentAt, guardianOpenedAt: p.guardianOpenedAt, rosterName: p.rosterName,
     };
   }
   async me() { await this.load(); return this.meProfile(); }
 
   async createProfile(input: ProfileInput) {
     await this.load(); await this.wait();
+    const roster = input.rosterCode ? [...DEMO_ROSTERS, ...this.s.rosters].find(r => r.code.toLowerCase() === input.rosterCode!.toLowerCase()) : null;
+    if (roster) roster.joined += 1;
     this.s.profile = {
       ...input, lookingToHitUntil: iso(new Date(Date.now() + 7 * 86400000)),
       lastActiveAt: iso(new Date()), guardianEmail: null, guardianVerified: false,
+      guardianSentAt: null, guardianOpenedAt: null, rosterName: roster?.name ?? null,
     };
     // Someone reaches out shortly after you join, so the Requests tab is alive.
     const band = bandOf(input.dateOfBirth);
@@ -219,6 +240,7 @@ export class DemoApi implements HitsApi {
       if (this.s.requests.some(r => r.fromId === first.id)) return;
       const start = nextSlot(first.avail & input.availabilityMask || first.avail, 1);
       this.s.requests.push(row(first.id, ME, first.court, start, 'Saw you just joined — up for a hit?', ME));
+      void notifyLocal(`${first.name} wants to hit`, 'Saturday morning at ' + (COURTS.find(c => c.id === first.court)?.name ?? 'the courts'));
     });
     this.save();
     return this.meProfile()!;
@@ -241,9 +263,9 @@ export class DemoApi implements HitsApi {
     await this.load();
     const band = this.myBand();
     return {
-      marketSlug: 'boston', marketName: 'Boston', band,
-      activePlayers: this.s.cohortOpen ? (band === 'minor' ? 231 : 188) : 142,
-      minActivePlayers: 200,
+      marketSlug: 'palo-alto', marketName: 'Palo Alto', band,
+      activePlayers: this.s.cohortOpen ? (band === 'minor' ? 176 : 163) : 112,
+      minActivePlayers: 150,
       discoveryOpen: this.s.cohortOpen,
     };
   }
@@ -300,7 +322,7 @@ export class DemoApi implements HitsApi {
       courtName: COURTS.find(c => c.id === r.courtId)?.name ?? 'Court',
       windowStart: r.windowStart, windowEnd: r.windowEnd, note: r.note, state: r.state,
       awaitingId: r.awaitingId, expiresAt: r.expiresAt, createdAt: r.createdAt,
-      confirmedAt: r.confirmedAt, declineReason: r.declineReason, other, approvals: r.approvals,
+      confirmedAt: r.confirmedAt, declineReason: r.declineReason, other, approvals: r.approvals, plan: r.plan ?? emptyPlan(),
       myConfirmation: r.confirmations[viewer] ?? null,
       theirConfirmation: r.confirmations[otherId] ?? null,
     };
@@ -339,14 +361,21 @@ export class DemoApi implements HitsApi {
     else if (settled) { /* the background reconcile settles the other parent */ }
     else {
       // The other kid's parent says yes on their own time.
-      r.approvals.filter(a => a.minorId !== ME).forEach(a => this.later(9000 + Math.random() * 6000, () => {
-        a.decision = true; a.decidedAt = iso(new Date());
-        this.maybeConfirm(r);
-      }));
+      r.approvals.filter(a => a.minorId !== ME).forEach(a => {
+        this.later(4000, () => { a.seenAt = iso(new Date()); });
+        this.later(9000 + Math.random() * 6000, () => {
+          a.decision = true; a.decidedAt = iso(new Date());
+          this.maybeConfirm(r);
+        });
+      });
     }
   }
   private maybeConfirm(r: Row) {
-    if (r.state === 'accepted' && r.approvals.every(a => a.decision === true)) { r.state = 'confirmed'; r.confirmedAt = iso(new Date()); }
+    if (r.state === 'accepted' && r.approvals.every(a => a.decision === true)) {
+      r.state = 'confirmed'; r.confirmedAt = iso(new Date());
+      const other = SEED.find(p => p.id === (r.fromId === ME ? r.toId : r.fromId));
+      void notifyLocal("It's on.", `${other?.name ?? 'Your hit'} · ${COURTS.find(c => c.id === r.courtId)?.name ?? ''}`);
+    }
   }
 
   async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null) {
@@ -361,10 +390,30 @@ export class DemoApi implements HitsApi {
     this.later(4000 + Math.random() * 4000, () => {
       if (r.state !== 'pending') return;
       if (declines) { r.state = 'declined'; r.declineReason = DECLINE_COPY.not_this_week; r.awaitingId = null; }
-      else this.onAccepted(r);
+      else { this.onAccepted(r); const st: string = r.state; void notifyLocal(`${seed.name}'s in`, st === 'confirmed' ? "It's on." : 'Waiting on a parent to lock it in.'); }
     });
     this.save();
     return this.toRequest(r);
+  }
+  async updatePlan(id: string, patch: Partial<HitPlan>) {
+    await this.load();
+    const r = this.find(id); r.plan = { ...(r.plan ?? emptyPlan()), ...patch };
+    this.save(); return this.toRequest(r);
+  }
+  async setPushToken(token: string) { await this.load(); this.s.pushToken = token; this.save(); }
+
+  // ---- rosters -----------------------------------------------------------------
+  async createRoster(name: string, cap: number): Promise<Roster> {
+    await this.load();
+    const code = name.replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase() + String(Math.floor(Math.random() * 90) + 10);
+    const r: Roster = { id: uid(), name, code, cap, joined: 0, createdAt: iso(new Date()) };
+    this.s.rosters.push(r); this.save(); return r;
+  }
+  async myRosters() { await this.load(); return this.s.rosters; }
+  async checkCode(code: string) {
+    await this.load(); await this.wait(200);
+    const r = [...DEMO_ROSTERS, ...this.s.rosters].find(x => x.code.toLowerCase() === code.trim().toLowerCase());
+    return { valid: !!r && r.joined < r.cap, rosterName: r?.name ?? null };
   }
   async cancelRequest(id: string) { await this.load(); const r = this.find(id); r.state = 'cancelled'; r.awaitingId = null; this.save(); }
   async accept(id: string) {
@@ -420,8 +469,10 @@ export class DemoApi implements HitsApi {
   async inviteGuardian(email: string) {
     await this.load(); if (!this.s.profile) throw new ApiError('no profile');
     this.s.profile.guardianEmail = email; this.s.profile.guardianVerified = false;
-    // In the demo the parent says yes quickly, so the flow can be walked in one sitting.
-    this.later(8000, () => { if (this.s.profile) this.s.profile.guardianVerified = true; });
+    this.s.profile.guardianSentAt = iso(new Date()); this.s.profile.guardianOpenedAt = null;
+    // In the demo the parent opens the text in a few seconds and says yes soon after.
+    this.later(4000, () => { if (this.s.profile) this.s.profile.guardianOpenedAt = iso(new Date()); });
+    this.later(8000, () => { if (this.s.profile) { this.s.profile.guardianVerified = true; void notifyLocal('Your parent said yes', 'You can reach out now.'); } });
     this.save();
   }
   async guardianChildren(): Promise<GuardianChild[]> {
@@ -439,6 +490,20 @@ export class DemoApi implements HitsApi {
     a.decision = decision; a.decidedAt = iso(new Date());
     if (decision) this.maybeConfirm(r); else { r.state = 'declined'; r.declineReason = 'A parent passed on this one'; }
     this.save(); return a;
+  }
+  async guardianBlock(_childId: string, profileId: string) { await this.block(profileId); }
+  async assurance(hitId: string): Promise<Assurance | null> {
+    await this.load();
+    const r = this.s.requests.find(x => x.id === hitId); if (!r) return null;
+    const otherId = r.fromId === ME ? r.toId : r.fromId;
+    const seed = SEED.find(p => p.id === otherId); if (!seed) return null;
+    const approvals = r.approvals.find(a => a.minorId === otherId);
+    return {
+      otherGuardianVerified: seed.band === 'minor', otherGuardianMonths: seed.band === 'minor' ? 4 + (seed.hits % 5) : null,
+      otherGuardianApprovals: seed.band === 'minor' ? Math.max(approvals?.decision ? 1 : 0, Math.round(seed.hits * 0.6)) : 0,
+      otherPlayerHits: seed.hits, otherPlayerReports: 0, otherPlayerMemberMonths: 3 + (seed.hits % 7),
+      otherPlayerLevelVerified: !!seed.verified, bothMinors: seed.band === 'minor' && this.myBand() === 'minor',
+    };
   }
   async guardianHit(hitId: string) {
     await this.load();
@@ -467,6 +532,6 @@ function row(fromId: string, toId: string, courtId: string, start: Date, note: s
   return {
     id: uid(), fromId, toId, courtId, windowStart: iso(start), windowEnd: iso(e), note,
     state: 'pending', awaitingId, expiresAt: iso(new Date(Date.now() + 72 * 3600000)),
-    createdAt: iso(new Date()), confirmedAt: null, declineReason: null, approvals: [], confirmations: {},
+    createdAt: iso(new Date()), confirmedAt: null, declineReason: null, approvals: [], confirmations: {}, plan: emptyPlan(),
   };
 }

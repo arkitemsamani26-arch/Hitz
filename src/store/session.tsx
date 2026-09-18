@@ -10,7 +10,7 @@ type Ctx = {
   refresh: () => Promise<void>;
   setSession: (s: Session | null) => void;
   setProfile: (p: Profile | null) => void;
-  // Persisted list/stack preference. Guardian-linked accounts default to list.
+  // Persisted list/court preference.
   listMode: boolean;
   setListMode: (v: boolean) => void;
   tick: number;   // bumps when the backend reports a change
@@ -46,7 +46,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => api.onChange(() => setTick(t => t + 1)), []);
   useEffect(() => { if (session && !session.isGuardian) void api.me().then(setProfile); }, [tick, session]);
 
-  const listMode = listPref ?? (profile?.band === 'minor');
+  // List is the default for everyone; the court is the browse mode you switch to.
+  const listMode = listPref ?? true;
   const setListMode = useCallback((v: boolean) => {
     setListPref(v);
     void AsyncStorage.setItem(LIST_KEY, v ? '1' : '0').catch(() => {});

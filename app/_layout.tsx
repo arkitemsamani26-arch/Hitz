@@ -6,11 +6,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
-// Only the four weights the type scale uses; the package index would bundle all 18.
-import { Archivo_400Regular } from '@expo-google-fonts/archivo/400Regular';
-import { Archivo_500Medium } from '@expo-google-fonts/archivo/500Medium';
-import { Archivo_700Bold } from '@expo-google-fonts/archivo/700Bold';
-import { Archivo_900Black } from '@expo-google-fonts/archivo/900Black';
+// Only the weights the type scale uses.
+import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
+import { BricolageGrotesque_600SemiBold } from '@expo-google-fonts/bricolage-grotesque/600SemiBold';
+import { InstrumentSans_400Regular } from '@expo-google-fonts/instrument-sans/400Regular';
+import { InstrumentSans_500Medium } from '@expo-google-fonts/instrument-sans/500Medium';
+import { InstrumentSans_600SemiBold } from '@expo-google-fonts/instrument-sans/600SemiBold';
+import { configureForeground } from '@/lib/push';
 import { SessionProvider } from '@/store/session';
 import { OnboardingProvider } from '@/store/onboarding';
 import { FiltersProvider } from '@/store/filters';
@@ -20,17 +22,18 @@ import { color } from '@/theme/tokens';
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Root() {
-  const [loaded] = useFonts({ Archivo_400Regular, Archivo_500Medium, Archivo_700Bold, Archivo_900Black });
+  const [loaded] = useFonts({ BricolageGrotesque_800ExtraBold, BricolageGrotesque_600SemiBold, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold });
+  useEffect(() => { configureForeground(); }, []);
   useEffect(() => { if (loaded) void SplashScreen.hideAsync().catch(() => {}); }, [loaded]);
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: color.court }} />;
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: color.ground }} />;
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.court }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.ground }}>
       <SafeAreaProvider>
           <SessionProvider>
             <OnboardingProvider>
               <FiltersProvider>
                 <ToastProvider>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.court }, animation: Platform.OS === 'web' ? 'none' : 'default' }}>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground }, animation: Platform.OS === 'web' ? 'none' : 'default' }}>
                     <Stack.Screen name="index" />
                     <Stack.Screen name="filters" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
                   </Stack>
