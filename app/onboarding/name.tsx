@@ -17,7 +17,7 @@ export default function Name() {
   const ok = first.trim().length >= 2 && /^[A-Za-z]$/.test(last);
   const go = () => { patch({ displayName: first.trim(), lastInitial: last.toUpperCase() }); router.push('/onboarding/birthday'); };
   return (
-    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!ok} /></Centered>}>
+    <Screen sky={250} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!ok} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>Your member{'\n'}card.</T>
         <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Players see "{first || 'Maya'} {last ? last.toUpperCase() : 'R'}." until a hit is confirmed.</T>

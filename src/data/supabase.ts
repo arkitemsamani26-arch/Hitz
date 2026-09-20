@@ -218,6 +218,11 @@ export class SupabaseApi implements HitsApi {
     return (await this.hit(id))!.request;
   }
   async setPushToken(token: string) { await this.sb.rpc('set_push_token', { p_token: token }); }
+  async sharePhone(id: string, share: boolean) { const { error } = await this.sb.rpc('share_my_phone', { p_hit: id, p_share: share }); if (error) this.fail(error); }
+  async sharedPhones(id: string) {
+    const { data } = await this.sb.rpc('shared_phone', { p_hit: id });
+    return (data ?? []).map((r: any) => ({ profileId: r.profile_id, phone: r.phone, mine: r.mine }));
+  }
   async createRoster(name: string, cap: number): Promise<Roster> {
     const { data, error } = await this.sb.rpc('create_roster', { p_name: name, p_cap: cap });
     if (error) this.fail(error);
@@ -236,6 +241,24 @@ export class SupabaseApi implements HitsApi {
   async guardianBlock(childId: string, profileId: string) {
     const { error } = await this.sb.from('blocks').insert({ blocker_id: childId, blocked_id: profileId });
     if (error) this.fail(error);
+  }
+  async guardianLinkPreview(linkId: string) {
+    const { data } = await this.sb.rpc('guardian_link_preview', { p_link: linkId });
+    const r = Array.isArray(data) ? data[0] : data; return r ? { childName: r.child_name, verified: r.verified } : null;
+  }
+  async guardianLinkOpened(linkId: string) { await this.sb.rpc('mark_guardian_link_opened', { p_link: linkId }); }
+  async guardianAccept(linkId: string) { const { error } = await this.sb.rpc('accept_guardian_link', { p_link: linkId }); if (error) this.fail(error); }
+  async guardianRevoke(linkId: string) { const { error } = await this.sb.rpc('revoke_guardian_link', { p_link: linkId }); if (error) this.fail(error); }
+  async guardianLinks() {
+    const { data } = await this.sb.from('guardian_links').select('id, verified_at, profiles:minor_profile_id(display_name)').eq('guardian_user_id', this.uid!).is('revoked_at', null);
+    return (data ?? []).map((l: any) => ({ id: l.id, childName: l.profiles?.display_name ?? 'your kid', verifiedAt: l.verified_at }));
+  }
+  // Magic-link sign-in for a parent arriving from the SMS/email. The link carries a
+  // token_hash from Supabase auth; after this the user is signed in as the parent.
+  async signInWithMagicToken(tokenHash: string) {
+    const { error } = await this.sb.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+    if (error) this.fail(error);
+    await this.restore();
   }
   async assurance(hitId: string): Promise<Assurance | null> {
     const { data } = await this.sb.rpc('hit_assurance', { p_hit: hitId });

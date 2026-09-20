@@ -10,7 +10,7 @@ import { Pill } from '@/ui/Pill';
 import { Rally } from '@/ui/Rally';
 import { Countdown } from '@/ui/Countdown';
 import { PlayerRow, PlayerCard } from '@/ui/Player';
-import { CourtSurface, Token, You, place } from '@/ui/Court';
+import { CourtSurface, Token, You, layout } from '@/ui/Court';
 import { Score } from '@/ui/Score';
 import { OptionSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -142,7 +142,7 @@ export default function Hits() {
           // means closer to your level. You're the ball at the baseline.
           <View style={{ alignItems: 'center', paddingBottom: space.lg }}>
             <CourtSurface style={{ width: courtW, height: courtH }}>
-              {visible.slice(0, 12).map((p, i) => { const { x, y } = place(p, i, filters.radiusMi); return <Token key={p.id} p={p} x={x} y={y} hot={p.lookingToHit} delay={i * 60} above={i % 4 >= 2} onPress={() => setPicked(p)} />; })}
+              {(() => { const ps = visible.slice(0, 12); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={Math.round(((pos[i].y - 0.06) / 0.38) * 4) % 2 === 1} onPress={() => setPicked(p)} />); })()}
               <You level={profile?.levelValue ?? null} />
             </CourtSurface>
             <T v="small" tone="onCourt" center style={{ marginTop: space.md, opacity: 0.9 }}>Closer to the net, closer to your level. Left to right is distance.</T>

@@ -30,7 +30,7 @@ export default function Birthday() {
   };
   const go = () => { if (!dob || tooYoung) return; patch({ dateOfBirth: dob }); router.push('/onboarding/level'); };
   return (
-    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!dob || tooYoung} /></Centered>}>
+    <Screen sky={250} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!dob || tooYoung} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>When's your{'\n'}birthday?</T>
         <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Nobody else sees this. It decides one thing — see below.</T>

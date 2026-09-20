@@ -38,7 +38,8 @@ export function PlayerCard({ p, anonymous, tall }: { p: Player; anonymous?: bool
 // One tap to request. The row is the product.
 export function PlayerRow({ p, onPress, onHit, disabled }: { p: Player; onPress: () => void; onHit: () => void; disabled?: boolean }) {
   return (
-    <Tap onPress={onPress} style={s.row} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${name(p)}, level ${p.levelValue}`}>
+    <View style={s.row}>
+      <Tap onPress={onPress} style={s.rowMain} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${name(p)}, level ${p.levelValue}`}>
       <Score value={p.levelValue} size="h1" verified={p.levelVerified} tone="court" />
       <View style={{ flex: 1, marginLeft: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
@@ -47,17 +48,19 @@ export function PlayerRow({ p, onPress, onHit, disabled }: { p: Player; onPress:
         </View>
         <T v="small" tone="ink2" numberOfLines={1}>{[p.distanceBucket, activeText(p.lastActiveAt), pct(p.responseRate) && `replies ${pct(p.responseRate)}`].filter(Boolean).join(' · ')}</T>
       </View>
+      </Tap>
       <Tap onPress={onHit} disabled={disabled} style={[s.hitBtn, disabled && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel={`Request a hit with ${p.displayName}`} tick>
         <T v="smallM" tone="onCourt">Hit</T>
       </Tap>
-    </Tap>
+    </View>
   );
 }
 const s = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: space.lg },
   rule: { height: 2, backgroundColor: color.paper3, marginVertical: space.md },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: hit.row + 4, paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: color.hair },
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: hit.row + 4, borderBottomWidth: 1, borderBottomColor: color.hair },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: space.md, minHeight: hit.row + 4 },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: color.ball, borderWidth: 1.5, borderColor: color.ink },
   hitBtn: { backgroundColor: color.court, minHeight: 44, minWidth: 64, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.lg },
 });

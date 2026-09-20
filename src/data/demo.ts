@@ -58,7 +58,7 @@ type Row = {
   id: string; fromId: string; toId: string; courtId: string; windowStart: string; windowEnd: string;
   note: string | null; state: HitState; awaitingId: string | null; expiresAt: string; createdAt: string;
   confirmedAt: string | null; declineReason: string | null;
-  approvals: Approval[]; confirmations: Record<string, boolean>; plan: HitPlan;
+  approvals: Approval[]; confirmations: Record<string, boolean>; plan: HitPlan; shares?: string[];
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -401,6 +401,20 @@ export class DemoApi implements HitsApi {
     this.save(); return this.toRequest(r);
   }
   async setPushToken(token: string) { await this.load(); this.s.pushToken = token; this.save(); }
+  async sharePhone(id: string, share: boolean) {
+    await this.load(); const r = this.find(id);
+    if (share && !['confirmed', 'completed'].includes(r.state)) throw new ApiError('You can share your number once the hit is confirmed.');
+    r.shares = (r.shares ?? []).filter(x => x !== ME); if (share) r.shares.push(ME);
+    // The other player usually shares back a moment later.
+    if (share) this.later(3000, () => { const rr = this.find(id); const other = rr.fromId === ME ? rr.toId : rr.fromId; if (!(rr.shares ?? []).includes(other)) rr.shares = [...(rr.shares ?? []), other]; });
+    this.save();
+  }
+  async sharedPhones(id: string) {
+    await this.load(); const r = this.find(id);
+    if (!['confirmed', 'completed'].includes(r.state)) return [];
+    const other = r.fromId === ME ? r.toId : r.fromId;
+    return (r.shares ?? []).map(pid => ({ profileId: pid, phone: pid === ME ? (this.s.session?.phone ?? '') : '+1 (650) 555-01' + (SEED.findIndex(p => p.id === other) + 10), mine: pid === ME }));
+  }
 
   // ---- rosters -----------------------------------------------------------------
   async createRoster(name: string, cap: number): Promise<Roster> {
@@ -492,6 +506,16 @@ export class DemoApi implements HitsApi {
     this.save(); return a;
   }
   async guardianBlock(_childId: string, profileId: string) { await this.block(profileId); }
+  async guardianLinkPreview() { await this.load(); return this.s.profile ? { childName: this.s.profile.displayName, verified: this.s.profile.guardianVerified } : null; }
+  async guardianLinkOpened() { await this.load(); if (this.s.profile && !this.s.profile.guardianOpenedAt) { this.s.profile.guardianOpenedAt = iso(new Date()); this.save(); } }
+  async guardianAccept() { await this.load(); if (this.s.profile) { this.s.profile.guardianVerified = true; this.s.profile.guardianOpenedAt ??= iso(new Date()); this.save(); } }
+  async guardianRevoke() {
+    await this.load(); if (!this.s.profile) return;
+    this.s.profile.guardianVerified = false; this.s.profile.guardianEmail = null; this.s.profile.guardianSentAt = null; this.s.profile.guardianOpenedAt = null;
+    this.s.requests.forEach(r => { if (['pending', 'countered', 'accepted', 'confirmed'].includes(r.state)) { r.state = 'cancelled'; r.awaitingId = null; } });
+    this.save();
+  }
+  async guardianLinks() { await this.load(); return this.s.profile?.guardianVerified ? [{ id: 'link-demo', childName: this.s.profile.displayName, verifiedAt: iso(new Date()) }] : []; }
   async assurance(hitId: string): Promise<Assurance | null> {
     await this.load();
     const r = this.s.requests.find(x => x.id === hitId); if (!r) return null;

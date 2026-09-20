@@ -34,7 +34,7 @@ export default function Availability() {
   };
   const groups = [SLOTS.slice(0, 3), SLOTS.slice(3)];
   return (
-    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} loading={busy} disabled={mask === 0} /></Centered>}>
+    <Screen sky={230} bottom={<Centered><Button title="Next" kind="ball" onPress={go} loading={busy} disabled={mask === 0} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>When can you{'\n'}usually hit?</T>
         <T v="body" tone="ink2" style={{ marginTop: space.lg, marginBottom: space.xl }}>Rough is right. You'll pick exact times per hit.</T>
@@ -45,7 +45,7 @@ export default function Availability() {
               {g.map(sl => {
                 const on = !!(mask & sl.bit);
                 return (
-                  <Tap key={sl.bit} onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${sl.label} ${sl.part}`}>
+                  <Tap key={sl.bit} onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]} accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} accessibilityLabel={`${sl.label} ${sl.part}`}>
                     <T v="bodyM" tone={on ? 'onBall' : 'ink'}>{sl.part}</T>
                   </Tap>
                 );

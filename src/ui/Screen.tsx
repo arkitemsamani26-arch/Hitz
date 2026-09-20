@@ -8,9 +8,10 @@ import { color, space } from '@/theme/tokens';
 export function Sky({ height = 190 }: { height?: number }) {
   return (
     <View style={[s.sky, { height }]} pointerEvents="none">
-      <View style={[s.band, { top: height * 0.55, height: height * 0.15, backgroundColor: color.sky2 }]} />
-      <View style={[s.band, { top: height * 0.70, height: height * 0.12, backgroundColor: '#B9DDB9' }]} />
-      <View style={[s.band, { top: height * 0.82, height: height * 0.18, backgroundColor: '#7DB57D' }]} />
+      {/* The horizon lives in the bottom fifth of the sky; nothing readable is placed there. */}
+      <View style={[s.band, { top: height * 0.72, height: height * 0.10, backgroundColor: color.sky2 }]} />
+      <View style={[s.band, { top: height * 0.82, height: height * 0.09, backgroundColor: '#B9DDB9' }]} />
+      <View style={[s.band, { top: height * 0.91, height: height * 0.09, backgroundColor: '#7DB57D' }]} />
     </View>
   );
 }

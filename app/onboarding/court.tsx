@@ -19,7 +19,7 @@ export default function CourtPick() {
   const { data: courts } = useAsync(() => api.courts(), []);
   const go = () => { if (!id) return; patch({ homeCourtId: id }); router.push('/onboarding/availability'); };
   return (
-    <Screen sky={200} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!id} /></Centered>}>
+    <Screen sky={340} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!id} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>Where do you{'\n'}usually play?</T>
         <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Your home court is your location on Hits. Not your address — we never ask for one.</T>
@@ -27,11 +27,11 @@ export default function CourtPick() {
           const on = c.id === id;
           return (
             // Courts are courts: each option is a little court, and yours turns ball-yellow.
-            <Tap key={c.id} onPress={() => setId(c.id)} tick style={[s.row, on && s.on]} accessibilityRole="radio" accessibilityState={{ selected: on }}>
+            <Tap key={c.id} onPress={() => setId(c.id)} tick style={[s.row, on && s.on]} accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
               <View style={[s.alley, on && s.alleyOn]} pointerEvents="none" />
               <View style={{ flex: 1 }}>
                 <T v="bodyM" tone={on ? 'onBall' : 'onCourt'}>{c.name}</T>
-                <T v="small" tone={on ? 'onBall' : 'onCourt'} style={{ opacity: 0.85 }}>{[c.distanceBucket, c.indoor ? 'Indoor' : 'Outdoor', c.access === 'club' ? 'Club' : 'Public'].filter(Boolean).join(' · ')}</T>
+                <T v="small" tone={on ? 'onBall' : 'onCourt'}>{[c.distanceBucket, c.indoor ? 'Indoor' : 'Outdoor', c.access === 'club' ? 'Club' : 'Public'].filter(Boolean).join(' · ')}</T>
               </View>
               {on ? <Pill label="Home" tone="white" /> : null}
             </Tap>

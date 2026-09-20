@@ -1,0 +1,21 @@
+name: app
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  typecheck-and-web:
+    name: typecheck + web export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Export the demo web build
+        run: EXPO_PUBLIC_DEMO=1 CI=1 npx expo export --platform web

@@ -43,6 +43,9 @@ export interface HitsApi {
   sendMessage(id: string, body: string): Promise<Message>;
   confirmPlayed(id: string, didPlay: boolean): Promise<HitRequest>;
   updatePlan(id: string, patch: Partial<HitPlan>): Promise<HitRequest>;
+  // Share your number for one confirmed hit. Off by default, revocable, per hit.
+  sharePhone(id: string, share: boolean): Promise<void>;
+  sharedPhones(id: string): Promise<{ profileId: string; phone: string; mine: boolean }[]>;
   setPushToken(token: string): Promise<void>;
 
   // rosters: one code brings a whole team
@@ -60,6 +63,12 @@ export interface HitsApi {
   guardianDecide(hitId: string, minorId: string, decision: boolean): Promise<Approval>;
   guardianHit(hitId: string): Promise<{ request: HitRequest; messages: Message[]; child: Profile } | null>;
   guardianBlock(childId: string, profileId: string): Promise<void>;
+  // The parent's link page: preview before sign-in, mark opened, accept, revoke.
+  guardianLinkPreview(linkId: string): Promise<{ childName: string; verified: boolean } | null>;
+  guardianLinkOpened(linkId: string): Promise<void>;
+  guardianAccept(linkId: string): Promise<void>;
+  guardianRevoke(linkId: string): Promise<void>;
+  guardianLinks(): Promise<{ id: string; childName: string; verifiedAt: string | null }[]>;
   assurance(hitId: string): Promise<Assurance | null>;
 
   // subscriptions (lightweight; demo uses a tick)

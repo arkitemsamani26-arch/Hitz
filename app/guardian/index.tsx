@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen, Centered, Sheet } from '@/ui/Screen';
@@ -7,6 +6,9 @@ import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
 import { Pill } from '@/ui/Pill';
 import { Rally } from '@/ui/Rally';
+import { OptionSheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
+import React, { useState } from 'react';
 import { color, hit, space } from '@/theme/tokens';
 import { api, demo } from '@/data';
 import { useSession } from '@/store/session';
@@ -16,7 +18,10 @@ import { windowText, levelBig } from '@/lib/format';
 export default function GuardianHome() {
   const router = useRouter();
   const { tick, refresh } = useSession();
+  const toast = useToast();
   const { data: kids, loading } = useAsync(() => api.guardianChildren(), [tick]);
+  const links = useAsync(() => api.guardianLinks(), [tick]);
+  const [revoking, setRevoking] = useState<{ id: string; childName: string } | null>(null);
   return (
     <Screen sky={200}>
       <Centered>
@@ -55,6 +60,17 @@ export default function GuardianHome() {
             </Sheet>
           </View>
         ))}
+        {(links.data ?? []).map(l => (
+          <Sheet key={l.id} style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+            <View style={{ flex: 1 }}><T v="bodyM">Linked to {l.childName}</T><T v="small" tone="ink2">Pause or remove it any time. Their meetups stop the moment you do.</T></View>
+            <Button title="Remove" kind="danger" small onPress={() => setRevoking(l)} />
+          </Sheet>
+        ))}
+        <OptionSheet open={!!revoking} onClose={() => setRevoking(null)} title={`Remove your link to ${revoking?.childName ?? ''}?`} options={[
+          { label: 'Remove the link', sub: 'Every open hit is cancelled. They can invite you again later.', danger: true,
+            onPress: async () => { if (!revoking) return; try { await api.guardianRevoke(revoking.id); await refresh(); toast('Removed.'); } catch (e: any) { toast(e.message); } } },
+          { label: 'Keep it', onPress: () => {} },
+        ]} />
         <T v="small" tone="onCourt" style={{ opacity: 0.9 }}>You see every request and every message on {kids?.[0]?.profile.displayName ?? 'your kid'}'s account, in full. Adults can't find or contact under-18s on Hits — that's enforced in the database, not a setting.</T>
         {demo && (() => { const d = demo; return (
           <View style={{ marginTop: space.xl }}>

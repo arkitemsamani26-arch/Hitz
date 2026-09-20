@@ -3,12 +3,13 @@
 // Deploy: supabase functions deploy notify --no-verify-jwt
 // Schedule: every minute via the dashboard (Edge Functions -> Schedules) or pg_cron:
 //   select cron.schedule('notify', '* * * * *', $$ select net.http_post('<function url>', '{}'::jsonb) $$);
-// It also enqueues the "hit tomorrow" reminders on each run.
+// It also enqueues the "hit tomorrow" reminders and expires stale requests on each run.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async () => {
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { db: { schema: 'app' } });
   await sb.rpc('enqueue_tomorrow_reminders');
+  await sb.rpc('expire_requests');
 
   const { data: rows } = await sb.from('notifications').select('*').is('sent_at', null).order('created_at').limit(100);
   if (!rows?.length) return new Response('0');

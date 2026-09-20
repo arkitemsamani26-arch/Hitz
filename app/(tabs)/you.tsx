@@ -112,7 +112,7 @@ export default function You() {
               <T v="micro" tone="ink3">Demo controls</T>
               <View style={[s.line, { paddingVertical: 0 }]}>
                 <View style={{ flex: 1 }}><T v="bodyM">Cohort open</T><T v="small" tone="ink2">Off shows the countdown state.</T></View>
-                <Switch value={d.cohortOpen} onValueChange={v => { d.setCohortOpen(v); }} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} />
+                <Switch value={d.cohortOpen} onValueChange={v => { d.setCohortOpen(v); }} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Cohort open (demo)" />
               </View>
               {profile.band === 'minor' && <Button title="Open the parent's view" kind="line" onPress={async () => { d.switchToGuardian(); await refresh(); router.replace('/guardian'); }} />}
               <Button title="Reset demo" kind="ghost" onPress={async () => { await d.reset(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} small />

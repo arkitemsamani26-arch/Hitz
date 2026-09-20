@@ -1,6 +1,6 @@
 // One request, whatever state it's in. The screen changes shape with the state.
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Screen, Centered, Sheet } from '@/ui/Screen';
@@ -31,6 +31,7 @@ export default function Hit() {
   const toast = useToast();
   const { profile, tick } = useSession();
   const { data, loading, reload } = useAsync(() => api.hit(id), [id, tick]);
+  const shares = useAsync(() => api.sharedPhones(id), [id, tick]);
   const [passing, setPassing] = useState(false);
   const [more, setMore] = useState(false);
   const [text, setText] = useState('');
@@ -91,6 +92,25 @@ export default function Hit() {
           </Sheet>
         </Tap>
         <PlanCard r={r} me={profile} setPlan={setPlan} compact />
+        {/* Numbers are never shown by default. Share yours for this hit if you'd rather text. */}
+        {(() => {
+          const mine = (shares.data ?? []).find(x => x.mine); const theirs = (shares.data ?? []).find(x => !x.mine);
+          return (
+            <Sheet style={{ marginTop: space.md, gap: space.sm }}>
+              <T v="h2">Rather text?</T>
+              {theirs
+                ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                    <View style={{ flex: 1 }}><T v="bodyM">{r.other.displayName} shared a number</T><T v="small" tone="ink2">{theirs.phone}</T></View>
+                    <Button title={`Text ${r.other.displayName}`} kind="court" small onPress={() => void Linking.openURL(`sms:${theirs.phone.replace(/[^+\d]/g, '')}`)} />
+                  </View>
+                : <T v="small" tone="ink2">{r.other.displayName} hasn't shared a number for this hit.</T>}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderTopWidth: 1, borderTopColor: color.hair, paddingTop: space.sm }}>
+                <View style={{ flex: 1 }}><T v="bodyM">{mine ? 'Your number is shared for this hit' : 'Share your number for this hit'}</T><T v="small" tone="ink2">{mine ? `${r.other.displayName} can text you. Just for this hit.` : `Only ${r.other.displayName}, only for this hit. Take it back any time.`}</T></View>
+                <Button title={mine ? 'Unshare' : 'Share'} kind={mine ? 'line' : 'ball'} small onPress={() => act(() => api.sharePhone(r.id, !mine))} />
+              </View>
+            </Sheet>
+          );
+        })()}
         {r.state === 'confirmed' && pastWindow && r.myConfirmation == null && (
           <Sheet style={{ marginTop: space.md }}>
             <T v="h2">Did you hit?</T>

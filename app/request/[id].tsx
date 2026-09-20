@@ -74,7 +74,7 @@ export default function Request() {
           const on = c.id === chosenCourt;
           const theirs = c.id === player.homeCourtId;
           return (
-            <Tap key={c.id} onPress={() => setCourtId(c.id)} tick style={s.court} accessibilityRole="radio" accessibilityState={{ selected: on }}>
+            <Tap key={c.id} onPress={() => setCourtId(c.id)} tick style={s.court} accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
               <View style={[s.ring, on && s.ringOn]} />
               <View style={{ flex: 1 }}>
                 <T v="bodyM" tone={on ? 'ink' : 'ink2'}>{c.name}</T>

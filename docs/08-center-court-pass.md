@@ -78,3 +78,20 @@ positioned by level (closer to the net = closer to your level) and distance (lef
   is on a device in Expo Go: the confirmed thud, the plan chips' tick, and the outbox
   delivering a real notification against a Supabase project.
 - **Rosters need an owner view** with the list of who joined; today it's a count.
+
+## Addendum — the "everything you can do" pass (2026-09-19/20)
+
+- Live Supabase project created and fully migrated, seeded, advisor-hardened and smoke
+  tested; two edge functions deployed. Remaining steps are dashboard-only (`09`).
+- Guardian link lifecycle server-side: preview before sign-in, `opened_at`, accept (the
+  signed-in email must match the invited address), revoke (cancels every open hit).
+- Requests expire after 72h from the scheduled function.
+- `08_app_contract.sql` pins every RPC/column name the app uses.
+- Court view: grid layout with occupancy, so tokens never stack.
+- Accessibility audit (axe, WCAG AA) on nine screens: `ink3` darkened to 5.3:1 (it was
+  3.64 — the earlier 4.6 figure was wrong), `aria-checked` on radio/checkbox chips,
+  progress bar named, tab bar given a `tablist`, player row un-nested, all switches
+  labelled, horizon moved to the bottom fifth of the sky so no text sits on it.
+- **Phone sharing** (your ask): once a hit is confirmed either player can share their
+  number for that hit — one tap, revocable, the other player gets a "Text" button, a
+  linked parent can see it. Numbers stay unreadable everywhere else (test 09).

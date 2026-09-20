@@ -28,7 +28,7 @@ export default function Guardian() {
     finally { setBusy(false); }
   };
   return (
-    <Screen sky={200} bottom={<Centered><Button title="Text and email them" kind="ball" onPress={go} loading={busy} disabled={!ok} /></Centered>}>
+    <Screen sky={250} bottom={<Centered><Button title="Text and email them" kind="ball" onPress={go} loading={busy} disabled={!ok} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>One more —{'\n'}for a parent.</T>
         <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>

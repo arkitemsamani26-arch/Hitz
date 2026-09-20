@@ -11,7 +11,7 @@ export function Pill({ label, tone = 'line', style, on, onPress }: { label: stri
   const textTone = t === 'ball' ? 'onBall' : t === 'court' ? 'onCourt' : t === 'white' ? 'court' : t === 'faint' ? 'ink2' : 'ink';
   const inner = <View style={[s.pill, s[t], style]}><T v="micro" tone={textTone}>{label}</T></View>;
   if (!onPress) return inner;
-  return <Tap onPress={onPress} tick accessibilityRole="button" accessibilityState={{ selected: !!on }} style={{ minHeight: 40, justifyContent: 'center' }}>{inner}</Tap>;
+  return <Tap onPress={onPress} tick accessibilityRole={on === undefined ? 'button' : 'checkbox'} accessibilityState={on === undefined ? undefined : { checked: !!on }} aria-checked={on === undefined ? undefined : !!on} style={{ minHeight: 40, justifyContent: 'center' }}>{inner}</Tap>;
 }
 const s = StyleSheet.create({
   pill: { paddingHorizontal: space.md, paddingVertical: 7, borderRadius: radius.pill, alignSelf: 'flex-start', minHeight: 30, justifyContent: 'center' },

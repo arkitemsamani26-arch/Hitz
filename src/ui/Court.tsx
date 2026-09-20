@@ -28,14 +28,39 @@ export function CourtSurface({ style, children, dim, onLayout }: { style?: Style
 }
 
 // Level delta -> depth on the far side (net = closest in level). Distance -> spread.
+// Then a grid pass: tokens snap to cells and a taken cell pushes the next token to the
+// nearest free one, so near-equal levels never stack.
 export function place(p: Player, i: number, radiusMi: number): { x: number; y: number } {
   const delta = Math.min(2.5, p.levelDelta ?? 1.5);
   const y = 0.44 - (delta / 2.5) * 0.38;                     // 0.44 at the net, 0.06 at the baseline
   const mi = parseMiles(p.distanceBucket);
   const spread = Math.min(1, mi / Math.max(1, radiusMi));
   const side = i % 2 === 0 ? -1 : 1;
-  const x = 0.5 + side * (0.10 + spread * 0.30) + ((i % 3) - 1) * 0.04;
-  return { x, y: y - ((i >> 1) % 2) * 0.045 };
+  const x = 0.5 + side * (0.10 + spread * 0.30);
+  return { x, y };
+}
+
+const COLS = 5, ROWS = 5;                                     // far half only: y in [0.04, 0.46]
+export function layout(players: Player[], radiusMi: number): { x: number; y: number }[] {
+  const taken = new Set<string>();
+  const cellOf = (x: number, y: number) => ({ c: Math.max(0, Math.min(COLS - 1, Math.round(x * (COLS - 1)))), r: Math.max(0, Math.min(ROWS - 1, Math.round(((y - 0.04) / 0.42) * (ROWS - 1)))) });
+  const posOf = (c: number, r: number) => ({ x: 0.12 + (c / (COLS - 1)) * 0.76, y: 0.06 + (r / (ROWS - 1)) * 0.38 });
+  return players.map((p, i) => {
+    const ideal = place(p, i, radiusMi);
+    let { c, r } = cellOf(ideal.x, ideal.y);
+    if (taken.has(`${c},${r}`)) {
+      // Spiral out to the nearest free cell, preferring the same row (same level band).
+      let best: { c: number; r: number } | null = null, bestD = 99;
+      for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
+        if (taken.has(`${cc},${rr}`)) continue;
+        const d = Math.abs(cc - c) + Math.abs(rr - r) * 1.6;
+        if (d < bestD) { bestD = d; best = { c: cc, r: rr }; }
+      }
+      if (best) ({ c, r } = best);
+    }
+    taken.add(`${c},${r}`);
+    return posOf(c, r);
+  });
 }
 export function parseMiles(b: string | null): number {
   if (!b) return 5; const m = b.match(/(\d+)/); return b.startsWith('under') ? 0.5 : m ? +m[1] : 5;

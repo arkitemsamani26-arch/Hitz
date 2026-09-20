@@ -77,15 +77,16 @@ npm run demo        # Expo web, demo backend, opens in your browser
 npm start           # then scan the QR with Expo Go on your phone (demo backend)
 ```
 
-**Against Supabase:** apply `supabase/migrations` and `supabase/seed.sql` to a project,
-expose the `app` schema under Settings → API, enable phone OTP, then:
+**Against Supabase:** a live project exists and has the schema, seed and edge functions
+(`docs/09-supabase-setup.md`). Finish the dashboard steps there (expose the `app` schema,
+turn on phone auth), then:
 
 ```bash
-EXPO_PUBLIC_SUPABASE_URL=... EXPO_PUBLIC_SUPABASE_ANON_KEY=... npm start
+cp .env.example .env && npm start
 ```
 
-The Supabase client (`src/data/supabase.ts`) is written against the schema but has not
-been run against a live project yet -- see the build notes for what to verify first.
+The Supabase client's RPC and column names are pinned by `supabase/tests/08_app_contract.sql`,
+so a rename on either side fails CI rather than a phone.
 
 ## Running the tests
 
@@ -106,7 +107,7 @@ construct."
 
 | Step | Status |
 | --- | --- |
-| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 59 assertions passing |
+| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 99 assertions passing, applied to the live project |
 | 2. Auth, DOB gate, guardian linking | app built; Supabase wiring untested against a live project |
 | 3. Profile, home court, availability | done |
 | 4. Court directory | done (Boston seed coordinates need verifying) |
@@ -116,4 +117,6 @@ construct."
 | 8. Block/report + moderation queue | block/report in app, guardian-side block; reviewer surface pending |
 | 9. Roster codes | done |
 | 10. Match-found animation | done (Center Court) |
-| Push notifications | outbox + edge function + app registration; unverified on device |
+| Push notifications | outbox + edge function deployed + app registration; unverified on device |
+| Phone sharing | per confirmed hit, opt-in, revocable |
+| Guardian link lifecycle | magic link accept, opened tracking, revoke |

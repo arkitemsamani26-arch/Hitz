@@ -44,7 +44,7 @@ export default function Level() {
           {!knows && LADDER.map(l => {
             const on = v === l.v && src === 'estimated';
             return (
-              <Tap key={l.v} onPress={() => { setV(l.v); setSrc('estimated'); }} tick style={[s.opt, on && s.on]} accessibilityRole="radio" accessibilityState={{ selected: on }}>
+              <Tap key={l.v} onPress={() => { setV(l.v); setSrc('estimated'); }} tick style={[s.opt, on && s.on]} accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
                 <View style={{ flex: 1 }}>
                   <T v="bodyM" tone="ink">{l.label}</T>
                   <T v="small" tone="ink2">{l.sub}</T>

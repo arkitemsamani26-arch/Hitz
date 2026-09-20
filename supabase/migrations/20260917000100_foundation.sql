@@ -10,7 +10,7 @@ create extension if not exists citext;
 
 create schema if not exists app;
 revoke all on schema app from public;
-grant usage on schema app to authenticated, service_role;
+grant usage on schema app to anon, authenticated, service_role;
 
 create type app.age_band as enum ('minor', 'adult');
 

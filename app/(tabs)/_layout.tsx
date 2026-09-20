@@ -13,7 +13,7 @@ type BarProps = { state: { index: number; routes: { key: string; name: string }[
 function Bar({ state, navigation }: BarProps) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[s.bar, { paddingBottom: insets.bottom + space.sm }]}>
+    <View style={[s.bar, { paddingBottom: insets.bottom + space.sm }]} accessibilityRole="tablist">
       {state.routes.map((route, i) => {
         const on = state.index === i;
         return (

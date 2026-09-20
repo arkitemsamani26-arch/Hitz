@@ -6,7 +6,8 @@
 //
 // Contrast (WCAG): ink on paper 16.1:1 · ink2 on paper 7.8:1 · ink on ball 14.2:1 ·
 // white on court 5.4:1 (18px+ only) · white on ground 5.0:1 (18px+ only) · ink on sky 12.3:1.
-// ink3 is 4.6:1 and is reserved for non-essential labels.
+// ink3 on paper 5.3:1. Text placed on the green ground is white (5.0:1) or ink (4.9:1);
+// nothing readable sits on the sky-to-green transition bands.
 
 export const color = {
   sky: '#BFE3FF',
@@ -27,7 +28,7 @@ export const color = {
 
   ink: '#0E1B33',
   ink2: '#4A5470',
-  ink3: '#7C869E',
+  ink3: '#5E6A86',
   onCourt: '#FFFFFF',
 
   hair: 'rgba(14,27,51,0.10)',

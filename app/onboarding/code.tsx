@@ -32,7 +32,7 @@ export default function Code() {
     finally { setBusy(false); }
   };
   return (
-    <Screen sky={200} bottom={<Centered><Button title="Let's go" kind="ball" onPress={() => go()} loading={busy} disabled={code.length < 6} /></Centered>}>
+    <Screen sky={250} bottom={<Centered><Button title="Let's go" kind="ball" onPress={() => go()} loading={busy} disabled={code.length < 6} /></Centered>}>
       <Centered>
         <Header />
         <T v="display" style={{ marginTop: space.xl }}>Check your texts.</T>
