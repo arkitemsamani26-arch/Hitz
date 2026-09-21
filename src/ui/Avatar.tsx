@@ -3,6 +3,7 @@ import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { T } from './Text';
 import { color } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 
 const PALETTE = ['#2E6FCB', '#1F5A34', '#D97A2B', '#7A3FB5', '#C7326B', '#0E8A8A'];
 export function Avatar({ name, photo, size = 40, ring }: { name: string; photo?: string | null; size?: number; ring?: boolean }) {
@@ -17,6 +18,6 @@ export function Avatar({ name, photo, size = 40, ring }: { name: string; photo?:
   );
 }
 const s = StyleSheet.create({
-  a: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
+  a: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...shadow({ y: 3, blur: 8, opacity: 0.25, color: '#000000' }) },
   ring: { borderWidth: 3, borderColor: color.paper },
 });

@@ -38,6 +38,18 @@ export function windowShout(start: Date): string {
   return `${DAYS[start.getDay()].toUpperCase()} ${timeShort(start).toUpperCase()}`;
 }
 
+// Compact form for list rows, where three facts have to fit on one line.
+export function activeShort(iso: string): string {
+  const h = (Date.now() - new Date(iso).getTime()) / 3600000;
+  if (h < 1) return 'Now';
+  if (h < 24) return 'Today';
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'Yesterday';
+  if (d < 7) return `${d}d ago`;
+  if (d < 30) return `${Math.floor(d / 7)}w ago`;
+  return 'Quiet';
+}
+
 export function activeText(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const h = ms / 3600000;

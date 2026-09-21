@@ -5,6 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequ
 import React, { useEffect } from 'react';
 const grain = require('../../assets/tex/grain.png');
 import { sunShadow } from './Screen';
+import { shadow } from '@/lib/shadow';
 import { T } from './Text';
 import { Tap } from './Tap';
 import { color } from '@/theme/tokens';
@@ -85,7 +86,7 @@ export function Token({ p, x, y, onPress, hot, delay = 0, above }: { p: Player; 
   return (
     <Animated.View style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove, drop]} pointerEvents="box-none">
       {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
-      <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, { shadowOffset: sunShadow(9) }, hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
+      <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, sunShadow(9), hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
         <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 15 }}>{p.levelValue?.toFixed(1)}</T>
       </Tap>
       {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
@@ -103,17 +104,17 @@ export function You({ level }: { level: number | null }) {
 }
 
 const s = StyleSheet.create({
-  court: { backgroundColor: color.court, borderWidth: 3, borderColor: color.line, borderRadius: 3, overflow: 'visible', shadowColor: '#071A0C', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 16 } },
+  court: { backgroundColor: color.court, borderWidth: 3, borderColor: color.line, borderRadius: 3, overflow: 'visible', ...shadow({ y: 16, blur: 28, opacity: 0.35 }) },
   tilt: { transform: [{ perspective: 900 }, { rotateX: '9deg' }] },
   vline: { position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: color.line },
   hline: { position: 'absolute', height: 3, backgroundColor: color.line },
-  net: { position: 'absolute', left: -6, right: -6, top: '50%', height: 4, marginTop: -2, backgroundColor: color.line, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 2, shadowOffset: { width: 0, height: 2 } },
+  net: { position: 'absolute', left: -6, right: -6, top: '50%', height: 4, marginTop: -2, backgroundColor: color.line, ...shadow({ y: 2, blur: 3, opacity: 0.25, color: '#000000' }) },
   mark: { position: 'absolute', left: '50%', width: 3, height: 8, marginLeft: -1.5, backgroundColor: color.line },
   tokWrap: { position: 'absolute', width: 84, height: 74, marginLeft: -42, marginTop: -23, alignItems: 'center' },
   tokWrapAbove: { marginTop: -51, justifyContent: 'flex-end' },
-  tok: { width: 48, height: 48, borderRadius: 24, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 6, borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
+  tok: { width: 48, height: 48, borderRadius: 24, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
   tokHot: { backgroundColor: color.ball },
   tokLabel: { marginVertical: 4, width: 84, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.55)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
   youWrap: { position: 'absolute', bottom: 12, left: 0, right: 0, alignItems: 'center' },
-  you: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.ball, borderWidth: 3, borderColor: color.paper, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 4 } },
+  you: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.ball, borderWidth: 3, borderColor: color.paper, ...shadow({ y: 4, blur: 8, opacity: 0.35 }) },
 });

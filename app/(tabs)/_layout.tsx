@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { color, hit, space } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 
 const LABELS: Record<string, string> = { index: 'Hits', you: 'You' };
 type BarProps = { state: { index: number; routes: { key: string; name: string }[] }; navigation: { navigate: (name: string) => void } };
@@ -48,7 +49,7 @@ export default function TabsLayout() {
   );
 }
 const s = StyleSheet.create({
-  bar: { flexDirection: 'row', backgroundColor: color.paper, borderTopWidth: 3, borderTopColor: color.line, paddingTop: space.sm, paddingHorizontal: space.xxl, maxWidth: 520, width: '100%', alignSelf: 'center', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: -4 } },
+  bar: { flexDirection: 'row', backgroundColor: color.paper, borderTopWidth: 3, borderTopColor: color.line, paddingTop: space.sm, paddingHorizontal: space.xxl, maxWidth: 520, width: '100%', alignSelf: 'center', ...shadow({ y: -4, blur: 14, opacity: 0.12, color: '#000000' }) },
   tab: { flex: 1, minHeight: hit.min, alignItems: 'center', justifyContent: 'center', gap: 5 },
   ball: { width: 12, height: 12 },
   roller: { position: 'absolute', top: 10, left: space.xxl, width: 12, height: 12, borderRadius: 6, backgroundColor: color.ball, borderWidth: 1.5, borderColor: color.ink, alignItems: 'center', justifyContent: 'center' },

@@ -6,6 +6,7 @@ import { Score } from './Score';
 import { Avatar } from './Avatar';
 import Animated, { FlipInYRight } from 'react-native-reanimated';
 import { color, space } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 
 export function MemberCard({ name, level, verified, court, roster, minor, number = '0142', typing, photo, flip }:
   { name: string; level: number | null; verified?: boolean; court: string | null; roster?: string | null; minor?: boolean; number?: string; typing?: 'name' | 'level' | 'court' | null; photo?: string | null; flip?: boolean }) {
@@ -38,7 +39,7 @@ export function MemberCard({ name, level, verified, court, roster, minor, number
   );
 }
 const s = StyleSheet.create({
-  card: { backgroundColor: color.paper, borderRadius: 18, padding: space.lg, marginBottom: space.md, transform: [{ rotate: '-1deg' }], shadowColor: '#0A2A12', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 12 }, elevation: 8, overflow: 'hidden' },
+  card: { backgroundColor: color.paper, borderRadius: 18, padding: space.lg, marginBottom: space.md, transform: [{ rotate: '-1deg' }], overflow: 'hidden', ...shadow({ y: 12, blur: 24, color: '#0A2A12', opacity: 0.3 }) },
   head: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: space.md },
   val: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1.5, borderBottomColor: color.paper3, paddingBottom: 2, minHeight: 28 },
   cursor: { width: 2, height: 20, backgroundColor: color.ink, marginLeft: 3 },

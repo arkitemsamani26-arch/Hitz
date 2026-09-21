@@ -5,6 +5,7 @@ import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, wi
 import { CourtSurface } from './Court';
 import { T } from './Text';
 import { color, space } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 import { useMotion } from '@/lib/motion';
 
 export function Rally({ label, a = '8.0', b = '8.1' }: { label?: string; a?: string; b?: string }) {
@@ -39,7 +40,7 @@ export function Rally({ label, a = '8.0', b = '8.1' }: { label?: string; a?: str
 const s = StyleSheet.create({
   wrap: { alignItems: 'center', gap: space.lg, paddingVertical: space.xl },
   court: { width: 120, height: 220 },
-  player: { position: 'absolute', left: '50%', marginLeft: -19, width: 38, height: 38, borderRadius: 19, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 4 } },
+  player: { position: 'absolute', left: '50%', marginLeft: -19, width: 38, height: 38, borderRadius: 19, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', ...shadow({ y: 4, blur: 8, opacity: 0.3, color: '#000000' }) },
   num: { fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 13, color: color.ink },
   ball: { position: 'absolute', left: '50%', top: '50%', marginLeft: -7, marginTop: -7, width: 14, height: 14, borderRadius: 7, backgroundColor: color.ball, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
   shadow: { position: 'absolute', left: '50%', top: '50%', marginLeft: -7, marginTop: -3, width: 14, height: 6, borderRadius: 7, backgroundColor: '#000' },

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { T } from './Text';
 import { Tap } from './Tap';
 import { color, radius, space } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 
 type Toast = { id: number; text: string; action?: { label: string; onPress: () => void }; ms: number };
 const Ctx = createContext<(text: string, action?: Toast['action'], ms?: number) => void>(() => {});
@@ -43,6 +44,6 @@ export const useToast = () => useContext(Ctx);
 
 const s = StyleSheet.create({
   wrap: { position: 'absolute', left: space.lg, right: space.lg, alignItems: 'center' },
-  toast: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.ink, borderRadius: radius.lg, paddingVertical: space.md, paddingLeft: space.lg, paddingRight: space.sm, width: '100%', maxWidth: 480, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: color.ink, borderRadius: radius.lg, paddingVertical: space.md, paddingLeft: space.lg, paddingRight: space.sm, width: '100%', maxWidth: 480, ...shadow({ y: 8, blur: 20, opacity: 0.3, color: '#000000' }) },
   action: { minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: color.ball, justifyContent: 'center' },
 });

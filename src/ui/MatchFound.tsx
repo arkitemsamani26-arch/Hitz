@@ -10,6 +10,7 @@ import { Button } from './Button';
 import { CourtSurface } from './Court';
 import { Sky } from './Screen';
 import { color, space } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 import { spring, useMotion } from '@/lib/motion';
 import { haptic } from '@/lib/haptics';
 import { play } from '@/lib/sound';
@@ -103,7 +104,7 @@ const s = StyleSheet.create({
   court: { alignSelf: 'center' },
   side: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   num: { fontSize: 84, lineHeight: 88, letterSpacing: -4, textShadowColor: 'rgba(0,0,0,0.25)', textShadowRadius: 0, textShadowOffset: { width: 0, height: 4 } },
-  banner: { position: 'absolute', left: -8, right: -8, top: '50%', marginTop: -30, backgroundColor: color.ball, paddingVertical: 6, alignItems: 'center', transform: [{ rotate: '-3deg' }], shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
+  banner: { position: 'absolute', left: -8, right: -8, top: '50%', marginTop: -30, backgroundColor: color.ball, paddingVertical: 6, alignItems: 'center', transform: [{ rotate: '-3deg' }], ...shadow({ y: 6, blur: 14, opacity: 0.3, color: '#000000' }) },
   ball: { position: 'absolute', left: '50%', top: 0, marginLeft: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: color.ball, borderWidth: 2, borderColor: 'rgba(0,0,0,0.25)' },
   details: { marginTop: space.xl, alignItems: 'center', gap: 4 },
   mini: { position: 'absolute', left: '50%', top: '50%', marginLeft: -6, marginTop: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: color.ball, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },

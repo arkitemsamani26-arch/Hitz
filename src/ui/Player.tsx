@@ -7,7 +7,7 @@ import { Score } from './Score';
 import { Sheet } from './Screen';
 import { Avatar } from './Avatar';
 import { color, hit, space } from '@/theme/tokens';
-import { activeText, pct } from '@/lib/format';
+import { activeShort, activeText, pct } from '@/lib/format';
 import { slotsOf, type Player } from '@/data/types';
 
 export function name(p: Player) { return p.lastInitial ? `${p.displayName} ${p.lastInitial}.` : p.displayName; }
@@ -41,16 +41,16 @@ export function PlayerCard({ p, anonymous, tall }: { p: Player; anonymous?: bool
 export function PlayerRow({ p, onPress, onHit, disabled }: { p: Player; onPress: () => void; onHit: () => void; disabled?: boolean }) {
   return (
     <View style={s.row}>
-      <Tap onPress={onPress} style={s.rowMain} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${name(p)}, level ${p.levelValue}`}>
-      <Avatar name={p.displayName} photo={p.photoUrl} size={40} />
-      <View style={{ width: 62, marginLeft: space.sm }}><Score value={p.levelValue} size="h1" verified={p.levelVerified} tone="court" /></View>
-      <View style={{ flex: 1, marginLeft: space.md }}>
+      <Tap onPress={onPress} style={s.rowMain} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={[`${name(p)}, level ${p.levelValue}`, p.distanceBucket, activeText(p.lastActiveAt), pct(p.responseRate) && `replies ${pct(p.responseRate)}`].filter(Boolean).join(', ')}>
+      <Avatar name={p.displayName} photo={p.photoUrl} size={38} />
+      <View style={{ flex: 1, marginLeft: space.md, marginRight: space.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
           <T v="bodyM" numberOfLines={1}>{name(p)}</T>
           {p.lookingToHit && <View style={s.dot} accessibilityLabel="Looking to hit this week" />}
         </View>
-        <T v="small" tone="ink2" numberOfLines={1}>{[p.distanceBucket, activeText(p.lastActiveAt), pct(p.responseRate) && `replies ${pct(p.responseRate)}`].filter(Boolean).join(' · ')}</T>
+        <T v="small" tone="ink2" numberOfLines={1}>{[p.distanceBucket, activeShort(p.lastActiveAt), pct(p.responseRate)].filter(Boolean).join(' · ')}</T>
       </View>
+      <Score value={p.levelValue} size="h1" verified={p.levelVerified} tone="court" />
       </Tap>
       <Tap onPress={onHit} disabled={disabled} style={[s.hitBtn, disabled && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel={`Request a hit with ${p.displayName}`} tick>
         <T v="smallM" tone="onCourt">Hit</T>
@@ -65,5 +65,5 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', minHeight: hit.row + 4, borderBottomWidth: 1, borderBottomColor: color.hair },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: space.md, minHeight: hit.row + 4 },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: color.ball, borderWidth: 1.5, borderColor: color.ink },
-  hitBtn: { backgroundColor: color.court, minHeight: 44, minWidth: 64, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.lg },
+  hitBtn: { backgroundColor: color.court, minHeight: 44, minWidth: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md, marginLeft: space.md },
 });

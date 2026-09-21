@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { color, space } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 
 const grain = require('../../assets/tex/grain.png');
 
@@ -20,12 +21,16 @@ export function skyFor(d = new Date()) {
 }
 
 // Shadows fall away from the sun: morning sun on the left throws them right, and so on.
-export function sunShadow(len = 14): { width: number; height: number } {
+export function sunShadow(len = 14, warm = false) {
   const k = skyFor();
-  if (!k.sun) return { width: 0, height: len };
-  const dx = 0.5 - k.sun.x, dy = 1 - k.sun.y;           // vector from sun toward the ground
-  const n = Math.hypot(dx, dy) || 1;
-  return { width: Math.round((dx / n) * len * 0.9), height: Math.round(Math.max(0.5, dy / n) * len) };
+  let x = 0, y = len;
+  if (k.sun) {
+    const dx = 0.5 - k.sun.x, dy = 1 - k.sun.y;         // vector from sun toward the ground
+    const n = Math.hypot(dx, dy) || 1;
+    x = Math.round((dx / n) * len * 0.9);
+    y = Math.round(Math.max(0.5, dy / n) * len);
+  }
+  return shadow({ x, y, blur: len * 1.7, color: warm ? '#1E3B12' : '#071A0C', opacity: warm ? 0.22 : 0.3 });
 }
 
 export function Sky({ height = 190 }: { height?: number }) {
@@ -70,7 +75,7 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
 // warm, long shadow underneath.
 export function Sheet({ children, style, accent, loud }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; accent?: boolean; loud?: boolean }) {
   return (
-    <View style={[s.sheet, { shadowOffset: sunShadow(14) }, accent && s.accent, loud && s.loud, style]}>
+    <View style={[s.sheet, sunShadow(loud ? 10 : 14, loud), accent && s.accent, loud && s.loud, style]}>
       <View style={s.edge} pointerEvents="none" />
       {children}
     </View>
@@ -90,7 +95,7 @@ const s = StyleSheet.create({
   grow: { flexGrow: 1 },
   pad: { paddingHorizontal: space.lg },
   bottom: { paddingHorizontal: space.lg, paddingTop: space.md },
-  sheet: { backgroundColor: color.paper, borderRadius: 24, padding: space.lg, shadowColor: '#071A0C', shadowOpacity: 0.35, shadowRadius: 22, shadowOffset: { width: 0, height: 14 }, elevation: 8, overflow: 'hidden' },
+  sheet: { backgroundColor: color.paper, borderRadius: 24, padding: space.lg, overflow: 'hidden' },
   edge: { position: 'absolute', top: 0, left: 24, right: 24, height: 2, backgroundColor: 'rgba(14,27,51,0.06)', borderRadius: 1 },
   accent: { borderWidth: 3, borderColor: color.ball },
   loud: { backgroundColor: color.ball },

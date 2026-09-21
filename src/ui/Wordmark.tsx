@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withTiming, withDelay } from 'react-native-reanimated';
 import { T } from './Text';
 import { color } from '@/theme/tokens';
+import { shadow } from '@/lib/shadow';
 import { useMotion } from '@/lib/motion';
 
 export function Wordmark({ tone = 'ink' as 'ink' | 'onCourt' }) {
@@ -24,5 +25,5 @@ export function Wordmark({ tone = 'ink' as 'ink' | 'onCourt' }) {
 }
 const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
-  ball: { width: 14, height: 14, borderRadius: 7, backgroundColor: color.ball, borderWidth: 2, borderColor: color.ink, marginBottom: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 } },
+  ball: { width: 14, height: 14, borderRadius: 7, backgroundColor: color.ball, borderWidth: 2, borderColor: color.ink, marginBottom: 8, ...shadow({ y: 2, blur: 4, opacity: 0.3, color: '#000000' }) },
 });
