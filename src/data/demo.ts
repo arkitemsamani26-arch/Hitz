@@ -80,7 +80,7 @@ type State = {
     levelSource: Profile['levelSource']; homeCourtId: string; availabilityMask: number;
     lookingToHitUntil: string | null; lastActiveAt: string;
     guardianEmail: string | null; guardianVerified: boolean;
-    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null;
+    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null;
   };
   rosters: Roster[];
   pushToken: string | null;
@@ -209,7 +209,7 @@ export class DemoApi implements HitsApi {
     const responded = mine.filter(r => r.state !== 'pending' && r.state !== 'expired');
     const accepted = responded.filter(r => ['accepted', 'confirmed', 'completed'].includes(r.state));
     return {
-      id: ME, displayName: p.displayName, lastInitial: p.lastInitial, photoUrl: null,
+      id: ME, displayName: p.displayName, lastInitial: p.lastInitial, photoUrl: p.photo ?? null,
       band: bandOf(p.dateOfBirth), levelValue: p.levelValue, levelSource: p.levelSource,
       homeCourtId: p.homeCourtId, availabilityMask: p.availabilityMask,
       lastActiveAt: p.lastActiveAt, lookingToHitUntil: p.lookingToHitUntil,
@@ -330,7 +330,7 @@ export class DemoApi implements HitsApi {
   private selfAsPlayer(): Player {
     const m = this.meProfile()!;
     return {
-      id: ME, displayName: m.displayName, lastInitial: m.lastInitial, photoUrl: null,
+      id: ME, displayName: m.displayName, lastInitial: m.lastInitial, photoUrl: m.photoUrl,
       levelValue: m.levelValue, levelSource: m.levelSource, levelVerified: m.levelSource === 'utr_verified',
       levelDelta: 0, distanceBucket: null, homeCourtId: m.homeCourtId,
       homeCourtName: COURTS.find(c => c.id === m.homeCourtId)?.name ?? null,
@@ -402,6 +402,8 @@ export class DemoApi implements HitsApi {
   }
   async setPushToken(token: string) { await this.load(); this.s.pushToken = token; this.save(); }
   async beginUtrLink() { return null; }
+  async setPhoto(base64: string | null) { await this.load(); if (!this.s.profile) throw new ApiError('no profile'); this.s.profile.photo = base64 ? `data:image/jpeg;base64,${base64}` : null; this.save(); return this.meProfile()!; }
+  async guardianRemovePhoto() { await this.load(); if (this.s.profile) { this.s.profile.photo = null; this.save(); } }
   async sharePhone(id: string, share: boolean) {
     await this.load(); const r = this.find(id);
     if (share && !['confirmed', 'completed'].includes(r.state)) throw new ApiError('You can share your number once the hit is confirmed.');

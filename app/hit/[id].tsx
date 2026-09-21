@@ -14,6 +14,8 @@ import { Pill } from '@/ui/Pill';
 import { OptionSheet } from '@/ui/Sheet';
 import { CourtSurface } from '@/ui/Court';
 import { MatchFound } from '@/ui/MatchFound';
+import { BallBurst } from '@/ui/BallBurst';
+import { play } from '@/lib/sound';
 import { useToast } from '@/ui/Toast';
 import { color, font, radius, space } from '@/theme/tokens';
 import { api, demo } from '@/data';
@@ -36,6 +38,7 @@ export default function Hit() {
   const [more, setMore] = useState(false);
   const [text, setText] = useState('');
   const [showMatch, setShowMatch] = useState(false);
+  const [burst, setBurst] = useState(0);
   const scroll = useRef<ScrollView>(null);
   const r = data?.request;
 
@@ -117,8 +120,9 @@ export default function Hit() {
             <T v="small" tone="ink2" style={{ marginBottom: space.md }}>One tap. It's how "hits played" stays honest.</T>
             <View style={{ flexDirection: 'row', gap: space.md }}>
               <Button title="Didn't happen" kind="line" small onPress={() => act(() => api.confirmPlayed(r.id, false))} />
-              <Button title="We hit" kind="ball" small onPress={() => act(async () => { await api.confirmPlayed(r.id, true); haptic.accepted(); })} style={{ flex: 1 }} />
+              <Button title="We hit" kind="ball" small onPress={() => { setBurst(b => b + 1); haptic.confirmed(); play('strike'); void act(() => api.confirmPlayed(r.id, true)); }} style={{ flex: 1 }} />
             </View>
+            <BallBurst fire={burst} />
           </Sheet>
         )}
       </View>

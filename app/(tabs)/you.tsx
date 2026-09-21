@@ -13,6 +13,10 @@ import { useToast } from '@/ui/Toast';
 import { color, hit, space } from '@/theme/tokens';
 import { api, demo } from '@/data';
 import * as WebBrowser from 'expo-web-browser';
+import { pickPhoto } from '@/lib/photo';
+import { loadSoundPref, setSoundEnabled } from '@/lib/sound';
+import { OptionSheet } from '@/ui/Sheet';
+import { Avatar } from '@/ui/Avatar';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
 import { slotsOf, SLOTS } from '@/data/types';
@@ -27,6 +31,9 @@ export default function You() {
   const [editingAvail, setEditingAvail] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [sound, setSound] = useState(true);
+  React.useEffect(() => { void loadSoundPref().then(setSound); }, []);
   if (!profile) return null;
   const looking = !!profile.lookingToHitUntil && new Date(profile.lookingToHitUntil) > new Date();
   const court = courts?.find(c => c.id === profile.homeCourtId)?.name ?? '—';
@@ -42,7 +49,14 @@ export default function You() {
   return (
     <Screen sky={150}>
       <Centered>
-        <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`} level={profile.levelValue} verified={profile.levelSource === 'utr_verified'} court={court} roster={profile.rosterName} minor={profile.band === 'minor'} />
+        <Tap onPress={() => setPhotoSheet(true)} accessibilityRole="button" accessibilityLabel="Change your photo" scaleTo={0.985}>
+          <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`} level={profile.levelValue} verified={profile.levelSource === 'utr_verified'} court={court} roster={profile.rosterName} minor={profile.band === 'minor'} photo={profile.photoUrl} />
+        </Tap>
+        <OptionSheet open={photoSheet} onClose={() => setPhotoSheet(false)} title="Your photo" options={[
+          { label: 'Take a photo', onPress: async () => { const r = await pickPhoto('camera'); if (r) setProfile(await api.setPhoto(r.base64)); } },
+          { label: 'Choose from library', onPress: async () => { const r = await pickPhoto('library'); if (r) setProfile(await api.setPhoto(r.base64)); } },
+          ...(profile.photoUrl ? [{ label: 'Remove photo', danger: true, onPress: async () => { setProfile(await api.setPhoto(null)); } }] : []),
+        ]} />
 
         {profile.levelSource !== 'utr_verified' && (
           <Sheet style={[s.row, { alignItems: 'flex-start' }]}>
@@ -111,6 +125,10 @@ export default function You() {
               {SLOTS.map(sl => <Pill key={sl.bit} label={`${sl.label} ${sl.part.toLowerCase()}`} on={!!(profile.availabilityMask & sl.bit)} onPress={() => toggleSlot(sl.bit)} />)}
             </View>
           )}
+          <View style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]}>
+            <View style={{ flex: 1 }}><T v="bodyM">Sound</T><T v="small" tone="ink2">One ball strike when a hit locks in. Off in silent mode anyway.</T></View>
+            <Switch value={sound} onValueChange={v => { setSound(v); void setSoundEnabled(v); }} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Sound" />
+          </View>
           <View style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]}>
             <View style={{ flex: 1 }}><T v="bodyM">Browse on the court</T><T v="small" tone="ink2">Players placed by level and distance, instead of the list.</T></View>
             <Switch value={!listMode} onValueChange={v => setListMode(!v)} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Browse on the court" />

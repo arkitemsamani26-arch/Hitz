@@ -47,6 +47,9 @@ export interface HitsApi {
   sharePhone(id: string, share: boolean): Promise<void>;
   // UTR linking: returns the OAuth URL to open, or null when not configured.
   beginUtrLink(): Promise<string | null>;
+  // Photos: a square JPEG as base64; returns the new profile. null removes it.
+  setPhoto(base64: string | null): Promise<Profile>;
+  guardianRemovePhoto(childId: string): Promise<void>;
   sharedPhones(id: string): Promise<{ profileId: string; phone: string; mine: boolean }[]>;
   setPushToken(token: string): Promise<void>;
 

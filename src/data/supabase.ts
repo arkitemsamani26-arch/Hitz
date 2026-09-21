@@ -5,6 +5,7 @@
 // file never tries to re-implement a safety rule, it just asks.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { decode } from 'base64-arraybuffer';
 import { ApiError, type HitsApi } from './api';
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
@@ -218,6 +219,17 @@ export class SupabaseApi implements HitsApi {
     return (await this.hit(id))!.request;
   }
   async setPushToken(token: string) { await this.sb.rpc('set_push_token', { p_token: token }); }
+  async setPhoto(base64: string | null) {
+    if (!base64) { await this.sb.from('profiles').update({ photo_url: null }).eq('id', this.uid!); return (await this.me())!; }
+    const path = `${this.uid}/${Date.now()}.jpg`;
+    const { error } = await this.sb.storage.from('avatars').upload(path, decode(base64), { contentType: 'image/jpeg', upsert: true });
+    if (error) this.fail(error as any);
+    const url = this.sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const { error: e2 } = await this.sb.from('profiles').update({ photo_url: url }).eq('id', this.uid!);
+    if (e2) this.fail(e2);
+    return (await this.me())!;
+  }
+  async guardianRemovePhoto(childId: string) { const { error } = await this.sb.rpc('guardian_remove_photo', { p_child: childId }); if (error) this.fail(error); }
   async beginUtrLink() {
     const auth = process.env.EXPO_PUBLIC_UTR_AUTH_URL, cid = process.env.EXPO_PUBLIC_UTR_CLIENT_ID;
     if (!auth || !cid) return null;

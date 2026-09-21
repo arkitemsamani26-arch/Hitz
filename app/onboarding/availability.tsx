@@ -5,6 +5,7 @@ import { Screen, Centered } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
+import { Pop } from '@/ui/Pop';
 import { color, radius, space } from '@/theme/tokens';
 import { api } from '@/data';
 import { useDraft, isMinor } from '@/store/onboarding';
@@ -28,6 +29,7 @@ export default function Availability() {
         levelValue: draft.levelValue!, levelSource: draft.levelSource!, homeCourtId: draft.homeCourtId!, availabilityMask: mask, rosterCode: draft.rosterCode,
       });
       setProfile(p);
+      if (draft.photoBase64) { try { setProfile(await api.setPhoto(draft.photoBase64)); } catch { /* photo is optional */ } }
       router.push(isMinor(draft.dateOfBirth) ? '/onboarding/guardian' : '/onboarding/ready');
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
@@ -45,9 +47,9 @@ export default function Availability() {
               {g.map(sl => {
                 const on = !!(mask & sl.bit);
                 return (
-                  <Tap key={sl.bit} onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]} accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} accessibilityLabel={`${sl.label} ${sl.part}`}>
+                  <Pop key={sl.bit} on={on} style={{ flex: 1 }}><Tap onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]} accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} accessibilityLabel={`${sl.label} ${sl.part}`}>
                     <T v="bodyM" tone={on ? 'onBall' : 'ink'}>{sl.part}</T>
-                  </Tap>
+                  </Tap></Pop>
                 );
               })}
             </View>

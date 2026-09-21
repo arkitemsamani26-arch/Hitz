@@ -18,12 +18,12 @@ export function PlayerCard({ p, anonymous, tall }: { p: Player; anonymous?: bool
   return (
     <Sheet style={[tall && { minHeight: 320 }]} accent={p.lookingToHit}>
       <View style={s.top}>
-        <Avatar name={anonymous ? '?' : p.displayName} size={52} ring />
+        <Avatar name={anonymous ? '?' : p.displayName} photo={anonymous ? null : p.photoUrl} size={52} ring />
         <View style={{ flex: 1 }}>
           <T v="h1" numberOfLines={1}>{anonymous ? 'Player' : name(p)}</T>
           <T v="small" tone="ink2" style={{ marginTop: 2 }}>{[p.distanceBucket, p.homeCourtName].filter(Boolean).join(' · ')}</T>
         </View>
-        <Score value={p.levelValue} size="score" verified={p.levelVerified} tone="court" />
+        <Score value={p.levelValue} size="score" verified={p.levelVerified} tone="court" animate />
       </View>
       <View style={s.rule} />
       <View style={s.pills}>
@@ -42,7 +42,7 @@ export function PlayerRow({ p, onPress, onHit, disabled }: { p: Player; onPress:
   return (
     <View style={s.row}>
       <Tap onPress={onPress} style={s.rowMain} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${name(p)}, level ${p.levelValue}`}>
-      <Avatar name={p.displayName} size={40} />
+      <Avatar name={p.displayName} photo={p.photoUrl} size={40} />
       <View style={{ width: 62, marginLeft: space.sm }}><Score value={p.levelValue} size="h1" verified={p.levelVerified} tone="court" /></View>
       <View style={{ flex: 1, marginLeft: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>

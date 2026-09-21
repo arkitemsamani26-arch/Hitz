@@ -13,6 +13,7 @@ import { InstrumentSans_400Regular } from '@expo-google-fonts/instrument-sans/40
 import { InstrumentSans_500Medium } from '@expo-google-fonts/instrument-sans/500Medium';
 import { InstrumentSans_600SemiBold } from '@expo-google-fonts/instrument-sans/600SemiBold';
 import { configureForeground } from '@/lib/push';
+import { loadSoundPref } from '@/lib/sound';
 import { SessionProvider } from '@/store/session';
 import { OnboardingProvider } from '@/store/onboarding';
 import { FiltersProvider } from '@/store/filters';
@@ -23,7 +24,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Root() {
   const [loaded] = useFonts({ BricolageGrotesque_800ExtraBold, BricolageGrotesque_600SemiBold, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold });
-  useEffect(() => { configureForeground(); }, []);
+  useEffect(() => { configureForeground(); void loadSoundPref(); }, []);
   useEffect(() => { if (loaded) void SplashScreen.hideAsync().catch(() => {}); }, [loaded]);
   if (!loaded) return <View style={{ flex: 1, backgroundColor: color.ground }} />;
   return (

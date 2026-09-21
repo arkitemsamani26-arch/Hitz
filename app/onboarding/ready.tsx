@@ -28,7 +28,7 @@ export default function Ready() {
           <T v="display">You're in,{'\n'}{profile?.displayName ?? ''}.</T>
         </Animated.View>
         <Animated.View entering={FadeInUp.delay(150).springify().damping(14)} style={{ marginTop: space.xl }}>
-          <MemberCard name={`${profile?.displayName ?? ''} ${profile?.lastInitial ?? ''}.`} level={profile?.levelValue ?? null} verified={profile?.levelSource === 'utr_verified'} court={court} roster={profile?.rosterName} minor={profile?.band === 'minor'} />
+          <MemberCard name={`${profile?.displayName ?? ''} ${profile?.lastInitial ?? ''}.`} level={profile?.levelValue ?? null} verified={profile?.levelSource === 'utr_verified'} court={court} roster={profile?.rosterName} minor={profile?.band === 'minor'} photo={profile?.photoUrl} flip />
         </Animated.View>
         {pending && (
           <Animated.View entering={FadeInUp.delay(300).springify().damping(14)}>

@@ -10,6 +10,7 @@ import { Button } from '@/ui/Button';
 import { Score } from '@/ui/Score';
 import { color, hit, radius, space } from '@/theme/tokens';
 import { Sheet } from '@/ui/Screen';
+import { Pop } from '@/ui/Pop';
 import { useDraft } from '@/store/onboarding';
 import type { LevelSource } from '@/data/types';
 
@@ -43,7 +44,7 @@ export default function Level() {
             <T v="h1">How do you play?</T>
             <T v="small" tone="ink2" style={{ marginTop: 4 }}>Pick the one that sounds like you.</T>
           </View>
-          <View style={s.badge}><Score value={v} size="score" tone={v == null ? 'ink' : 'court'} /></View>
+          <Pop on={v != null}><View style={s.badge}><Score value={v} size="score" tone={v == null ? 'ink' : 'court'} animate /></View></Pop>
         </View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingBottom: space.xl }}>
           {!knows && LADDER.map(l => {

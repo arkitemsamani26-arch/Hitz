@@ -3,10 +3,12 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { T } from './Text';
 import { Score } from './Score';
+import { Avatar } from './Avatar';
+import Animated, { FlipInYRight } from 'react-native-reanimated';
 import { color, space } from '@/theme/tokens';
 
-export function MemberCard({ name, level, verified, court, roster, minor, number = '0142', typing }:
-  { name: string; level: number | null; verified?: boolean; court: string | null; roster?: string | null; minor?: boolean; number?: string; typing?: 'name' | 'level' | 'court' | null }) {
+export function MemberCard({ name, level, verified, court, roster, minor, number = '0142', typing, photo, flip }:
+  { name: string; level: number | null; verified?: boolean; court: string | null; roster?: string | null; minor?: boolean; number?: string; typing?: 'name' | 'level' | 'court' | null; photo?: string | null; flip?: boolean }) {
   const Line = ({ k, v, blink }: { k: string; v: string; blink?: boolean }) => (
     <View style={{ marginBottom: space.sm }}>
       <T v="micro" tone="ink3">{k}</T>
@@ -14,12 +16,13 @@ export function MemberCard({ name, level, verified, court, roster, minor, number
     </View>
   );
   return (
-    <View style={s.card}>
+    <Animated.View style={s.card} entering={flip ? FlipInYRight.springify().damping(14) : undefined}>
       <View style={s.head}>
         <T v="micro" tone="court">Hits · Palo Alto</T>
         <T v="micro" tone="ink3">No. {number}{minor ? ' · U18' : ''}</T>
       </View>
       <View style={{ flexDirection: 'row', gap: space.lg, alignItems: 'flex-start' }}>
+        <Avatar name={name || '?'} photo={photo} size={56} ring />
         <View style={{ flex: 1 }}>
           <Line k="Member" v={name} blink={typing === 'name'} />
           <Line k="Home court" v={court ?? ''} blink={typing === 'court'} />
@@ -27,11 +30,11 @@ export function MemberCard({ name, level, verified, court, roster, minor, number
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <T v="micro" tone="ink3">Level</T>
-          <Score value={level} size="score" verified={verified} tone="court" />
+          <Score value={level} size="score" verified={verified} tone="court" animate />
         </View>
       </View>
       <View style={s.stripe} />
-    </View>
+    </Animated.View>
   );
 }
 const s = StyleSheet.create({

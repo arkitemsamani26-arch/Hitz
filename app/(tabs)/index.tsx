@@ -25,6 +25,8 @@ import { defaultProposal } from '@/lib/defaults';
 import { haptic } from '@/lib/haptics';
 import { windowText } from '@/lib/format';
 import { registerPush } from '@/lib/push';
+import { play } from '@/lib/sound';
+import Animated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated';
 import { DECLINE_COPY, type DeclineReason, type HitRequest, type Player } from '@/data/types';
 
 export default function Hits() {
@@ -57,13 +59,13 @@ export default function Hits() {
     setSent(s => [...s, p.id]); setPicked(null);
     try {
       const r = await api.sendRequest(p.id, d.courtId, d.start, d.end, null);
-      haptic.sent();
+      haptic.sent(); play('pop');
       // Undo is a real button and the window is long enough to read the toast twice.
       toast(`Sent to ${p.displayName} · ${windowText(d.start, d.end)}`, { label: 'Undo', onPress: () => { void api.cancelRequest(r.id); setSent(s => s.filter(x => x !== p.id)); } }, 7000);
     } catch (e: any) { setSent(s => s.filter(x => x !== p.id)); toast(e.message); }
   }, [profile, canRequest, toast]);
 
-  const accept = async (r: HitRequest) => { await api.accept(r.id); haptic.accepted(); await reqs.reload(); router.push(`/hit/${r.id}`); };
+  const accept = async (r: HitRequest) => { await api.accept(r.id); haptic.accepted(); play('pop'); await reqs.reload(); router.push(`/hit/${r.id}`); };
   const decline = async (r: HitRequest, reason: DeclineReason) => { await api.decline(r.id, reason); await reqs.reload(); };
   const open = (p: Player) => router.push(`/player/${p.id}`);
   const courtW = Math.min(width - 32, 480), courtH = Math.min(courtW * 1.5, 540);
@@ -93,7 +95,7 @@ export default function Hits() {
         {myMove.map(r => (
           <Sheet key={r.id} loud style={s.move}>
             <Tap onPress={() => router.push(`/hit/${r.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }} accessibilityRole="button">
-              <Avatar name={r.other.displayName} size={48} ring />
+              <Avatar name={r.other.displayName} photo={r.other.photoUrl} size={48} ring />
               <View style={{ flex: 1 }}>
                 <T v="micro" tone="ink">{r.state === 'countered' ? 'Countered · your move' : 'Your move'}</T>
                 <T v="h2" tone="ink">{r.other.displayName} {r.other.lastInitial}. wants to hit</T>
@@ -138,7 +140,7 @@ export default function Hits() {
           </Sheet>
         ) : listMode ? (
           <Sheet style={{ paddingVertical: 4 }}>
-            {visible.map(p => <PlayerRow key={p.id} p={p} onPress={() => open(p)} onHit={() => quickSend(p)} disabled={!canRequest} />)}
+            {visible.map((p, i) => <Animated.View key={p.id} entering={FadeInDown.delay(Math.min(i, 8) * 40).springify().damping(16)} exiting={FadeOutLeft.duration(220)} layout={LinearTransition.springify().damping(18)}><PlayerRow p={p} onPress={() => open(p)} onHit={() => quickSend(p)} disabled={!canRequest} /></Animated.View>)}
           </Sheet>
         ) : (
           // The court view: players positioned by level and distance. Closer to the net

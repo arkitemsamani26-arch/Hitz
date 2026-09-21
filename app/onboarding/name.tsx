@@ -15,7 +15,7 @@ export default function Name() {
   const [first, setFirst] = useState(draft.displayName);
   const [last, setLast] = useState(draft.lastInitial);
   const ok = first.trim().length >= 2 && /^[A-Za-z]$/.test(last);
-  const go = () => { patch({ displayName: first.trim(), lastInitial: last.toUpperCase() }); router.push('/onboarding/birthday'); };
+  const go = () => { patch({ displayName: first.trim(), lastInitial: last.toUpperCase() }); router.push('/onboarding/photo'); };
   return (
     <Screen sky={250} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!ok} /></Centered>}>
       <Centered>

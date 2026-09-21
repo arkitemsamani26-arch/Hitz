@@ -11,6 +11,7 @@ import { Sky } from './Screen';
 import { color, space } from '@/theme/tokens';
 import { spring, useMotion } from '@/lib/motion';
 import { haptic } from '@/lib/haptics';
+import { play } from '@/lib/sound';
 import { levelBig, windowShout } from '@/lib/format';
 import type { HitRequest, Profile } from '@/data/types';
 
@@ -31,9 +32,9 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   useEffect(() => {
     if (!open) return;
     setLanded(false);
-    if (reduced) { ball.value = 1; near.value = 1; far.value = 1; banner.value = withTiming(1, { duration: 300 }); details.value = withTiming(1, { duration: 300 }); setLanded(true); haptic.confirmed(); return; }
+    if (reduced) { ball.value = 1; near.value = 1; far.value = 1; banner.value = withTiming(1, { duration: 300 }); details.value = withTiming(1, { duration: 300 }); setLanded(true); haptic.confirmed(); play('strike'); return; }
     ball.value = 0; near.value = 0; far.value = 0; banner.value = 0; details.value = 0;
-    const land = () => { haptic.confirmed(); setLanded(true); };
+    const land = () => { haptic.confirmed(); play('strike'); setLanded(true); };
     burst.value = 0; burst.value = withDelay(1200, withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }));
     near.value = withDelay(200, withSpring(1, spring.land));
     ball.value = withDelay(500, withTiming(1, { duration: 720, easing: Easing.inOut(Easing.quad) }, f => { if (f) runOnJS(land)(); }));

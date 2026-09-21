@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Progress } from '@/ui/Progress';
 import { color, space } from '@/theme/tokens';
 
-const STEPS = ['phone', 'code', 'name', 'birthday', 'level', 'peek', 'court', 'availability', 'guardian', 'ready'];
+const STEPS = ['phone', 'code', 'name', 'photo', 'birthday', 'level', 'peek', 'court', 'availability', 'guardian', 'ready'];
 
 export default function OnboardingLayout() {
   const path = usePathname();

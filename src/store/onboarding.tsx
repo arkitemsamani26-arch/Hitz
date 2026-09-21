@@ -14,11 +14,13 @@ export type Draft = {
   guardianEmail: string;
   guardianPhone: string;
   rosterCode: string | null;
+  photoBase64: string | null;
+  photoUri: string | null;
 };
 
 const empty: Draft = {
   phone: '', displayName: '', lastInitial: '', dateOfBirth: null, levelValue: null, levelSource: null,
-  homeCourtId: null, availabilityMask: 0, guardianEmail: '', guardianPhone: '', rosterCode: null,
+  homeCourtId: null, availabilityMask: 0, guardianEmail: '', guardianPhone: '', rosterCode: null, photoBase64: null, photoUri: null,
 };
 
 const Ctx = createContext<{ draft: Draft; patch: (p: Partial<Draft>) => void; reset: () => void } | null>(null);

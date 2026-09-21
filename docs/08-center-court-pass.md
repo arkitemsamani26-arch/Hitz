@@ -121,3 +121,24 @@ still missing is the partner credential itself, which only UTR can issue (`09`).
 no rating API; the level step now takes an NTRP rating and maps it onto the UTR scale as a
 self-reported start. Not built, on purpose: reading UTR's unofficial profile endpoints —
 it would work today and cost the partnership tomorrow.
+
+## Addendum — photos, sound, animation (2026-09-21)
+
+- **Photos.** A "Put a face on it" step after the name (camera or library, square, 512px,
+  skippable), tap the member card in You to change it, a public bucket keyed by the owner's
+  id with owner-only writes. Who can *see* a photo is exactly who can see the profile — an
+  adult cannot find a minor's URL (test 11) — and a linked parent can remove their child's
+  photo from the approve screen.
+- **Sound.** Two synthesized sounds shipped as WAVs: a ball strike (thump + string ping)
+  when a hit locks in, the parent approves, or "we hit" is confirmed; a soft pop when a
+  request goes out or is accepted. On by default, one toggle in You, silent-mode respected,
+  never on a loading state. Decision: on by default, because the strike only ever plays on
+  a moment the player just caused.
+- **Animation, everywhere the player touches.** Level numbers count up into place on every
+  card and the member card; the level badge pops when you pick a rung; pills and
+  availability tiles squash like a ball on the strings when they toggle; list rows spring
+  in staggered and swing out when you send; the member card flips in on the ready screen;
+  the parent's approval slams an APPROVED stamp and throws a ball burst; "we hit" throws
+  one too; the photo avatar zooms in when you set it. All under 150ms to respond, all off
+  under reduced motion.
+- axe: zero violations on ten screens.

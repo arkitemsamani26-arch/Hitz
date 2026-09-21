@@ -11,6 +11,10 @@ import { Pill } from '@/ui/Pill';
 import { Rally } from '@/ui/Rally';
 import { Score } from '@/ui/Score';
 import { OptionSheet } from '@/ui/Sheet';
+import { Stamp } from '@/ui/Stamp';
+import { BallBurst } from '@/ui/BallBurst';
+import { Avatar } from '@/ui/Avatar';
+import { play } from '@/lib/sound';
 import { useToast } from '@/ui/Toast';
 import { color, radius, space } from '@/theme/tokens';
 import { api } from '@/data';
@@ -28,6 +32,7 @@ export default function Approve() {
   const assurance = useAsync(() => api.assurance(id), [id]);
   const [busy, setBusy] = useState<'yes' | 'no' | null>(null);
   const [blocking, setBlocking] = useState(false);
+  const [burst, setBurst] = useState(0);
   if (loading && !data) return <Screen sky={120}><Centered><Header /><Rally /></Centered></Screen>;
   if (!data) return <Screen sky={120}><Centered><Header /><Sheet><T v="body" tone="ink2">This one's gone.</T></Sheet></Centered></Screen>;
   const { request: r, messages, child } = data;
@@ -35,7 +40,7 @@ export default function Approve() {
   const decided = mine?.decision != null || r.state === 'confirmed' || r.state === 'declined' || r.state === 'cancelled';
   const decide = async (v: boolean) => {
     setBusy(v ? 'yes' : 'no');
-    try { await api.guardianDecide(r.id, child.id, v); if (v) haptic.accepted(); await reload(); } finally { setBusy(null); }
+    try { await api.guardianDecide(r.id, child.id, v); if (v) { haptic.confirmed(); play('strike'); setBurst(b => b + 1); } await reload(); } finally { setBusy(null); }
   };
   const o = r.other; const a = assurance.data;
   const months = (n: number | null) => n == null ? '' : n < 1 ? 'this month' : n === 1 ? 'a month ago' : `${n} months ago`;
@@ -51,7 +56,9 @@ export default function Approve() {
       <Centered>
         <Header kicker="Parent approval" title={child.displayName} />
         {decided && (
-          <Sheet accent={r.state === 'confirmed'} style={s.box}>
+          <Sheet accent={r.state === 'confirmed'} style={[s.box, { overflow: 'visible' }]}>
+            {r.state === 'confirmed' && <View style={{ marginBottom: space.md }}><Stamp text="Approved" /></View>}
+            <BallBurst fire={burst} />
             <T v="h2" tone={r.state === 'confirmed' ? 'court' : 'ink'}>{r.state === 'confirmed' ? `Approved. ${child.displayName}'s hit is on.` : r.state === 'declined' ? 'You passed on this one.' : r.state === 'cancelled' ? 'This hit was cancelled.' : "Waiting on the other parent."}</T>
           </Sheet>
         )}
@@ -59,6 +66,7 @@ export default function Approve() {
         <T v="micro" tone="onCourt" style={s.k}>Who</T>
         <Sheet style={s.box}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg }}>
+            <Avatar name={o.displayName} photo={o.photoUrl} size={52} ring />
             <View style={{ flex: 1 }}><T v="h2">{o.displayName} {o.lastInitial}.</T><T v="small" tone="ink2">Under 18 · {activeText(o.lastActiveAt)}</T></View>
             <Score value={o.levelValue} size="h1" verified={o.levelVerified} tone="court" />
           </View>
@@ -109,7 +117,10 @@ export default function Approve() {
           ))}
         </Sheet>
 
-        <Button title={`Block ${o.displayName} for ${child.displayName}`} kind="danger" small onPress={() => setBlocking(true)} style={{ alignSelf: 'flex-start', marginBottom: space.xl }} />
+        <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', marginBottom: space.xl }}>
+          <Button title={`Block ${o.displayName} for ${child.displayName}`} kind="danger" small onPress={() => setBlocking(true)} />
+          {child.photoUrl && <Button title={`Remove ${child.displayName}'s photo`} kind="line" small onPress={async () => { try { await api.guardianRemovePhoto(child.id); toast('Photo removed.'); await reload(); } catch (e: any) { toast(e.message); } }} />}
+        </View>
         <OptionSheet open={blocking} onClose={() => setBlocking(false)} title={`Block ${o.displayName} on ${child.displayName}'s behalf?`} options={[
           { label: 'Block', sub: `They disappear from each other. This hit is cancelled. ${o.displayName} is not told.`, danger: true,
             onPress: async () => { try { await api.guardianBlock(child.id, o.id); toast(`Blocked. ${child.displayName} won't see ${o.displayName} again.`); router.replace('/guardian'); } catch (e: any) { toast(e.message); } } },
