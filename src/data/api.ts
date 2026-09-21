@@ -50,6 +50,7 @@ export interface HitsApi {
   // Photos: a square JPEG as base64; returns the new profile. null removes it.
   setPhoto(base64: string | null): Promise<Profile>;
   guardianRemovePhoto(childId: string): Promise<void>;
+  guardianApprovePhoto(childId: string, approve: boolean): Promise<void>;
   sharedPhones(id: string): Promise<{ profileId: string; phone: string; mine: boolean }[]>;
   setPushToken(token: string): Promise<void>;
 

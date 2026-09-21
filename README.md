@@ -107,7 +107,7 @@ construct."
 
 | Step | Status |
 | --- | --- |
-| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 105 assertions passing, applied to the live project |
+| 1. Schema, PostGIS, RLS (incl. no-client-select coordinates) | done, 109 assertions passing, applied to the live project |
 | 2. Auth, DOB gate, guardian linking | app built; Supabase wiring untested against a live project |
 | 3. Profile, home court, availability | done |
 | 4. Court directory | done (Boston seed coordinates need verifying) |
@@ -119,8 +119,9 @@ construct."
 | 10. Match-found animation | done (Center Court) |
 | Push notifications | outbox + edge function deployed + app registration; unverified on device |
 | Phone sharing | per confirmed hit, opt-in, revocable |
-| Photos | onboarding step + change in You; parent can remove a child's |
+| Photos | onboarding step + change in You; a minor's photo is parent-approved |
 | Sound | strike on lock-in, pop on send; toggle in You |
+| Share card | story-sized image of the confirmed moment |
 | Guardian link lifecycle | magic link accept, opened tracking, revoke |
 | UTR linking | OAuth flow + edge function deployed; waiting on UTR partner credentials |
 | Level input | ladder, UTR self-entry, or USTA NTRP mapped to the UTR scale |

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming, withSpring } from 'react-native-reanimated';
 import React, { useEffect } from 'react';
 const grain = require('../../assets/tex/grain.png');
+import { sunShadow } from './Screen';
 import { T } from './Text';
 import { Tap } from './Tap';
 import { color } from '@/theme/tokens';
@@ -84,7 +85,7 @@ export function Token({ p, x, y, onPress, hot, delay = 0, above }: { p: Player; 
   return (
     <Animated.View style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove, drop]} pointerEvents="box-none">
       {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
-      <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
+      <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, { shadowOffset: sunShadow(9) }, hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
         <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 15 }}>{p.levelValue?.toFixed(1)}</T>
       </Tap>
       {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}

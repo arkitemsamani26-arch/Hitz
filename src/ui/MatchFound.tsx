@@ -1,7 +1,8 @@
 // The showpiece. Sky, court, the ball crosses the net and the two numbers stand up on
 // either side of it. Built to be posted to a story without being asked.
-import React, { useEffect, useState } from 'react';
-import { Modal, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ShareCard, shareMoment } from './ShareCard';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { T } from './Text';
@@ -20,6 +21,7 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [landed, setLanded] = useState(false);
+  const cardRef = useRef<View>(null);
   const courtH = Math.min(height * 0.62, 560);
 
   const ball = useSharedValue(0);      // 0 near baseline -> 1 far baseline
@@ -60,12 +62,13 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   }));
 
   const start = new Date(req.windowStart);
-  const share = () => { void Share.share({ message: `It's on. ${me.displayName} vs ${req.other.displayName} · ${windowShout(start)} · ${req.courtName}` }).catch(() => {}); };
+  const share = () => { void shareMoment(cardRef, req, me); };
 
   return (
     <Modal visible={open} animationType={reduced ? 'fade' : 'none'} onRequestClose={onDone}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom + space.lg }]}>
         <Sky height={insets.top + 140} />
+        <ShareCard ref={cardRef} req={req} me={me} />
         <View style={{ height: insets.top + 60 }} />
         <CourtSurface style={[s.court, { height: courtH, width: Math.min(width - 48, 380) }]}>
           <Animated.View style={[s.side, { top: '10%' }, farS]}>

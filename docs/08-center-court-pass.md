@@ -142,3 +142,17 @@ it would work today and cost the partnership tomorrow.
   one too; the photo avatar zooms in when you set it. All under 150ms to respond, all off
   under reduced motion.
 - axe: zero violations on ten screens.
+
+## Addendum — all four (2026-09-21)
+
+- **Strike sound v2**: a bandpassed string-bed transient, a felt thwock and two body modes,
+  still synthesized (no licence to carry). Swap `assets/sfx/strike.wav` for a recording
+  whenever you have one; nothing else changes.
+- **Photos of minors are parent-approved.** A minor's new photo goes to
+  `photo_pending_url`; the parent's dashboard shows it with Approve / Remove; nobody else
+  sees it until then (test 12). Adults' photos publish immediately.
+- **Shadows follow the sun.** `sunShadow()` derives the offset from the time-of-day sun;
+  sheets and court tokens cast their shadows away from it.
+- **Story share card.** The confirmed moment renders a 1080x1920 card off-screen (both
+  faces, both numbers, IT'S ON, day and court) and shares it as an image on device; on web
+  it shares the text.

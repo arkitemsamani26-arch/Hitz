@@ -19,6 +19,15 @@ export function skyFor(d = new Date()) {
   return { stops: ['#5E8FD6', '#F2B27A', '#FFE6C2'] as const, sun: { x: 0.6, y: 0.12, c: '#FFC85C' }, night: false };
 }
 
+// Shadows fall away from the sun: morning sun on the left throws them right, and so on.
+export function sunShadow(len = 14): { width: number; height: number } {
+  const k = skyFor();
+  if (!k.sun) return { width: 0, height: len };
+  const dx = 0.5 - k.sun.x, dy = 1 - k.sun.y;           // vector from sun toward the ground
+  const n = Math.hypot(dx, dy) || 1;
+  return { width: Math.round((dx / n) * len * 0.9), height: Math.round(Math.max(0.5, dy / n) * len) };
+}
+
 export function Sky({ height = 190 }: { height?: number }) {
   const k = skyFor();
   return (
@@ -61,7 +70,7 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
 // warm, long shadow underneath.
 export function Sheet({ children, style, accent, loud }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; accent?: boolean; loud?: boolean }) {
   return (
-    <View style={[s.sheet, accent && s.accent, loud && s.loud, style]}>
+    <View style={[s.sheet, { shadowOffset: sunShadow(14) }, accent && s.accent, loud && s.loud, style]}>
       <View style={s.edge} pointerEvents="none" />
       {children}
     </View>

@@ -52,6 +52,7 @@ export default function You() {
         <Tap onPress={() => setPhotoSheet(true)} accessibilityRole="button" accessibilityLabel="Change your photo" scaleTo={0.985}>
           <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`} level={profile.levelValue} verified={profile.levelSource === 'utr_verified'} court={court} roster={profile.rosterName} minor={profile.band === 'minor'} photo={profile.photoUrl} />
         </Tap>
+        {profile.photoPendingUrl && <Sheet style={{ marginBottom: space.md }}><T v="smallM">Your new photo is waiting on your parent.</T><T v="small" tone="ink2">They get a text. It goes live the moment they approve it.</T></Sheet>}
         <OptionSheet open={photoSheet} onClose={() => setPhotoSheet(false)} title="Your photo" options={[
           { label: 'Take a photo', onPress: async () => { const r = await pickPhoto('camera'); if (r) setProfile(await api.setPhoto(r.base64)); } },
           { label: 'Choose from library', onPress: async () => { const r = await pickPhoto('library'); if (r) setProfile(await api.setPhoto(r.base64)); } },

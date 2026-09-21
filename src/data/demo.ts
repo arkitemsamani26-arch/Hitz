@@ -80,7 +80,7 @@ type State = {
     levelSource: Profile['levelSource']; homeCourtId: string; availabilityMask: number;
     lookingToHitUntil: string | null; lastActiveAt: string;
     guardianEmail: string | null; guardianVerified: boolean;
-    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null;
+    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null;
   };
   rosters: Roster[];
   pushToken: string | null;
@@ -219,7 +219,7 @@ export class DemoApi implements HitsApi {
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
-      guardianSentAt: p.guardianSentAt, guardianOpenedAt: p.guardianOpenedAt, rosterName: p.rosterName,
+      guardianSentAt: p.guardianSentAt, guardianOpenedAt: p.guardianOpenedAt, rosterName: p.rosterName, photoPendingUrl: p.photoPending ?? null,
     };
   }
   async me() { await this.load(); return this.meProfile(); }
@@ -402,8 +402,20 @@ export class DemoApi implements HitsApi {
   }
   async setPushToken(token: string) { await this.load(); this.s.pushToken = token; this.save(); }
   async beginUtrLink() { return null; }
-  async setPhoto(base64: string | null) { await this.load(); if (!this.s.profile) throw new ApiError('no profile'); this.s.profile.photo = base64 ? `data:image/jpeg;base64,${base64}` : null; this.save(); return this.meProfile()!; }
-  async guardianRemovePhoto() { await this.load(); if (this.s.profile) { this.s.profile.photo = null; this.save(); } }
+  async setPhoto(base64: string | null) {
+    await this.load(); if (!this.s.profile) throw new ApiError('no profile');
+    const url = base64 ? `data:image/jpeg;base64,${base64}` : null;
+    if (!url) { this.s.profile.photo = null; this.s.profile.photoPending = null; }
+    else if (this.myBand() === 'minor') this.s.profile.photoPending = url;   // the parent approves it
+    else this.s.profile.photo = url;
+    this.save(); return this.meProfile()!;
+  }
+  async guardianRemovePhoto() { await this.load(); if (this.s.profile) { this.s.profile.photo = null; this.s.profile.photoPending = null; this.save(); } }
+  async guardianApprovePhoto(_child: string, approve: boolean) {
+    await this.load(); if (!this.s.profile) return;
+    if (approve && this.s.profile.photoPending) this.s.profile.photo = this.s.profile.photoPending;
+    this.s.profile.photoPending = null; this.save();
+  }
   async sharePhone(id: string, share: boolean) {
     await this.load(); const r = this.find(id);
     if (share && !['confirmed', 'completed'].includes(r.state)) throw new ApiError('You can share your number once the hit is confirmed.');

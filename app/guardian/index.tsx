@@ -6,6 +6,7 @@ import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
 import { Pill } from '@/ui/Pill';
 import { Rally } from '@/ui/Rally';
+import { Avatar } from '@/ui/Avatar';
 import { OptionSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import React, { useState } from 'react';
@@ -34,6 +35,16 @@ export default function GuardianHome() {
             <Sheet style={{ marginBottom: space.md }}>
               <View style={s.kid}><T v="h2">{k.profile.displayName}</T><Pill label={`Level ${levelBig(k.profile.levelValue)}`} tone="faint" /><Pill label={`${k.profile.hitsConfirmed} hits`} tone="faint" /></View>
             </Sheet>
+            {k.profile.photoPendingUrl && (
+              <Sheet accent style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                <Avatar name={k.profile.displayName} photo={k.profile.photoPendingUrl} size={64} ring />
+                <View style={{ flex: 1 }}><T v="bodyM">{k.profile.displayName} added a photo</T><T v="small" tone="ink2">Nobody sees it until you say so.</T></View>
+                <View style={{ gap: space.xs }}>
+                  <Button title="Approve" kind="ball" small onPress={async () => { await api.guardianApprovePhoto(k.profile.id, true); toast('Photo approved.'); await refresh(); }} />
+                  <Button title="Remove" kind="line" small onPress={async () => { await api.guardianApprovePhoto(k.profile.id, false); toast('Photo removed.'); await refresh(); }} />
+                </View>
+              </Sheet>
+            )}
             <T v="micro" tone="onCourt" style={{ marginBottom: space.sm }}>Needs your OK</T>
             {k.pendingApprovals.length === 0
               ? <Sheet style={{ marginBottom: space.md }}><T v="body" tone="ink2">Nothing waiting. You'll get a text when something is.</T></Sheet>

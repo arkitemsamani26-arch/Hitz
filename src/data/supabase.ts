@@ -73,7 +73,7 @@ export class SupabaseApi implements HitsApi {
       lastActiveAt: r.last_active_at, lookingToHitUntil: r.looking_to_hit_until,
       responseRate: r.requests_received ? r.requests_responded / r.requests_received : null,
       acceptRate: r.requests_responded ? r.requests_accepted / r.requests_responded : null,
-      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, ...extras,
+      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, ...extras,
     };
   }
   async me() {
@@ -220,15 +220,16 @@ export class SupabaseApi implements HitsApi {
   }
   async setPushToken(token: string) { await this.sb.rpc('set_push_token', { p_token: token }); }
   async setPhoto(base64: string | null) {
-    if (!base64) { await this.sb.from('profiles').update({ photo_url: null }).eq('id', this.uid!); return (await this.me())!; }
+    if (!base64) { await this.sb.rpc('set_my_photo', { p_url: null }); return (await this.me())!; }
     const path = `${this.uid}/${Date.now()}.jpg`;
     const { error } = await this.sb.storage.from('avatars').upload(path, decode(base64), { contentType: 'image/jpeg', upsert: true });
     if (error) this.fail(error as any);
     const url = this.sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
-    const { error: e2 } = await this.sb.from('profiles').update({ photo_url: url }).eq('id', this.uid!);
+    const { error: e2 } = await this.sb.rpc('set_my_photo', { p_url: url });   // minors: pending until the parent approves
     if (e2) this.fail(e2);
     return (await this.me())!;
   }
+  async guardianApprovePhoto(childId: string, approve: boolean) { const { error } = await this.sb.rpc('guardian_approve_photo', { p_child: childId, p_approve: approve }); if (error) this.fail(error); }
   async guardianRemovePhoto(childId: string) { const { error } = await this.sb.rpc('guardian_remove_photo', { p_child: childId }); if (error) this.fail(error); }
   async beginUtrLink() {
     const auth = process.env.EXPO_PUBLIC_UTR_AUTH_URL, cid = process.env.EXPO_PUBLIC_UTR_CLIENT_ID;

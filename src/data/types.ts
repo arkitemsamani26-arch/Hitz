@@ -25,6 +25,7 @@ export interface Profile {
   guardianSentAt: string | null;
   guardianOpenedAt: string | null;  // the parent tapped the link
   rosterName: string | null;
+  photoPendingUrl?: string | null;  // a minor's photo awaiting the parent
 }
 
 // Planned together while the parents decide. Small, one-tap choices both sides see.
