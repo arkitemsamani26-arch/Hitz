@@ -401,6 +401,7 @@ export class DemoApi implements HitsApi {
     this.save(); return this.toRequest(r);
   }
   async setPushToken(token: string) { await this.load(); this.s.pushToken = token; this.save(); }
+  async beginUtrLink() { return null; }
   async sharePhone(id: string, share: boolean) {
     await this.load(); const r = this.find(id);
     if (share && !['confirmed', 'completed'].includes(r.state)) throw new ApiError('You can share your number once the hit is confirmed.');

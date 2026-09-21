@@ -218,6 +218,13 @@ export class SupabaseApi implements HitsApi {
     return (await this.hit(id))!.request;
   }
   async setPushToken(token: string) { await this.sb.rpc('set_push_token', { p_token: token }); }
+  async beginUtrLink() {
+    const auth = process.env.EXPO_PUBLIC_UTR_AUTH_URL, cid = process.env.EXPO_PUBLIC_UTR_CLIENT_ID;
+    if (!auth || !cid) return null;
+    const { data, error } = await this.sb.rpc('begin_utr_link'); if (error) this.fail(error);
+    const redirect = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/utr-link`;
+    return `${auth}?response_type=code&client_id=${encodeURIComponent(cid)}&redirect_uri=${encodeURIComponent(redirect)}&state=${encodeURIComponent(String(data))}&scope=profile`;
+  }
   async sharePhone(id: string, share: boolean) { const { error } = await this.sb.rpc('share_my_phone', { p_hit: id, p_share: share }); if (error) this.fail(error); }
   async sharedPhones(id: string) {
     const { data } = await this.sb.rpc('shared_phone', { p_hit: id });

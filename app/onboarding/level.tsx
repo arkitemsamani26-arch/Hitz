@@ -13,6 +13,11 @@ import { Sheet } from '@/ui/Screen';
 import { useDraft } from '@/store/onboarding';
 import type { LevelSource } from '@/data/types';
 
+// USTA NTRP to the UTR scale, midpoint of the usual overlap. Self-reported, so stored as
+// 'utr_self' -- the verified badge only comes from a real UTR link.
+const NTRP: { n: string; v: number }[] = [
+  { n: '2.5', v: 1.8 }, { n: '3.0', v: 2.6 }, { n: '3.5', v: 3.6 }, { n: '4.0', v: 4.8 }, { n: '4.5', v: 6.0 }, { n: '5.0', v: 7.5 }, { n: '5.5', v: 9.0 }, { n: '6.0+', v: 10.5 },
+];
 const LADDER: { label: string; sub: string; v: number }[] = [
   { label: 'Getting rallies going', sub: 'Newer to the game, working on consistency', v: 2.0 },
   { label: 'I can hold a rally', sub: 'Solid strokes, serve is a work in progress', v: 3.5 },
@@ -27,7 +32,7 @@ export default function Level() {
   const { draft, patch } = useDraft();
   const [v, setV] = useState<number | null>(draft.levelValue);
   const [src, setSrc] = useState<LevelSource | null>(draft.levelSource);
-  const [knows, setKnows] = useState(draft.levelSource === 'utr_self');
+  const [knows, setKnows] = useState<false | 'utr' | 'ntrp'>(draft.levelSource === 'utr_self' ? 'utr' : false);
   const go = () => { if (v == null || !src) return; patch({ levelValue: v, levelSource: src }); router.push('/onboarding/peek'); };
   const step = (d: number) => { setV(x => Math.min(16.5, Math.max(1, +((x ?? 6) + d).toFixed(2)))); setSrc('utr_self'); };
   return (
@@ -53,7 +58,15 @@ export default function Level() {
               </Tap>
             );
           })}
-          {knows && (
+          {knows === 'ntrp' && (
+            <View style={s.stepper}>
+              <T v="small" tone="ink2" center style={{ marginBottom: space.md }}>Your USTA NTRP. We map it onto the UTR scale as a starting point.</T>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, justifyContent: 'center' }}>
+                {NTRP.map(x => <Button key={x.n} title={x.n} kind={v === x.v ? 'ball' : 'line'} small onPress={() => { setV(x.v); setSrc('utr_self'); }} />)}
+              </View>
+            </View>
+          )}
+          {knows === 'utr' && (
             <View style={s.stepper}>
               <T v="small" tone="ink2" center style={{ marginBottom: space.md }}>Your UTR. Close enough is fine — this isn't a rating, it's a starting point.</T>
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.md }}>
@@ -64,9 +77,14 @@ export default function Level() {
               </View>
             </View>
           )}
-          <Tap onPress={() => { setKnows(k => !k); if (!knows) { setSrc('utr_self'); setV(x => x ?? 6.0); } else { setV(null); setSrc(null); } }} style={s.link} tick>
-            <T v="smallM" tone="onCourt">{knows ? '← Back to the list' : 'I know my UTR →'}</T>
-          </Tap>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.lg }}>
+            {knows ? (
+              <Tap onPress={() => { setKnows(false); setV(null); setSrc(null); }} style={s.link} tick><T v="smallM" tone="onCourt">← Back to the list</T></Tap>
+            ) : (<>
+              <Tap onPress={() => { setKnows('utr'); setSrc('utr_self'); setV(x => x ?? 6.0); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my UTR →</T></Tap>
+              <Tap onPress={() => { setKnows('ntrp'); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my NTRP →</T></Tap>
+            </>)}
+          </View>
         </ScrollView>
       </Centered>
     </Screen>

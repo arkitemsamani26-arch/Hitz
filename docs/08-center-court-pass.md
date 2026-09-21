@@ -95,3 +95,29 @@ positioned by level (closer to the net = closer to your level) and distance (lef
 - **Phone sharing** (your ask): once a hit is confirmed either player can share their
   number for that hit — one tap, revocable, the other player gets a "Text" button, a
   linked parent can see it. Numbers stay unreadable everywhere else (test 09).
+
+## Addendum — light, depth, motion (2026-09-20)
+
+"Fun but not flashy" was fair. What changed, all within Center Court:
+- **Real light.** The sky is a gradient that follows the time of day (dawn gold, noon
+  blue, evening amber, a floodlit-dusk night session), with a sun in it and grain over it.
+  The ground is a gradient with grain; the court is gradient acrylic with a sheen.
+- **Depth.** Sheets are lit from the top-left (edge highlight, long warm shadow); the
+  discovery court is tilted in perspective so you're standing at the baseline; tokens cast
+  shadows and drop in with squash-and-stretch.
+- **Faces.** Initials avatars, coloured from the name, on every row, card and slab.
+- **Loud where it matters.** "Your move" is a solid ball-yellow slab with an ink button.
+  The wordmark has a live ball that bounces once. The tab bar's ball rolls, hops and spins
+  to the active tab. The confirmed landing throws twelve balls out from the net.
+- Court labels are first names only (distance is already the horizontal axis).
+
+## Addendum — UTR / USTA
+
+The accurate level is UTR's, and the app is now wired for it end to end: `Link UTR` →
+`begin_utr_link` (one-time state) → UTR's OAuth page → the deployed `utr-link` edge
+function → `apply_utr`, callable only by the server. A rated player's number becomes their
+`utr_verified` level and the badge; tokens are unreadable by any client (test 10). What is
+still missing is the partner credential itself, which only UTR can issue (`09`). USTA has
+no rating API; the level step now takes an NTRP rating and maps it onto the UTR scale as a
+self-reported start. Not built, on purpose: reading UTR's unofficial profile endpoints —
+it would work today and cost the partnership tomorrow.

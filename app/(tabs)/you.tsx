@@ -12,6 +12,7 @@ import { MemberCard } from '@/ui/MemberCard';
 import { useToast } from '@/ui/Toast';
 import { color, hit, space } from '@/theme/tokens';
 import { api, demo } from '@/data';
+import * as WebBrowser from 'expo-web-browser';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
 import { slotsOf, SLOTS } from '@/data/types';
@@ -43,6 +44,20 @@ export default function You() {
       <Centered>
         <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`} level={profile.levelValue} verified={profile.levelSource === 'utr_verified'} court={court} roster={profile.rosterName} minor={profile.band === 'minor'} />
 
+        {profile.levelSource !== 'utr_verified' && (
+          <Sheet style={[s.row, { alignItems: 'flex-start' }]}>
+            <View style={{ flex: 1 }}>
+              <T v="bodyM">Verify your level with UTR</T>
+              <T v="small" tone="ink2">Link your UTR account and your number comes from your match results, not a guess. Verified levels get the badge and better matches.</T>
+            </View>
+            <Button title="Link UTR" small kind="court" onPress={async () => {
+              const url = await api.beginUtrLink();
+              if (!url) { toast('UTR linking opens once our Engage API access is approved.'); return; }
+              await WebBrowser.openAuthSessionAsync(url, 'hits://you');
+              await refresh();
+            }} />
+          </Sheet>
+        )}
         <Sheet accent={looking} style={s.row}>
           <View style={{ flex: 1 }}>
             <T v="bodyM">Looking to hit this week</T>

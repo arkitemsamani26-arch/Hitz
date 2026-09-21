@@ -1,7 +1,9 @@
 // The court is the canvas. A top-down hard court with white lines; players sit on it.
-import React from 'react';
-import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { Image, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming, withSpring } from 'react-native-reanimated';
+import React, { useEffect } from 'react';
+const grain = require('../../assets/tex/grain.png');
 import { T } from './Text';
 import { Tap } from './Tap';
 import { color } from '@/theme/tokens';
@@ -12,9 +14,13 @@ import type { Player } from '@/data/types';
 const SIDE = 0.11;       // doubles alley width
 const SERVICE = 0.26;    // service line from each baseline
 
-export function CourtSurface({ style, children, dim, onLayout }: { style?: StyleProp<ViewStyle>; children?: React.ReactNode; dim?: boolean; onLayout?: (e: LayoutChangeEvent) => void }) {
+export function CourtSurface({ style, children, dim, onLayout, tilt }: { style?: StyleProp<ViewStyle>; children?: React.ReactNode; dim?: boolean; onLayout?: (e: LayoutChangeEvent) => void; tilt?: boolean }) {
   return (
-    <View style={[s.court, dim && { opacity: 0.85 }, style]} onLayout={onLayout}>
+    <View style={[s.court, dim && { opacity: 0.85 }, tilt && s.tilt, style]} onLayout={onLayout}>
+      {/* Acrylic in sunlight: lighter toward the net, with a sheen and grain. */}
+      <LinearGradient colors={['#2A63BE', '#3B7FE0', '#2A63BE']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <LinearGradient colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.6 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <Image source={grain} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity: 0.3, pointerEvents: "none" } as any]} />
       <View style={[s.vline, { left: `${SIDE * 100}%` }]} />
       <View style={[s.vline, { right: `${SIDE * 100}%` }]} />
       <View style={[s.hline, { top: `${SERVICE * 100}%`, left: `${SIDE * 100}%`, right: `${SIDE * 100}%` }]} />
@@ -40,7 +46,7 @@ export function place(p: Player, i: number, radiusMi: number): { x: number; y: n
   return { x, y };
 }
 
-const COLS = 5, ROWS = 5;                                     // far half only: y in [0.04, 0.46]
+const COLS = 5, ROWS = 4;                                     // far half only: y in [0.04, 0.46]
 export function layout(players: Player[], radiusMi: number): { x: number; y: number }[] {
   const taken = new Set<string>();
   const cellOf = (x: number, y: number) => ({ c: Math.max(0, Math.min(COLS - 1, Math.round(x * (COLS - 1)))), r: Math.max(0, Math.min(ROWS - 1, Math.round(((y - 0.04) / 0.42) * (ROWS - 1)))) });
@@ -66,15 +72,22 @@ export function parseMiles(b: string | null): number {
   if (!b) return 5; const m = b.match(/(\d+)/); return b.startsWith('under') ? 0.5 : m ? +m[1] : 5;
 }
 
+// A token drops onto the court like a ball: falls, squashes on impact, settles.
 export function Token({ p, x, y, onPress, hot, delay = 0, above }: { p: Player; x: number; y: number; onPress: () => void; hot?: boolean; delay?: number; above?: boolean }) {
+  const fall = useSharedValue(-60), sq = useSharedValue(1), op = useSharedValue(0);
+  useEffect(() => {
+    op.value = withDelay(delay, withTiming(1, { duration: 80 }));
+    fall.value = withDelay(delay, withTiming(0, { duration: 320, easing: Easing.in(Easing.quad) }));
+    sq.value = withDelay(delay + 300, withSequence(withTiming(0.72, { duration: 70 }), withSpring(1, { damping: 9, stiffness: 400 })));
+  }, [delay, fall, sq, op]);
+  const drop = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ translateY: fall.value }, { scaleY: sq.value }, { scaleX: 2 - sq.value }] }));
   return (
-    <Animated.View entering={FadeIn.delay(delay).springify().damping(spring.land.damping).stiffness(spring.land.stiffness)}
-      style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove]} pointerEvents="box-none">
-      {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName} · {p.distanceBucket?.replace('~', '') ?? ''}</T>}
+    <Animated.View style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove, drop]} pointerEvents="box-none">
+      {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
       <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
         <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 15 }}>{p.levelValue?.toFixed(1)}</T>
       </Tap>
-      {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName} · {p.distanceBucket?.replace('~', '') ?? ''}</T>}
+      {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
     </Animated.View>
   );
 }
@@ -89,16 +102,17 @@ export function You({ level }: { level: number | null }) {
 }
 
 const s = StyleSheet.create({
-  court: { backgroundColor: color.court, borderWidth: 3, borderColor: color.line, borderRadius: 3, overflow: 'visible' },
+  court: { backgroundColor: color.court, borderWidth: 3, borderColor: color.line, borderRadius: 3, overflow: 'visible', shadowColor: '#071A0C', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 16 } },
+  tilt: { transform: [{ perspective: 900 }, { rotateX: '9deg' }] },
   vline: { position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: color.line },
   hline: { position: 'absolute', height: 3, backgroundColor: color.line },
   net: { position: 'absolute', left: -6, right: -6, top: '50%', height: 4, marginTop: -2, backgroundColor: color.line, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 2, shadowOffset: { width: 0, height: 2 } },
   mark: { position: 'absolute', left: '50%', width: 3, height: 8, marginLeft: -1.5, backgroundColor: color.line },
-  tokWrap: { position: 'absolute', width: 120, height: 74, marginLeft: -60, marginTop: -23, alignItems: 'center' },
+  tokWrap: { position: 'absolute', width: 84, height: 74, marginLeft: -42, marginTop: -23, alignItems: 'center' },
   tokWrapAbove: { marginTop: -51, justifyContent: 'flex-end' },
-  tok: { width: 46, height: 46, borderRadius: 23, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
+  tok: { width: 48, height: 48, borderRadius: 24, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 6, borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
   tokHot: { backgroundColor: color.ball },
-  tokLabel: { marginVertical: 4, width: 120, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.55)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  tokLabel: { marginVertical: 4, width: 84, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.55)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
   youWrap: { position: 'absolute', bottom: 12, left: 0, right: 0, alignItems: 'center' },
   you: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.ball, borderWidth: 3, borderColor: color.paper, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 4 } },
 });

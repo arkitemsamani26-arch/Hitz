@@ -45,6 +45,8 @@ export interface HitsApi {
   updatePlan(id: string, patch: Partial<HitPlan>): Promise<HitRequest>;
   // Share your number for one confirmed hit. Off by default, revocable, per hit.
   sharePhone(id: string, share: boolean): Promise<void>;
+  // UTR linking: returns the OAuth URL to open, or null when not configured.
+  beginUtrLink(): Promise<string | null>;
   sharedPhones(id: string): Promise<{ profileId: string; phone: string; mine: boolean }[]>;
   setPushToken(token: string): Promise<void>;
 

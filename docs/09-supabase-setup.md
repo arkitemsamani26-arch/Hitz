@@ -39,3 +39,18 @@ Then `cp .env.example .env` and `npm start`.
 
 `supabase/moderation.sql` is the queue: run it in the SQL editor daily. Reports involving a
 minor sort first.
+
+## UTR / USTA
+
+The accurate level comes from UTR, and the app is built for it: `Link UTR` on the You tab
+starts an OAuth round trip (`begin_utr_link` → UTR → the `utr-link` edge function →
+`apply_utr`, which only the server can call). A rated player's number becomes their
+`utr_verified` level; tokens never reach a client (test 10). What is missing is the
+partner credential: apply at https://www.utrsports.net/pages/engage-api (the $250
+application fee applies without an existing partnership), then set the secrets
+`UTR_CLIENT_ID`, `UTR_CLIENT_SECRET`, `UTR_AUTH_URL`, `UTR_TOKEN_URL`, `UTR_PROFILE_URL` on
+the function and `EXPO_PUBLIC_UTR_AUTH_URL` / `EXPO_PUBLIC_UTR_CLIENT_ID` in the app. The
+profile field names in `utr-link/index.ts` are marked for adjustment against the docs.
+
+USTA has no public API for NTRP; the level step now takes an NTRP rating directly and maps
+it onto the UTR scale as a self-reported starting point.

@@ -12,6 +12,8 @@ import { Countdown } from '@/ui/Countdown';
 import { PlayerRow, PlayerCard } from '@/ui/Player';
 import { CourtSurface, Token, You, layout } from '@/ui/Court';
 import { Score } from '@/ui/Score';
+import { Wordmark } from '@/ui/Wordmark';
+import { Avatar } from '@/ui/Avatar';
 import { OptionSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { color, hit, space } from '@/theme/tokens';
@@ -71,7 +73,7 @@ export default function Hits() {
       <Centered>
         <View style={s.head}>
           <View>
-            <T v="display">Hits</T>
+            <Wordmark />
             <T v="smallM" tone="ink2">Palo Alto · {profile?.band === 'minor' ? 'juniors' : 'players'} near your level</T>
           </View>
           <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -89,19 +91,20 @@ export default function Hits() {
 
         {/* Your move, pinned. One tap either way. */}
         {myMove.map(r => (
-          <Sheet key={r.id} accent style={s.move}>
+          <Sheet key={r.id} loud style={s.move}>
             <Tap onPress={() => router.push(`/hit/${r.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }} accessibilityRole="button">
-              <Score value={r.other.levelValue} size="h1" verified={r.other.levelVerified} tone="court" />
+              <Avatar name={r.other.displayName} size={48} ring />
               <View style={{ flex: 1 }}>
-                <T v="micro" tone="court">{r.state === 'countered' ? 'Countered · your move' : 'Your move'}</T>
-                <T v="bodyM">{r.other.displayName} {r.other.lastInitial}. wants to hit</T>
-                <T v="small" tone="ink2" numberOfLines={1}>{windowText(new Date(r.windowStart), new Date(r.windowEnd))} · {r.courtName}</T>
+                <T v="micro" tone="ink">{r.state === 'countered' ? 'Countered · your move' : 'Your move'}</T>
+                <T v="h2" tone="ink">{r.other.displayName} {r.other.lastInitial}. wants to hit</T>
+                <T v="small" tone="ink" numberOfLines={1} style={{ opacity: 0.8 }}>{windowText(new Date(r.windowStart), new Date(r.windowEnd))} · {r.courtName}</T>
               </View>
+              <Score value={r.other.levelValue} size="h1" verified={r.other.levelVerified} tone="ink" />
             </Tap>
             <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
-              <Button title="Pass" kind="line" small onPress={() => setPassing(r)} />
-              <Button title="Counter" kind="line" small onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} />
-              <Button title="I'm in" kind="ball" small onPress={() => accept(r)} style={{ flex: 1 }} />
+              <Button title="Pass" kind="white" small onPress={() => setPassing(r)} />
+              <Button title="Counter" kind="white" small onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} />
+              <Button title="I'm in" kind="court" small onPress={() => accept(r)} style={{ flex: 1, backgroundColor: '#0E1B33' }} />
             </View>
           </Sheet>
         ))}
@@ -141,8 +144,8 @@ export default function Hits() {
           // The court view: players positioned by level and distance. Closer to the net
           // means closer to your level. You're the ball at the baseline.
           <View style={{ alignItems: 'center', paddingBottom: space.lg }}>
-            <CourtSurface style={{ width: courtW, height: courtH }}>
-              {(() => { const ps = visible.slice(0, 12); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={Math.round(((pos[i].y - 0.06) / 0.38) * 4) % 2 === 1} onPress={() => setPicked(p)} />); })()}
+            <CourtSurface tilt style={{ width: courtW, height: courtH }}>
+              {(() => { const ps = visible.slice(0, 12); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={false} onPress={() => setPicked(p)} />); })()}
               <You level={profile?.levelValue ?? null} />
             </CourtSurface>
             <T v="small" tone="onCourt" center style={{ marginTop: space.md, opacity: 0.9 }}>Closer to the net, closer to your level. Left to right is distance.</T>

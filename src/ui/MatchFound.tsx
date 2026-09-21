@@ -26,6 +26,7 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   const far = useSharedValue(0);
   const banner = useSharedValue(0);
   const details = useSharedValue(0);
+  const burst = useSharedValue(0);
 
   useEffect(() => {
     if (!open) return;
@@ -33,6 +34,7 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
     if (reduced) { ball.value = 1; near.value = 1; far.value = 1; banner.value = withTiming(1, { duration: 300 }); details.value = withTiming(1, { duration: 300 }); setLanded(true); haptic.confirmed(); return; }
     ball.value = 0; near.value = 0; far.value = 0; banner.value = 0; details.value = 0;
     const land = () => { haptic.confirmed(); setLanded(true); };
+    burst.value = 0; burst.value = withDelay(1200, withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }));
     near.value = withDelay(200, withSpring(1, spring.land));
     ball.value = withDelay(500, withTiming(1, { duration: 720, easing: Easing.inOut(Easing.quad) }, f => { if (f) runOnJS(land)(); }));
     far.value = withDelay(1180, withSpring(1, spring.land));
@@ -49,6 +51,12 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   const farS = useAnimatedStyle(() => ({ transform: [{ scale: far.value }, { translateY: (1 - far.value) * -40 }], opacity: far.value }));
   const bannerS = useAnimatedStyle(() => ({ transform: [{ scale: banner.value }], opacity: Math.min(1, banner.value) }));
   const detS = useAnimatedStyle(() => ({ opacity: details.value, transform: [{ translateY: (1 - details.value) * 20 }] }));
+  // Twelve small balls fly out from the net line on impact and fall away.
+  const balls = Array.from({ length: 12 }, (_, i) => i);
+  const burstStyles = balls.map(i => useAnimatedStyle(() => {
+    const a = (i / 12) * Math.PI * 2, r = burst.value * 150, g = burst.value * burst.value * 120;
+    return { opacity: burst.value === 0 ? 0 : 1 - burst.value, transform: [{ translateX: Math.cos(a) * r }, { translateY: Math.sin(a) * r * 0.5 + g }, { scale: 1 - burst.value * 0.5 }] };
+  }));
 
   const start = new Date(req.windowStart);
   const share = () => { void Share.share({ message: `It's on. ${me.displayName} vs ${req.other.displayName} · ${windowShout(start)} · ${req.courtName}` }).catch(() => {}); };
@@ -70,6 +78,7 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
           <Animated.View style={[s.banner, bannerS]} pointerEvents="none">
             <T v="display" tone="onBall" style={{ fontSize: 44, lineHeight: 46 }}>IT'S ON.</T>
           </Animated.View>
+          {balls.map(i => <Animated.View key={i} style={[s.mini, burstStyles[i]]} pointerEvents="none" />)}
           <Animated.View style={[s.ball, ballS]} />
         </CourtSurface>
         <Animated.View style={[s.details, detS]}>
@@ -93,5 +102,6 @@ const s = StyleSheet.create({
   banner: { position: 'absolute', left: -8, right: -8, top: '50%', marginTop: -30, backgroundColor: color.ball, paddingVertical: 6, alignItems: 'center', transform: [{ rotate: '-3deg' }], shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
   ball: { position: 'absolute', left: '50%', top: 0, marginLeft: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: color.ball, borderWidth: 2, borderColor: 'rgba(0,0,0,0.25)' },
   details: { marginTop: space.xl, alignItems: 'center', gap: 4 },
+  mini: { position: 'absolute', left: '50%', top: '50%', marginLeft: -6, marginTop: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: color.ball, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
   actions: { flexDirection: 'row', gap: space.md, width: '100%', maxWidth: 480 },
 });
