@@ -37,10 +37,12 @@ for t in supabase/tests/*.sql; do
     esac
     case "$line" in "not ok "[0-9]*) failed=$((failed+1)) ;; esac
   done <<< "$out"
-  # psql prefixes errors with the file and line, so anchoring at ^ERROR missed every
-  # one of them and a test that died mid-file just reported fewer assertions.
-  if grep -qE '(^|:)ERROR:' <<< "$out"; then
-    printf '  !! psql error:\n'; grep -E '(^|:)ERROR:' <<< "$out" | head -5 | sed 's/^/     /'
+  # psql prefixes errors with file and line AND a space -- "psql:t.sql:65: ERROR:" -- so
+  # both ^ERROR and :ERROR miss every one of them, and a test that died mid-file was
+  # reported only as a short plan with no word of what actually went wrong.
+  err='^psql:[^ ]*:[0-9]+: (ERROR|FATAL|PANIC):|^(ERROR|FATAL|PANIC):'
+  if grep -qE "$err" <<< "$out"; then
+    printf '  !! psql error:\n'; grep -E "$err" <<< "$out" | head -5 | sed 's/^/     /'
     failed=$((failed+1))
   fi
   # A plan(n) that never reached n is a failure too, however quiet.

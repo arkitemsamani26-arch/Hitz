@@ -156,3 +156,23 @@ it would work today and cost the partnership tomorrow.
 - **Story share card.** The confirmed moment renders a 1080x1920 card off-screen (both
   faces, both numbers, IT'S ON, day and court) and shares it as an image on device; on web
   it shares the text.
+
+## Addendum — invites, moderation, and an audit that can be re-run (2026-09-22)
+
+- **One field, two codes.** The onboarding code box takes a captain's team code or a
+  friend's personal invite and says which it got before you have an account. A used invite
+  and a full team both explain themselves rather than reading as "unknown code".
+- **Countering shows what you are answering.** "They said Thursday 9am → you're saying
+  Tomorrow 9am", live as you pick, with their court pre-selected, because a counter
+  usually keeps one of the two. Proposing their own slot back at them is no longer a
+  sendable no-op; the button says what to change instead.
+- **The report button's promise is kept in SQL.** Suspending someone now cancels the hits
+  they were already in and tells the other side, and the reporter hears that a person read
+  it. Both were things a human had to remember, which means both were things that were
+  going to be forgotten.
+- **axe is a script, not a claim.** `npm run a11y` runs the audit across ten screens on the
+  exported build, seeding demo state so the second half of the app is actually reachable.
+  It immediately found one real regression: the message sender's name carried
+  `opacity: 0.85` over `ink3`, a token tuned to land at exactly 5.3:1, which dropped it to
+  3.95:1. The opacity is gone; the micro size and quiet tone were doing that job anyway.
+  Ten screens, zero violations — and now that is checkable rather than remembered.

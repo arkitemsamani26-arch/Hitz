@@ -16,6 +16,13 @@ in your Supabase org. URL `https://pvkzcbgpbebllnzmxxwg.supabase.co`; publishabl
 - Edge functions deployed: `notify` (push delivery + tomorrow reminders + request expiry)
   and `guardian-invite` (parent SMS/email with a magic link). Both require a JWT.
 
+### Not yet applied to the live project
+
+`20260922000400_invites.sql` and `20260922000500_moderation.sql` are in the repo and green
+against a scratch Postgres (`npm run db:test`), but have **not** been pushed to the live
+project. Apply them when you want the invite field and the one-call review path live;
+neither touches an existing row.
+
 ## What only the dashboard can do (about 10 minutes)
 
 1. **Settings → API → Exposed schemas: `app`, and remove `public`.** Without `app`, every
@@ -41,8 +48,38 @@ Then `cp .env.example .env` and `npm start`.
 
 ## Moderation
 
-`supabase/moderation.sql` is the queue: run it in the SQL editor daily. Reports involving a
-minor sort first.
+`supabase/moderation.sql` is the reviewer's whole desk: run it in the SQL editor daily.
+Reports involving a minor sort first.
+
+A decision is one call, whichever way it goes:
+
+```sql
+select app.review_report('<report id>', 'suspend', 'suspended: repeated abuse in thread');
+select app.review_report('<report id>', 'dismiss', 'no basis; counterparty misread a joke');
+```
+
+It is service-role only — there is no path from a signed-in user to any of it, and test 16
+is what keeps that true. Suspending also cancels every live hit that profile is in and
+tells the other side theirs is off, and returns how many it cancelled so the blast radius
+is visible. Either way the reporter is told their report was read, because "goes to a
+person, same day" is a promise the report button makes on your behalf.
+
+The list that has to reach zero every day is `app.moderation_auto_hidden`: three distinct
+reporters in thirty days hides a profile with no human involved, which is the right
+default only if somebody clears it. If all the reports against a hidden player turn out to
+be nothing, pass `true` as the fourth argument when you dismiss the last one and they go
+back up in the same statement.
+
+## Invite codes
+
+Two kinds, one field, one code space. A captain makes a team code in You; any player mints
+a personal one. `app.check_code` is anon, because the field runs before sign-in, and it
+returns the team's name or the inviter's first name — which is why personal codes are
+eight characters of entropy rather than something speakable.
+
+Neither kind grants anything. Redeeming a code does not make anyone visible to anyone; it
+records who brought whom. `select * from app.invite_funnel;` is where that becomes a
+number, and it is the only honest answer to "where did this market come from".
 
 ## UTR: two roads to the same badge
 

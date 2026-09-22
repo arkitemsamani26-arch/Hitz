@@ -95,7 +95,7 @@ export class SupabaseApi implements HitsApi {
     if (error) this.fail(error);
     // Phone is verified by the OTP sign-in; stamp it server-side.
     await this.sb.rpc('stamp_phone_verified').then(() => {}, () => {});
-    if (input.rosterCode) await this.sb.rpc('redeem_roster_code', { p_code: input.rosterCode }).then(() => {}, () => {});
+    if (input.joinCode) await this.sb.rpc('redeem_code', { p_code: input.joinCode }).then(() => {}, () => {});
     return (await this.me())!;
   }
   async updateProfile(patch: Partial<Profile>) {
@@ -326,9 +326,27 @@ export class SupabaseApi implements HitsApi {
     return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, code: r.code, cap: r.cap, joined: counts.get(r.id) ?? 0, createdAt: r.created_at }));
   }
   async checkCode(code: string) {
-    const { data } = await this.sb.rpc('check_roster_code', { p_code: code });
+    const { data } = await this.sb.rpc('check_code', { p_code: code });
     const r = Array.isArray(data) ? data[0] : data;
-    return { valid: !!r?.valid, rosterName: r?.roster_name ?? null };
+    if (!r) return { valid: false, kind: null, label: null };
+    return { valid: !!r.valid, kind: (r.kind ?? null) as 'roster' | 'invite' | null, label: r.label ?? null };
+  }
+
+  async issueInvite() {
+    const { data, error } = await this.sb.rpc('issue_invite');
+    if (error) this.fail(error);
+    const r = Array.isArray(data) ? data[0] : data;
+    return { code: r.code, redeemed: false, expiresAt: r.expires_at ?? null, createdAt: r.created_at };
+  }
+
+  async myInvites() {
+    const { data } = await this.sb.from('invites')
+      .select('code, redeemed_at, expires_at, created_at')
+      .eq('issued_by_profile_id', this.uid!)
+      .order('created_at', { ascending: false });
+    return (data ?? []).map((r: any) => ({
+      code: r.code, redeemed: r.redeemed_at != null, expiresAt: r.expires_at ?? null, createdAt: r.created_at,
+    }));
   }
   async guardianBlock(childId: string, profileId: string) {
     const { error } = await this.sb.from('blocks').insert({ blocker_id: childId, blocked_id: profileId });

@@ -136,12 +136,47 @@ parents' approval to the confirmed moment.
 
 ## Not yet done from the plan
 
-- Invite codes: schema exists, app flow doesn't (the You tab says "Soon").
-- Moderation queue surface for the reviewer.
-- Guardian-side block.
-- Push notifications: the hooks are where they'd go (state transitions in the demo
-  mirror where the server would send), nothing is wired.
-- The Supabase implementation has not been run against a live project. Specific things
-  to verify first: the `app` schema is exposed in the API settings; `discover()`'s
-  return shape matches the mapper; realtime events fire for the three tables; and that
-  `stamp_phone_verified` runs after the first profile insert.
+Four of the five things that used to sit here are done, and the list had gone stale
+enough to be misleading, so this is what it actually looks like now.
+
+**Since built:**
+
+- **Invite codes.** `app.invites` had existed since the foundation with nothing on top of
+  it. One field in onboarding now takes either a captain's team code or a friend's
+  personal invite, and says which it got ("Maya invited you" / "Joining Paly Girls
+  Varsity") before you have an account. Attribution only, never a privilege: redeeming a
+  code makes nobody visible to anybody, and `app.invite_funnel` is where a market's
+  density can finally be read by source. Personal codes carry eight characters of entropy
+  precisely because `check_code` tells an unauthenticated caller a first name.
+- **Moderation.** `app.review_report()` is one service-role call where there used to be
+  three hand-typed UPDATEs across three tables. It does two things the manual path never
+  did: suspending cancels every live hit that profile is in and tells the other side
+  theirs is off, and the reporter is told their report was read — which is what the button
+  promised all along. Dismissing the last open report against an auto-hidden profile can
+  put them back in the same call, so nobody stays hidden by inertia.
+- **Guardian-side block.** Built on the approve screen; the copy is no longer ahead of it.
+- **Push.** Wired end to end: triggers write `app.notifications`, the `notify` edge
+  function delivers through Expo on a one-minute schedule, `registerPush()` takes the
+  token on first launch of the Hits tab.
+- **The live project.** Run against, and what that turned up is in `09` and in the
+  `20260922*` migrations — discovery was writing no location at all, and the sender could
+  accept their own request.
+
+**Still open:**
+
+- The counter screen now shows what you are answering, but the hit thread still doesn't
+  show a counter's before-and-after once it has been sent.
+- Requests and Hits probably want to be one screen (see above).
+- Clubs remain a reserved shape with no verification flow, which is the gate on any
+  cross-band relaxation.
+- `useAsync` + `tick` is still a thin substitute for a query cache.
+
+## How to check the claims in these notes
+
+- `npm run typecheck` — the whole app.
+- `npm run db:test` — 172 pgTAP assertions against a scratch Postgres, including every
+  minor-safety rule. A rule that isn't tested isn't a rule.
+- `npm run export:web && npm run a11y` — axe across ten screens at WCAG AA. This audit
+  used to be run by hand and written up as a number in `08`; a claim nobody can re-check
+  is a claim that quietly stops being true, so it is a script now.
+- `npm run check:backend` — what the live project has and hasn't got wired.

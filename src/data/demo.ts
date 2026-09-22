@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi } from './api';
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim,
+  Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim,
 } from './types';
 import { DECLINE_COPY } from './types';
 import { notifyLocal } from '@/lib/push';
@@ -73,6 +73,10 @@ const DEMO_ROSTERS: Roster[] = [
   { id: 'r-menlo', name: 'Menlo Boys Varsity', code: 'MENLO26', cap: 20, joined: 7, createdAt: hoursAgo(200) },
 ];
 
+// A personal invite already out in the world, so the code field can be walked through
+// both ways. Real ones are eight characters of entropy; this one is typeable.
+const DEMO_INVITES: { code: string; from: string }[] = [{ code: 'MAYA7QK2', from: 'Maya' }];
+
 type State = {
   session: Session | null;
   profile: null | {
@@ -83,6 +87,7 @@ type State = {
     guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null;
   };
   rosters: Roster[];
+  invites: Invite[];
   pushToken: string | null;
   reports: { profileId: string; reason: string; body: string; hitId: string | null; at: string }[];
   utrClaim: UtrClaim | null;
@@ -96,7 +101,7 @@ type State = {
 
 const blank = (): State => ({
   session: null, profile: null, requests: [], messages: [], blocked: [],
-  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], pushToken: null, reports: [], utrClaim: null,
+  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null,
 });
 
 // Bay Area sprawl: mile steps to 15, then fives. People here drive 280.
@@ -240,7 +245,8 @@ export class DemoApi implements HitsApi {
 
   async createProfile(input: ProfileInput) {
     await this.load(); await this.wait();
-    const roster = input.rosterCode ? [...DEMO_ROSTERS, ...this.s.rosters].find(r => r.code.toLowerCase() === input.rosterCode!.toLowerCase()) : null;
+    const code = input.joinCode?.trim().toLowerCase() ?? null;
+    const roster = code ? [...DEMO_ROSTERS, ...this.s.rosters].find(r => r.code.toLowerCase() === code) : null;
     if (roster) roster.joined += 1;
     this.s.profile = {
       ...input, lookingToHitUntil: iso(new Date(Date.now() + 7 * 86400000)),
@@ -481,9 +487,30 @@ export class DemoApi implements HitsApi {
   async myRosters() { await this.load(); return this.s.rosters; }
   async checkCode(code: string) {
     await this.load(); await this.wait(200);
-    const r = [...DEMO_ROSTERS, ...this.s.rosters].find(x => x.code.toLowerCase() === code.trim().toLowerCase());
-    return { valid: !!r && r.joined < r.cap, rosterName: r?.name ?? null };
+    const c = code.trim().toLowerCase();
+    const r = [...DEMO_ROSTERS, ...this.s.rosters].find(x => x.code.toLowerCase() === c);
+    if (r) return { valid: r.joined < r.cap, kind: 'roster' as const, label: r.name };
+    const mine = this.s.invites.find(x => x.code.toLowerCase() === c);
+    if (mine) return { valid: !mine.redeemed, kind: 'invite' as const, label: this.s.profile?.displayName ?? 'You' };
+    const seeded = DEMO_INVITES.find(x => x.code.toLowerCase() === c);
+    if (seeded) return { valid: true, kind: 'invite' as const, label: seeded.from };
+    return { valid: false, kind: null, label: null };
   }
+
+  async issueInvite(): Promise<Invite> {
+    await this.load(); await this.wait();
+    const open = this.s.invites.filter(i => !i.redeemed).length;
+    if (open >= 10) throw new ApiError('You have ten invites out already. Wait for one to be used.');
+    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = Array.from({ length: 8 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+    const inv: Invite = {
+      code, redeemed: false,
+      expiresAt: iso(new Date(Date.now() + 30 * 86400000)), createdAt: iso(new Date()),
+    };
+    this.s.invites.unshift(inv); this.save(); return inv;
+  }
+
+  async myInvites() { await this.load(); return this.s.invites; }
   async cancelRequest(id: string) { await this.load(); const r = this.find(id); r.state = 'cancelled'; r.awaitingId = null; this.save(); }
   async accept(id: string) {
     await this.load(); await this.wait();

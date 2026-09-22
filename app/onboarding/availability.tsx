@@ -40,7 +40,7 @@ export default function Availability() {
       const p = await api.createProfile({
         displayName: draft.displayName, lastInitial: draft.lastInitial, dateOfBirth: draft.dateOfBirth,
         levelValue: draft.levelValue, levelSource: draft.levelSource, homeCourtId: draft.homeCourtId,
-        availabilityMask: m, rosterCode: draft.rosterCode,
+        availabilityMask: m, joinCode: draft.joinCode,
       });
       setProfile(p);
       // There is finally a row to attach it to, so hand over the fix taken at the court step.

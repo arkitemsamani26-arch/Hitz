@@ -48,6 +48,15 @@ export interface Assurance {
   bothMinors: boolean;
 }
 
+// A personal invite: one player bringing one friend. Carries no visibility privilege --
+// it records who brought whom, and gives the new player a name to arrive to.
+export interface Invite {
+  code: string;
+  redeemed: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface Roster {
   id: string;
   name: string;
@@ -178,7 +187,7 @@ export interface ProfileInput {
   levelSource: LevelSource;
   homeCourtId: string;
   availabilityMask: number;
-  rosterCode?: string | null;
+  joinCode?: string | null;
 }
 
 export interface GuardianChild {

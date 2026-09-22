@@ -108,7 +108,8 @@ if (URL_ && KEY) {
   // 3. The RPCs the app cannot work without.
   for (const [rpc, args] of [
     ['peek_cohort', { p_dob: '2000-01-01', p_level: 6 }],
-    ['check_roster_code', { p_code: 'NOPE00' }],
+    // The onboarding code field is anon and takes either kind of code.
+    ['check_code', { p_code: 'NOPE00' }],
   ]) {
     let r;
     try {

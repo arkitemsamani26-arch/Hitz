@@ -252,7 +252,10 @@ function PlanCard({ r, me, setPlan, compact }: { r: HitRequest; me: Profile; set
 function Bubble({ mine, who, body }: { mine: boolean; who: string; body: string }) {
   return (
     <View style={[s.msg, mine && s.msgMine]}>
-      <T v="micro" tone={mine ? 'onCourt' : 'ink3'} style={{ opacity: 0.85 }}>{who}</T>
+      {/* No opacity here: ink3 is tuned to land at exactly 5.3:1 on paper, and knocking
+          15% off it drops the sender's name to 3.95:1, under AA. The micro size and the
+          quiet tone are already what make this line recede. */}
+      <T v="micro" tone={mine ? 'onCourt' : 'ink3'}>{who}</T>
       <T v="small" tone={mine ? 'onCourt' : 'ink'}>{body}</T>
     </View>
   );

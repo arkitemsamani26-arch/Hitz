@@ -1,6 +1,6 @@
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
-  MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
+  Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 
 // The one interface the screens talk to. Two implementations: `supabase` for the real
@@ -65,7 +65,12 @@ export interface HitsApi {
   // rosters: one code brings a whole team
   createRoster(name: string, cap: number): Promise<Roster>;
   myRosters(): Promise<Roster[]>;
-  checkCode(code: string): Promise<{ valid: boolean; rosterName: string | null }>;
+  // invites: one code brings one friend
+  issueInvite(): Promise<Invite>;
+  myInvites(): Promise<Invite[]>;
+  // One field takes either kind. `label` is the team's name or the inviter's first name;
+  // it comes back even when the code is spent, so the field can explain rather than deny.
+  checkCode(code: string): Promise<{ valid: boolean; kind: 'roster' | 'invite' | null; label: string | null }>;
 
   // safety
   block(profileId: string): Promise<void>;

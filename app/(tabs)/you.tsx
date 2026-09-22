@@ -39,11 +39,13 @@ export default function You() {
   const { profile, setProfile, setSession, listMode, setListMode, refresh, tick } = useSession();
   const { data: courts } = useAsync(() => api.courts(), []);
   const rosters = useAsync(() => api.myRosters(), [tick]);
+  const invites = useAsync(() => api.myInvites(), [tick]);
   const utr = useAsync(() => api.utrStatus(), [tick]);
   const utrClaim = useAsync(() => api.myUtrClaim(), [tick]);
   const [editingAvail, setEditingAvail] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [photoSheet, setPhotoSheet] = useState(false);
   const [sound, setSound] = useState(true);
   React.useEffect(() => { void loadSoundPref().then(setSound); }, []);
@@ -58,6 +60,14 @@ export default function You() {
   };
   const setLooking = (v: boolean) => guard(() => api.setLooking(v ? 7 : null));
   const toggleSlot = (bit: number) => guard(() => api.updateProfile({ availabilityMask: profile.availabilityMask ^ bit }));
+  const shareInvite = (code: string) =>
+    void Share.share({ message: `Come hit with me on Hits. Use my code ${code} when you sign up. Players at your level, on courts near you.` }).catch(() => {});
+  const invite = async () => {
+    setInviting(true);
+    try { const i = await api.issueInvite(); await invites.reload(); shareInvite(i.code); }
+    catch (e: any) { toast(e.message); } finally { setInviting(false); }
+  };
+  const landed = (invites.data ?? []).filter(i => i.redeemed).length;
   const createTeam = async () => {
     if (teamName.trim().length < 2) return;
     setCreating(true);
@@ -105,6 +115,21 @@ export default function You() {
             <View style={s.stat}><T v="h1" tone="court">{pct(profile.acceptRate) ?? '—'}</T><T v="micro" tone="ink3">Say yes</T></View>
           </View>
           <T v="small" tone="ink3" style={{ marginTop: space.sm }}>Everyone sees these. Always reply. Even a no counts.</T>
+        </Sheet>
+
+        {/* Invites: one code brings one friend. Attribution, never a privilege -- redeeming
+            one does not make anybody visible to anybody. */}
+        <Sheet style={{ marginBottom: space.md, gap: space.sm }}>
+          <T v="h2">Bring a friend</T>
+          <T v="small" tone="ink2">A code for one person. They see your name when they type it in, and you hear when they join.</T>
+          {(invites.data ?? []).filter(i => !i.redeemed).map(i => (
+            <Tap key={i.code} onPress={() => shareInvite(i.code)} style={s.roster} accessibilityRole="button" accessibilityLabel={`Share your invite code ${i.code}`}>
+              <View style={{ flex: 1 }}><T v="bodyM">Open invite</T><T v="small" tone="ink2">Tap to send it again</T></View>
+              <Pill label={i.code} tone="ball" />
+            </Tap>
+          ))}
+          {landed > 0 && <T v="small" tone="court">{landed === 1 ? 'One player joined on your invite.' : `${landed} players joined on your invites.`}</T>}
+          <Button title="Make an invite" small onPress={invite} loading={inviting} style={{ alignSelf: 'flex-start' }} />
         </Sheet>
 
         {/* Rosters: one code brings a whole team. */}

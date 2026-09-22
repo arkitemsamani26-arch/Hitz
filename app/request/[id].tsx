@@ -16,7 +16,7 @@ import { color, hit, space } from '@/theme/tokens';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
-import { dayShort } from '@/lib/format';
+import { dayShort, timeShort } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 
 const TIMES = [{ label: 'Morning', h: 9 }, { label: 'Midday', h: 12 }, { label: 'Afternoon', h: 15 }, { label: 'Evening', h: 18 }];
@@ -27,7 +27,11 @@ export default function Request() {
   const toast = useToast();
   const { profile } = useSession();
   const isCounter = !!counter;
-  const { data: player } = useAsync(() => (isCounter ? api.hit(counter!).then(h => h?.request.other ?? null) : api.player(id)), [id, counter]);
+  // Countering needs the whole request, not just who sent it: you cannot sensibly
+  // propose an alternative to something you cannot see.
+  const { data: original } = useAsync(() => (isCounter ? api.hit(counter!) : Promise.resolve(null)), [counter]);
+  const { data: found } = useAsync(() => (isCounter ? Promise.resolve(null) : api.player(id)), [id, counter]);
+  const player = isCounter ? original?.request.other ?? null : found;
   const { data: courts } = useAsync(() => api.courts(), []);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + 1 + i); d.setHours(0, 0, 0, 0); return d; }), []);
   const [courtId, setCourtId] = useState<string | null>(null);
@@ -35,7 +39,9 @@ export default function Request() {
   const [time, setTime] = useState(0);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const chosenCourt = courtId ?? player?.homeCourtId ?? profile?.homeCourtId ?? null;
+  // A counter usually keeps one of the two and changes the other, so start from their
+  // court rather than from nothing.
+  const chosenCourt = courtId ?? original?.request.courtId ?? player?.homeCourtId ?? profile?.homeCourtId ?? null;
 
   const send = async () => {
     if (!player || !chosenCourt) return;
@@ -49,9 +55,17 @@ export default function Request() {
     } catch (e: any) { toast(e.message); setBusy(false); }
   };
 
-  if (!player || !courts) return <Screen sky={120}><Centered><Header /><Rally /></Centered></Screen>;
+  if (!player || !courts || (isCounter && !original)) return <Screen sky={120}><Centered><Header /><Rally /></Centered></Screen>;
+
+  const theirs = original?.request ?? null;
+  const mineStart = (() => { const d = new Date(days[day]); d.setHours(TIMES[time].h, 0, 0, 0); return d; })();
+  const mineCourt = courts.find(c => c.id === chosenCourt)?.name ?? '—';
+  // Sending their own proposal back at them is not a counter. The button says so rather
+  // than firing off a round trip that reads, to them, as no answer at all.
+  const unchanged = !!theirs && theirs.courtId === chosenCourt
+    && new Date(theirs.windowStart).getTime() === mineStart.getTime();
   return (
-    <Screen sky={120} bottom={<Centered><Button kind="ball" title={isCounter ? 'Send the counter' : `Send to ${player.displayName}`} onPress={send} loading={busy} disabled={!chosenCourt} /></Centered>}>
+    <Screen sky={120} bottom={<Centered><Button kind="ball" title={isCounter ? (unchanged ? 'Change the day, time or court' : 'Send the counter') : `Send to ${player.displayName}`} onPress={send} loading={busy} disabled={!chosenCourt || unchanged} /></Centered>}>
       <Centered>
         <Header kicker={isCounter ? 'Counter' : 'Hit request'} />
         <Sheet style={s.who}>
@@ -61,6 +75,24 @@ export default function Request() {
           </View>
           <Score value={player.levelValue} size="display" verified={player.levelVerified} tone="court" />
         </Sheet>
+        {/* What you are answering. Countering without this on screen is countering blind:
+            you are proposing an alternative to something you have to scroll back to read. */}
+        {theirs && (
+          <Sheet style={{ marginTop: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+            <View style={{ flex: 1 }}>
+              <T v="micro" tone="ink3">They said</T>
+              <T v="bodyM" tone="ink2">{dayShort(new Date(theirs.windowStart))} · {timeShort(new Date(theirs.windowStart))}</T>
+              <T v="small" tone="ink3" numberOfLines={1}>{theirs.courtName}</T>
+            </View>
+            <T v="h2" tone="ink3">→</T>
+            <View style={{ flex: 1 }}>
+              <T v="micro" tone="court">You're saying</T>
+              <T v="bodyM">{dayShort(mineStart)} · {timeShort(mineStart)}</T>
+              <T v="small" tone="ink3" numberOfLines={1}>{mineCourt}</T>
+            </View>
+          </Sheet>
+        )}
+
         <Sheet style={{ marginTop: space.md }}>
 
         <T v="micro" tone="ink3" style={[s.k, { marginTop: 0 }]}>Day</T>
