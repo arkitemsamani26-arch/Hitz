@@ -7,7 +7,7 @@ on:
 
 jobs:
   typecheck-and-web:
-    name: typecheck + web export
+    name: typecheck + web export + accessibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,3 +19,11 @@ jobs:
       - run: npm run typecheck
       - name: Export the demo web build
         run: EXPO_PUBLIC_DEMO=1 CI=1 npx expo export --platform web
+
+      # The audit is only worth anything if something re-runs it. It was done by hand
+      # twice and written up in docs/08 as "zero violations on ten screens"; the first
+      # automated run found a regression that had been sitting there since.
+      - name: Install a browser for the audit
+        run: npx playwright install --with-deps chromium
+      - name: axe, WCAG AA, ten screens
+        run: npm run a11y
