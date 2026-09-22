@@ -39,10 +39,19 @@ const ok = (m) => { pass.push(m); console.log(`  ok    ${m}`); };
 const bad = (m, fix) => { fail.push(m); console.log(`  FAIL  ${m}`); if (fix) console.log(`        ${fix}`); };
 const note = (m, fix) => { warn.push(m); console.log(`  warn  ${m}`); if (fix) console.log(`        ${fix}`); };
 
+// A corporate proxy, a VPN or a sandbox can refuse the host outright. That is not a
+// misconfigured project, and reporting it as one sends you to the wrong dashboard page.
+function blocked(r) {
+  return r.status === 0 || (r.status === 403 && /allowlist|egress|proxy|forbidden by/i.test(r.body));
+}
+
 async function get(path, headers = {}) {
-  const r = await fetch(`${URL_}${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, ...headers } });
-  const body = await r.text();
-  return { status: r.status, body };
+  try {
+    const r = await fetch(`${URL_}${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, ...headers } });
+    return { status: r.status, body: await r.text() };
+  } catch (e) {
+    return { status: 0, body: String(e?.message ?? e) };
+  }
 }
 
 console.log('\nHits backend check\n');
@@ -59,13 +68,21 @@ if (URL_ && KEY) {
 
   // 1. Is the project awake and is the key valid?
   const root_ = await get('/rest/v1/');
-  if (root_.status === 401) bad('The publishable key was rejected', 'Settings -> API -> copy the publishable (anon) key into .env.');
+  if (blocked(root_)) {
+    note(`This machine cannot reach ${URL_}`,
+         `Something between here and Supabase is refusing the host: ${root_.body.slice(0, 120)}`);
+    console.log('\n  Nothing below this line means anything until that is sorted.\n');
+  }
+  if (blocked(root_)) { /* already reported; claiming anything else would be a guess */ }
+  else if (root_.status === 401) bad('The publishable key was rejected', 'Settings -> API -> copy the publishable (anon) key into .env.');
   else if (root_.status >= 500) bad(`The project is not answering (HTTP ${root_.status})`, 'A free-tier project pauses when idle. Open the dashboard once to wake it.');
   else ok('The project answers and the key is accepted');
 
   // 2. The single most common misconfiguration: the app schema is not exposed.
   const courts = await get('/rest/v1/courts?select=id,name&limit=3', { 'Accept-Profile': 'app' });
-  if (courts.status === 404 || /schema must be one of/i.test(courts.body)) {
+  if (blocked(courts)) {
+    note('Could not reach the court directory from this machine');
+  } else if (courts.status === 404 || /schema must be one of/i.test(courts.body)) {
     bad('The `app` schema is not exposed to the API, so every call 404s',
         'Dashboard -> Settings -> API -> Exposed schemas: add `app`. This cannot be set from SQL.');
   } else if (courts.status !== 200) {
@@ -76,19 +93,36 @@ if (URL_ && KEY) {
     else ok(`The court directory reads (${rows[0].name} …)`);
   }
 
+  // 2b. The other half: `public` should not be exposed at all. Hits never reads it, and
+  //     leaving it on is what puts PostGIS's tables and helpers on the security advisor.
+  const pub = await get('/rest/v1/spatial_ref_sys?select=srid&limit=1');
+  if (blocked(pub)) {
+    // Unreachable tells us nothing either way; say nothing rather than a false all-clear.
+  } else if (pub.status === 200) {
+    note('The `public` schema is exposed to the API as well as `app`',
+         'Settings -> API -> Exposed schemas: remove `public`. Hits never reads it, and leaving it on exposes PostGIS\'s tables and helpers.');
+  } else {
+    ok('`public` is not exposed, so PostGIS is out of reach');
+  }
+
   // 3. The RPCs the app cannot work without.
-  for (const [rpc, body] of [
+  for (const [rpc, args] of [
     ['peek_cohort', { p_dob: '2000-01-01', p_level: 6 }],
     ['check_roster_code', { p_code: 'NOPE00' }],
   ]) {
-    const r = await fetch(`${URL_}/rest/v1/rpc/${rpc}`, {
-      method: 'POST',
-      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'content-type': 'application/json', 'Content-Profile': 'app' },
-      body: JSON.stringify(body),
-    });
+    let r;
+    try {
+      const res = await fetch(`${URL_}/rest/v1/rpc/${rpc}`, {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'content-type': 'application/json', 'Content-Profile': 'app' },
+        body: JSON.stringify(args),
+      });
+      r = { status: res.status, body: await res.text() };
+    } catch (e) { r = { status: 0, body: String(e?.message ?? e) }; }
     if (r.status === 200) ok(`rpc ${rpc} is callable`);
+    else if (blocked(r)) note(`Could not reach rpc ${rpc} from this machine`);
     else if (r.status === 404) bad(`rpc ${rpc} is missing`, 'Apply the migrations in supabase/migrations.');
-    else bad(`rpc ${rpc} returned HTTP ${r.status}: ${(await r.text()).slice(0, 160)}`);
+    else bad(`rpc ${rpc} returned HTTP ${r.status}: ${r.body.slice(0, 160)}`);
   }
 
   // 4. Sign-in is by phone, and phone auth needs an SMS provider wired up.
@@ -101,6 +135,8 @@ if (URL_ && KEY) {
     if (s.external?.email) ok('Email sign-in is enabled (the parent magic link needs it)');
     else note('Email sign-in is off, so the parent magic link will not send',
               'Dashboard -> Authentication -> Providers -> Email.');
+  } else if (blocked(settings)) {
+    note('Could not reach the auth settings from this machine');
   } else {
     note(`Could not read auth settings (HTTP ${settings.status})`);
   }
@@ -108,7 +144,8 @@ if (URL_ && KEY) {
   // 5. Edge functions. A 401 means deployed-and-guarded, which is the right answer for
   //    the two that require a JWT.
   for (const [fn, wantsJwt] of [['notify', true], ['guardian-invite', true], ['utr-link', false], ['utr-sync', true]]) {
-    const r = await fetch(`${URL_}/functions/v1/${fn}`, { method: 'GET', headers: { apikey: KEY } });
+    const r = await get(`/functions/v1/${fn}`);
+    if (blocked(r)) { note(`Could not reach edge function ${fn} from this machine`); continue; }
     if (r.status === 404) {
       if (fn.startsWith('utr')) note(`edge function ${fn} is not deployed (only needed once UTR access lands)`,
                                      `supabase functions deploy ${fn}${fn === 'utr-link' ? ' --no-verify-jwt' : ''}`);

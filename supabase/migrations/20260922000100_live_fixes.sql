@@ -55,6 +55,7 @@ update app.profiles p
 create or replace function app.default_hit_turn()
 returns trigger
 language plpgsql
+set search_path = app, public
 as $$
 begin
   if new.awaiting_profile_id is null and new.state in ('pending', 'countered') then
@@ -76,6 +77,7 @@ update app.hit_requests
 create or replace function app.guard_hit_turn()
 returns trigger
 language plpgsql
+set search_path = app, public
 as $$
 begin
   -- Server-owned paths (definer functions, service_role) are not playing a turn.
@@ -122,6 +124,13 @@ revoke execute on function app.snap_point(geography) from public, anon, authenti
 revoke execute on function app.sync_snapped_point() from public, anon, authenticated;
 revoke execute on function app.sync_home_court_point() from public, anon, authenticated;
 revoke execute on function app.guard_hit_turn() from public, anon, authenticated;
+
+-- Note on public.st_estimatedextent: PostGIS installs it as SECURITY DEFINER in public,
+-- where the security advisor flags it as anon-executable. It cannot be revoked from here
+-- -- it is owned by supabase_admin, and a revoke by anyone else fails silently. The real
+-- fix is one line of dashboard config: Settings -> API -> Exposed schemas should list
+-- `app` only. Hits never reads `public`, so dropping it from the API closes this, the
+-- spatial_ref_sys finding, and anything PostGIS adds later, all at once.
 
 -- And stop the next one from happening by default.
 alter default privileges in schema app revoke execute on functions from public;

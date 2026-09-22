@@ -18,8 +18,12 @@ in your Supabase org. URL `https://pvkzcbgpbebllnzmxxwg.supabase.co`; publishabl
 
 ## What only the dashboard can do (about 10 minutes)
 
-1. **Settings → API → Exposed schemas: add `app`.** Without this every client call 404s.
-   (This is platform config; it isn't settable from SQL or the MCP.)
+1. **Settings → API → Exposed schemas: `app`, and remove `public`.** Without `app`, every
+   client call 404s. Removing `public` is the other half: Hits never reads it, and leaving
+   it exposed is what puts PostGIS's `spatial_ref_sys` table and its anon-callable
+   `st_estimatedextent` function on the security advisor. Neither can be fixed from SQL --
+   they are owned by the platform -- so this one setting closes both, and anything PostGIS
+   adds later. (Platform config; not settable from SQL or the MCP.)
 2. **Authentication → Providers → Phone:** enable with Twilio (trial is fine). OTP length 6.
    Also **Email** provider on, for the parent's magic link.
 3. **Authentication → URL configuration:** add `hits://guardian/link` and your web URL to
