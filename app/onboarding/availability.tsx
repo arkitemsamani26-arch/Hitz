@@ -12,6 +12,7 @@ import { api } from '@/data';
 import { useDraft, isMinor } from '@/store/onboarding';
 import { useSession } from '@/store/session';
 import { SLOTS } from '@/data/types';
+import { flushLocation } from '@/lib/location';
 
 const ALL = SLOTS.reduce((m, s) => m | s.bit, 0);
 
@@ -26,15 +27,24 @@ export default function Availability() {
   const flexible = mask === ALL;
 
   const finish = async (m: number) => {
+    // The draft lives in memory. A deep link or a web reload can land here with half of
+    // it missing, and sending nulls made a minor look like an adult.
+    if (!draft.dateOfBirth || draft.levelValue == null || !draft.levelSource || !draft.homeCourtId) {
+      setErr('We lost a couple of answers. Start again from the top.');
+      router.replace('/onboarding/name');
+      return;
+    }
     setBusy(true); setErr(null);
     try {
       patch({ availabilityMask: m });
       const p = await api.createProfile({
-        displayName: draft.displayName, lastInitial: draft.lastInitial, dateOfBirth: draft.dateOfBirth!,
-        levelValue: draft.levelValue!, levelSource: draft.levelSource!, homeCourtId: draft.homeCourtId!,
+        displayName: draft.displayName, lastInitial: draft.lastInitial, dateOfBirth: draft.dateOfBirth,
+        levelValue: draft.levelValue, levelSource: draft.levelSource, homeCourtId: draft.homeCourtId,
         availabilityMask: m, rosterCode: draft.rosterCode,
       });
       setProfile(p);
+      // There is finally a row to attach it to, so hand over the fix taken at the court step.
+      void flushLocation();
       if (draft.photoBase64) { try { setProfile(await api.setPhoto(draft.photoBase64)); } catch { /* photo is optional */ } }
       router.push(isMinor(draft.dateOfBirth) ? '/onboarding/guardian' : '/onboarding/ready');
     } catch (e: any) { setErr(e.message); }

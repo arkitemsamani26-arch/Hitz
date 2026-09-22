@@ -21,6 +21,17 @@ import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
 import { slotsOf, SLOTS } from '@/data/types';
 import { pct } from '@/lib/format';
+import { haptic } from '@/lib/haptics';
+import type { Profile } from '@/data/types';
+
+// What the utr-link function sends back, in words a player can act on.
+const UTR_TROUBLE: Record<string, string> = {
+  missing: 'UTR sent us back without a code. Try again.',
+  expired: 'That link timed out. Start it again.',
+  token: "UTR wouldn't complete the sign-in. Try again in a minute.",
+  profile: "We couldn't read your UTR profile. Check your UTR account has a rating.",
+  failed: "We got your rating but couldn't save it. Try again.",
+};
 
 export default function You() {
   const router = useRouter();
@@ -37,8 +48,14 @@ export default function You() {
   if (!profile) return null;
   const looking = !!profile.lookingToHitUntil && new Date(profile.lookingToHitUntil) > new Date();
   const court = courts?.find(c => c.id === profile.homeCourtId)?.name ?? '—';
-  const setLooking = async (v: boolean) => setProfile(await api.setLooking(v ? 7 : null));
-  const toggleSlot = async (bit: number) => setProfile(await api.updateProfile({ availabilityMask: profile.availabilityMask ^ bit }));
+  // Every one of these can fail. Failing silently made the control snap back with no
+  // explanation, which reads as the app being broken.
+  const guard = async (fn: () => Promise<Profile | null>) => {
+    try { const p = await fn(); if (p) setProfile(p); }
+    catch (e: any) { haptic.warn(); toast(e?.message ?? "That didn't save. Try again."); }
+  };
+  const setLooking = (v: boolean) => guard(() => api.setLooking(v ? 7 : null));
+  const toggleSlot = (bit: number) => guard(() => api.updateProfile({ availabilityMask: profile.availabilityMask ^ bit }));
   const createTeam = async () => {
     if (teamName.trim().length < 2) return;
     setCreating(true);
@@ -54,9 +71,9 @@ export default function You() {
         </Tap>
         {profile.photoPendingUrl && <Sheet style={{ marginBottom: space.md }}><T v="smallM">Your new photo is waiting on your parent.</T><T v="small" tone="ink2">They get a text. It goes live the moment they approve it.</T></Sheet>}
         <OptionSheet open={photoSheet} onClose={() => setPhotoSheet(false)} title="Your photo" options={[
-          { label: 'Take a photo', onPress: async () => { const r = await pickPhoto('camera'); if (r) setProfile(await api.setPhoto(r.base64)); } },
-          { label: 'Choose from library', onPress: async () => { const r = await pickPhoto('library'); if (r) setProfile(await api.setPhoto(r.base64)); } },
-          ...(profile.photoUrl ? [{ label: 'Remove photo', danger: true, onPress: async () => { setProfile(await api.setPhoto(null)); } }] : []),
+          { label: 'Take a photo', onPress: () => guard(async () => { const r = await pickPhoto('camera'); return r ? api.setPhoto(r.base64) : null; }) },
+          { label: 'Choose from library', onPress: () => guard(async () => { const r = await pickPhoto('library'); return r ? api.setPhoto(r.base64) : null; }) },
+          ...(profile.photoUrl ? [{ label: 'Remove photo', danger: true, onPress: () => guard(() => api.setPhoto(null)) }] : []),
         ]} />
 
         {profile.levelSource !== 'utr_verified' && (
@@ -66,10 +83,17 @@ export default function You() {
               <T v="small" tone="ink2">Link your UTR account and your number comes from your match results, not a guess. Verified levels get the badge and better matches.</T>
             </View>
             <Button title="Link UTR" small kind="court" onPress={async () => {
-              const url = await api.beginUtrLink();
-              if (!url) { toast('UTR linking opens once our Engage API access is approved.'); return; }
-              await WebBrowser.openAuthSessionAsync(url, 'hits://you');
-              await refresh();
+              try {
+                const url = await api.beginUtrLink();
+                if (!url) { toast('UTR linking opens the moment our Engage API access is approved.'); return; }
+                const r = await WebBrowser.openAuthSessionAsync(url, 'hits://you');
+                // The callback says what happened; without reading it a failure looked
+                // exactly like a success.
+                const outcome = r.type === 'success' ? new URL(r.url).searchParams.get('utr') : null;
+                await refresh();
+                if (outcome === 'linked') { haptic.confirmed(); toast('UTR linked. Your level is verified.'); }
+                else if (outcome) toast(UTR_TROUBLE[outcome] ?? "UTR didn't finish. Try again.");
+              } catch (e: any) { toast(e?.message ?? "UTR didn't finish. Try again."); }
             }} />
           </Sheet>
         )}

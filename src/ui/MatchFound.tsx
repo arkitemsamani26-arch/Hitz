@@ -3,19 +3,33 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { ShareCard, shareMoment } from './ShareCard';
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { T } from './Text';
 import { Button } from './Button';
 import { CourtSurface } from './Court';
 import { Sky } from './Screen';
 import { color, space } from '@/theme/tokens';
-import { shadow } from '@/lib/shadow';
+import { shadow, textShadow } from '@/lib/shadow';
 import { spring, useMotion } from '@/lib/motion';
 import { haptic } from '@/lib/haptics';
 import { play } from '@/lib/sound';
 import { levelBig, windowShout } from '@/lib/format';
 import type { HitRequest, Profile } from '@/data/types';
+
+const BALLS = Array.from({ length: 12 }, (_, i) => i);
+
+// One hook per ball, in a child, so the hook count never depends on a list length.
+function Mini({ i, burst }: { i: number; burst: SharedValue<number> }) {
+  const st = useAnimatedStyle(() => {
+    const a = (i / 12) * Math.PI * 2, r = burst.value * 150, g = burst.value * burst.value * 120;
+    return {
+      opacity: burst.value === 0 ? 0 : 1 - burst.value,
+      transform: [{ translateX: Math.cos(a) * r }, { translateY: Math.sin(a) * r * 0.5 + g }, { scale: 1 - burst.value * 0.5 }],
+    };
+  });
+  return <Animated.View style={[s.mini, st]} pointerEvents="none" />;
+}
 
 export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Profile; open: boolean; onDone: () => void }) {
   const { reduced } = useMotion();
@@ -23,7 +37,10 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   const insets = useSafeAreaInsets();
   const [landed, setLanded] = useState(false);
   const cardRef = useRef<View>(null);
-  const courtH = Math.min(height * 0.62, 560);
+  // Everything below has to fit: spacer, court, details, buttons. On a 640-tall phone
+  // 62% of the height pushed "Share it" and "Done" clean off the screen.
+  const chrome = insets.top + insets.bottom + 60 + 24 + 56 + 52 + space.lg * 2;
+  const courtH = Math.max(220, Math.min(height * 0.62, 560, height - chrome));
 
   const ball = useSharedValue(0);      // 0 near baseline -> 1 far baseline
   const near = useSharedValue(0);      // number pop
@@ -56,11 +73,7 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
   const bannerS = useAnimatedStyle(() => ({ transform: [{ scale: banner.value }], opacity: Math.min(1, banner.value) }));
   const detS = useAnimatedStyle(() => ({ opacity: details.value, transform: [{ translateY: (1 - details.value) * 20 }] }));
   // Twelve small balls fly out from the net line on impact and fall away.
-  const balls = Array.from({ length: 12 }, (_, i) => i);
-  const burstStyles = balls.map(i => useAnimatedStyle(() => {
-    const a = (i / 12) * Math.PI * 2, r = burst.value * 150, g = burst.value * burst.value * 120;
-    return { opacity: burst.value === 0 ? 0 : 1 - burst.value, transform: [{ translateX: Math.cos(a) * r }, { translateY: Math.sin(a) * r * 0.5 + g }, { scale: 1 - burst.value * 0.5 }] };
-  }));
+  const balls = BALLS;
 
   const start = new Date(req.windowStart);
   const share = () => { void shareMoment(cardRef, req, me); };
@@ -70,7 +83,7 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom + space.lg }]}>
         <Sky height={insets.top + 140} />
         <ShareCard ref={cardRef} req={req} me={me} />
-        <View style={{ height: insets.top + 60 }} />
+        <View style={{ height: Math.min(insets.top + 60, height * 0.08) }} />
         <CourtSurface style={[s.court, { height: courtH, width: Math.min(width - 48, 380) }]}>
           <Animated.View style={[s.side, { top: '10%' }, farS]}>
             <T v="micro" tone="onCourt">{req.other.displayName}</T>
@@ -83,14 +96,14 @@ export function MatchFound({ req, me, open, onDone }: { req: HitRequest; me: Pro
           <Animated.View style={[s.banner, bannerS]} pointerEvents="none">
             <T v="display" tone="onBall" style={{ fontSize: 44, lineHeight: 46 }}>IT'S ON.</T>
           </Animated.View>
-          {balls.map(i => <Animated.View key={i} style={[s.mini, burstStyles[i]]} pointerEvents="none" />)}
+          {balls.map(i => <Mini key={i} i={i} burst={burst} />)}
           <Animated.View style={[s.ball, ballS]} />
         </CourtSurface>
         <Animated.View style={[s.details, detS]}>
           <T v="h1" tone="onCourt" center>{windowShout(start)}</T>
           <T v="bodyM" tone="onCourt" center style={{ opacity: 0.9 }}>{req.courtName}</T>
         </Animated.View>
-        <View style={{ flex: 1 }} />
+        <View style={{ flex: 1, minHeight: space.md }} />
         <Animated.View style={[s.actions, detS]}>
           <Button title="Share it" kind="white" onPress={share} style={{ flex: 1 }} />
           <Button title="Done" kind="ball" onPress={onDone} style={{ flex: 1 }} />
@@ -103,7 +116,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.ground, paddingHorizontal: space.xl, alignItems: 'center' },
   court: { alignSelf: 'center' },
   side: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  num: { fontSize: 84, lineHeight: 88, letterSpacing: -4, textShadowColor: 'rgba(0,0,0,0.25)', textShadowRadius: 0, textShadowOffset: { width: 0, height: 4 } },
+  num: { fontSize: 84, lineHeight: 88, letterSpacing: -4, ...textShadow({ y: 4, color: 'rgba(0,0,0,0.25)' }) },
   banner: { position: 'absolute', left: -8, right: -8, top: '50%', marginTop: -30, backgroundColor: color.ball, paddingVertical: 6, alignItems: 'center', transform: [{ rotate: '-3deg' }], ...shadow({ y: 6, blur: 14, opacity: 0.3, color: '#000000' }) },
   ball: { position: 'absolute', left: '50%', top: 0, marginLeft: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: color.ball, borderWidth: 2, borderColor: 'rgba(0,0,0,0.25)' },
   details: { marginTop: space.xl, alignItems: 'center', gap: 4 },

@@ -5,7 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequ
 import React, { useEffect } from 'react';
 const grain = require('../../assets/tex/grain.png');
 import { sunShadow } from './Screen';
-import { shadow } from '@/lib/shadow';
+import { shadow, textShadow } from '@/lib/shadow';
 import { T } from './Text';
 import { Tap } from './Tap';
 import { color } from '@/theme/tokens';
@@ -114,7 +114,7 @@ const s = StyleSheet.create({
   tokWrapAbove: { marginTop: -51, justifyContent: 'flex-end' },
   tok: { width: 48, height: 48, borderRadius: 24, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
   tokHot: { backgroundColor: color.ball },
-  tokLabel: { marginVertical: 4, width: 84, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.55)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  tokLabel: { marginVertical: 4, width: 84, textAlign: 'center', ...textShadow({ y: 1, blur: 3, color: 'rgba(0,0,0,0.55)' }) },
   youWrap: { position: 'absolute', bottom: 12, left: 0, right: 0, alignItems: 'center' },
   you: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.ball, borderWidth: 3, borderColor: color.paper, ...shadow({ y: 4, blur: 8, opacity: 0.35 }) },
 });

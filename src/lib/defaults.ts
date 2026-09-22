@@ -7,7 +7,10 @@ import type { Player, Profile } from '@/data/types';
 // Meet in the middle when we can, so neither of you drives the whole way.
 export function defaultProposal(me: Profile, them: Player, courtIds?: string[]) {
   const middle = courtIds?.length ? midpointCourt(me.homeCourtId, them.homeCourtId, courtIds) : null;
-  const courtId = middle ?? them.homeCourtId ?? me.homeCourtId!;
+  // Somewhere to play is not optional. Neither side having a home court is possible, so
+  // fall back to the directory rather than sending court_id: undefined.
+  const courtId = middle ?? them.homeCourtId ?? me.homeCourtId ?? courtIds?.[0] ?? null;
+  if (!courtId) throw new Error('Pick a court first.');
   const overlap = me.availabilityMask & them.availabilityMask;
   const start = nextSlot(overlap || them.availabilityMask || me.availabilityMask || 8, 1);
   const end = new Date(start.getTime() + 90 * 60000);

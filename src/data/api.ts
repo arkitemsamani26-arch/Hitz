@@ -25,8 +25,9 @@ export interface HitsApi {
   // market + courts
   marketStatus(): Promise<MarketStatus | null>;
   courts(): Promise<Court[]>;
-  // Before a profile exists: a taste of what's out there, computed from level alone.
-  peek(levelValue: number, band: 'minor' | 'adult'): Promise<{ count: number; sample: Player[] }>;
+  // Before a profile exists: a taste of what's out there. The date of birth picks the
+  // cohort, since a minor and an adult are looking at two different rooms.
+  peek(levelValue: number, dateOfBirth: string): Promise<{ count: number; sample: Player[] }>;
 
   // discovery
   discover(filters: DiscoverFilters): Promise<Player[]>;

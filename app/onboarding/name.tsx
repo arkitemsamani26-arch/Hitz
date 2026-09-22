@@ -21,7 +21,7 @@ export default function Name() {
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>Your member{'\n'}card.</T>
         <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Players see "{first || 'Maya'} {last ? last.toUpperCase() : 'R'}." until a hit is confirmed.</T>
-        <MemberCard name={first ? `${first} ${last.toUpperCase()}${last ? '.' : ''}` : ''} level={null} court={null} typing="name" />
+        <MemberCard name={first ? `${first}${last ? ` ${last.toUpperCase()}.` : ''}` : ''} level={null} court={null} typing="name" />
         <Sheet><View style={{ flexDirection: 'row', gap: space.md }}>
           <View style={{ flex: 3 }}><Field label="First name" value={first} onChangeText={setFirst} placeholder="Maya" autoFocus autoCapitalize="words" textContentType="givenName" /></View>
           <View style={{ flex: 1 }}><Field label="Last initial" value={last} onChangeText={t => setLast(t.slice(-1))} placeholder="R" autoCapitalize="characters" maxLength={1} onSubmitEditing={() => ok && go()} /></View>

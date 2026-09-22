@@ -11,7 +11,8 @@ import type { MarketStatus } from '@/data/types';
 export function Countdown({ m, onInvite }: { m: MarketStatus; onInvite: () => void }) {
   const who = m.band === 'minor' ? 'juniors' : 'players';
   const left = Math.max(0, m.minActivePlayers - m.activePlayers);
-  const frac = Math.min(1, m.activePlayers / m.minActivePlayers);
+  // A zero threshold made this NaN, and the fill bar got height: "NaN%".
+  const frac = m.minActivePlayers > 0 ? Math.min(1, Math.max(0, m.activePlayers / m.minActivePlayers)) : 0;
   return (
     <View style={s.wrap}>
       <CourtSurface style={s.court} dim>

@@ -123,17 +123,24 @@ export class SupabaseApi implements HitsApi {
   async marketStatus(): Promise<MarketStatus | null> {
     const { data } = await this.sb.rpc('my_market_status');
     const r = data?.[0]; if (!r) return null;
-    return { marketSlug: r.market_slug, marketName: r.market_slug === 'palo-alto' ? 'Palo Alto' : r.market_slug, band: r.age_band, activePlayers: Number(r.active_players), minActivePlayers: r.min_active_players, discoveryOpen: r.discovery_open };
+    const named = (await this.sb.from('markets').select('name').eq('slug', r.market_slug).maybeSingle()).data;
+    return {
+      marketSlug: r.market_slug, marketName: named?.name ?? r.market_slug, band: r.age_band,
+      activePlayers: Number(r.active_players),
+      // A zero threshold would make the countdown bar NaN wide.
+      minActivePlayers: Number(r.min_active_players) || 1,
+      discoveryOpen: r.discovery_open,
+    };
   }
   async courts(): Promise<Court[]> {
     const { data } = await this.sb.from('courts').select('id, name, access, indoor, surface').eq('is_active', true).order('name');
     return (data ?? []).map(c => ({ id: c.id, name: c.name, access: c.access, indoor: c.indoor, surface: c.surface, distanceBucket: null }));
   }
-  async peek() {
-    // Before a profile exists RLS returns nothing, and that is correct. Show the cohort
-    // count instead: it is the honest number.
-    const s = await this.marketStatus();
-    return { count: s?.activePlayers ?? 0, sample: [] };
+  async peek(levelValue: number, dateOfBirth: string) {
+    // No profile row yet, so RLS shows this user nothing and that is correct. A definer
+    // RPC counts the cohort without handing back a single identity.
+    const { data } = await this.sb.rpc('peek_cohort', { p_dob: dateOfBirth, p_level: levelValue });
+    return { count: Number(data?.[0]?.players ?? 0), sample: [] };
   }
 
   // ---- discovery ---------------------------------------------------------------
@@ -144,11 +151,12 @@ export class SupabaseApi implements HitsApi {
       levelVerified: r.level_source === 'utr_verified',
       levelDelta: r.level_delta == null ? null : Number(r.level_delta), distanceBucket: r.distance_bucket ?? null,
       homeCourtId: r.home_court_id, homeCourtName: courts.get(r.home_court_id) ?? null,
-      availabilityMask: r.availability_mask, lookingToHit: !!r.looking_to_hit || (r.looking_to_hit_until && new Date(r.looking_to_hit_until) > new Date()),
+      availabilityMask: r.availability_mask ?? 0,
+      lookingToHit: !!r.looking_to_hit || !!(r.looking_to_hit_until && new Date(r.looking_to_hit_until) > new Date()),
       lastActiveAt: r.last_active_at,
       responseRate: r.response_rate != null ? Number(r.response_rate) : (r.requests_received ? r.requests_responded / r.requests_received : null),
       acceptRate: r.accept_rate != null ? Number(r.accept_rate) : (r.requests_responded ? r.requests_accepted / r.requests_responded : null),
-      hitsConfirmed: r.hits_confirmed,
+      hitsConfirmed: r.hits_confirmed ?? 0,
     };
   }
   private async courtMap() { return new Map((await this.courts()).map(c => [c.id, c.name])); }
@@ -168,11 +176,29 @@ export class SupabaseApi implements HitsApi {
   }
 
   // ---- hits --------------------------------------------------------------------
+  // Someone can vanish from view between the request and the read: blocked, suspended,
+  // aged out of the band. The screens read these fields unconditionally, so a stand-in
+  // has to be a whole Player and say plainly that it knows nothing, rather than a
+  // three-field object cast into the type and rendered as "undefined hits played".
+  private static unknownPlayer(id: string): Player {
+    return {
+      id, displayName: 'Player', lastInitial: null, photoUrl: null,
+      levelValue: null, levelSource: null, levelVerified: false, levelDelta: null,
+      distanceBucket: null, homeCourtId: null, homeCourtName: null,
+      availabilityMask: 0, lookingToHit: false, lastActiveAt: new Date(0).toISOString(),
+      responseRate: null, acceptRate: null, hitsConfirmed: 0,
+    };
+  }
+
   private async mapRequest(r: any, viewer: string): Promise<HitRequest> {
     const otherId = r.from_profile_id === viewer ? r.to_profile_id : r.from_profile_id;
-    const other = (await this.player(otherId)) ?? ({ id: otherId, displayName: 'Player', lastInitial: null } as Player);
+    const other = (await this.player(otherId)) ?? SupabaseApi.unknownPlayer(otherId);
     const approvals = (r.hit_guardian_approvals ?? []).map((a: any): Approval => ({
-      hitId: r.id, minorId: a.minor_profile_id, minorName: '', guardianUserId: a.guardian_user_id, decision: a.decision, decidedAt: a.decided_at, seenAt: a.seen_at ?? null,
+      hitId: r.id, minorId: a.minor_profile_id,
+      // Only the counterparty's name is in hand here; a guardian view patches its own child's.
+      minorName: a.minor_profile_id === other.id ? other.displayName : '',
+      guardianUserId: a.guardian_user_id, decision: a.decision, decidedAt: a.decided_at,
+      seenAt: a.seen_at ?? null, createdAt: a.created_at ?? null,
     }));
     const confs: any[] = r.hit_confirmations ?? [];
     return {
@@ -180,7 +206,7 @@ export class SupabaseApi implements HitsApi {
       courtName: r.courts?.name ?? 'Court', windowStart: r.window_start, windowEnd: r.window_end, note: r.note,
       state: r.state as HitState, awaitingId: r.awaiting_profile_id, expiresAt: r.expires_at, createdAt: r.created_at,
       confirmedAt: r.confirmed_at, declineReason: r.decline_reason ?? null, other, approvals,
-      plan: { ballsBy: null, ballsById: r.plan?.ballsById ?? null, format: r.plan?.format ?? null, meetAt: r.plan?.meetAt ?? null, lateById: r.plan?.lateById ?? null },
+      plan: { ballsById: r.plan?.ballsById ?? null, format: r.plan?.format ?? null, meetAt: r.plan?.meetAt ?? null, lateById: r.plan?.lateById ?? null },
       myConfirmation: confs.find(c => c.profile_id === viewer)?.did_play ?? null,
       theirConfirmation: confs.find(c => c.profile_id === otherId)?.did_play ?? null,
     };
@@ -243,15 +269,22 @@ export class SupabaseApi implements HitsApi {
     const { data } = await this.sb.rpc('shared_phone', { p_hit: id });
     return (data ?? []).map((r: any) => ({ profileId: r.profile_id, phone: r.phone, mine: r.mine }));
   }
+  // How many joined is not a peer lookup: counting through profiles runs under that
+  // table's RLS and reported roughly zero on the one screen that shows "7 of 20".
+  private async rosterCounts(): Promise<Map<string, number>> {
+    const { data } = await this.sb.rpc('roster_counts');
+    return new Map((data ?? []).map((r: any) => [r.roster_id, Number(r.joined)]));
+  }
   async createRoster(name: string, cap: number): Promise<Roster> {
     const { data, error } = await this.sb.rpc('create_roster', { p_name: name, p_cap: cap });
     if (error) this.fail(error);
     const r = Array.isArray(data) ? data[0] : data;
-    return { id: r.id, name: r.name, code: r.code, cap: r.cap, joined: r.joined ?? 0, createdAt: r.created_at };
+    return { id: r.id, name: r.name, code: r.code, cap: r.cap, joined: (await this.rosterCounts()).get(r.id) ?? 0, createdAt: r.created_at };
   }
   async myRosters(): Promise<Roster[]> {
-    const { data } = await this.sb.from('rosters').select('*, profiles(count)').eq('created_by', this.uid!);
-    return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, code: r.code, cap: r.cap, joined: r.profiles?.[0]?.count ?? 0, createdAt: r.created_at }));
+    const { data } = await this.sb.from('rosters').select('*').eq('created_by', this.uid!);
+    const counts = await this.rosterCounts();
+    return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, code: r.code, cap: r.cap, joined: counts.get(r.id) ?? 0, createdAt: r.created_at }));
   }
   async checkCode(code: string) {
     const { data } = await this.sb.rpc('check_roster_code', { p_code: code });
@@ -308,7 +341,10 @@ export class SupabaseApi implements HitsApi {
     return { id: data.id, hitId: id, senderId: data.sender_profile_id, body: data.body, createdAt: data.created_at };
   }
   async confirmPlayed(id: string, didPlay: boolean) {
-    const { error } = await this.sb.from('hit_confirmations').insert({ hit_request_id: id, profile_id: this.uid, did_play: didPlay });
+    // Answerable twice: tapping again, or changing your mind, used to raise a raw
+    // duplicate-key error in the user's face.
+    const { error } = await this.sb.from('hit_confirmations')
+      .upsert({ hit_request_id: id, profile_id: this.uid, did_play: didPlay }, { onConflict: 'hit_request_id,profile_id' });
     if (error) this.fail(error);
     return (await this.hit(id))!.request;
   }

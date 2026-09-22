@@ -17,16 +17,26 @@ export default function Peek() {
   const router = useRouter();
   const { draft } = useDraft();
   const band = isMinor(draft.dateOfBirth) ? 'minor' : 'adult';
-  const { data, loading } = useAsync(() => api.peek(draft.levelValue ?? 6, band), [draft.levelValue, band]);
+  const dob = draft.dateOfBirth ?? '2000-01-01';
+  const { data, loading } = useAsync(() => api.peek(draft.levelValue ?? 6, dob), [draft.levelValue, dob]);
+  const who = band === 'minor' ? 'juniors' : 'players';
   return (
     <Screen sky={220} bottom={<Centered><Button title="Keep going" kind="ball" onPress={() => router.push('/onboarding/court')} /></Centered>}>
       <Centered>
         {loading || !data ? <Rally label="Looking around Palo Alto…" a={(draft.levelValue ?? 6).toFixed(1)} /> : (
           <>
             <View style={{ marginTop: space.xl, marginBottom: space.xl }}>
-              <T v="display" tone="court" style={{ fontSize: 56, lineHeight: 56 }}>{data.count}</T>
-              <T v="h1">{band === 'minor' ? 'juniors' : 'players'} around your level near Palo Alto.</T>
-              <T v="body" tone="ink2" style={{ marginTop: space.sm }}>Two more questions and you'll see who they are.</T>
+              {/* A real launch starts at zero. "0 players" is a door closing; being early
+                  is a reason to stay. Either way the number is the true one. */}
+              {data.count > 0 ? (<>
+                <T v="display" tone="court" style={{ fontSize: 56, lineHeight: 56 }}>{data.count}</T>
+                <T v="h1">{who} around your level near Palo Alto.</T>
+                <T v="body" tone="ink2" style={{ marginTop: space.sm }}>Two more questions and you'll see who they are.</T>
+              </>) : (<>
+                <T v="display" tone="court" style={{ fontSize: 48, lineHeight: 50 }}>You're early.</T>
+                <T v="h1">Palo Alto is still filling up.</T>
+                <T v="body" tone="ink2" style={{ marginTop: space.sm }}>Finish your card and you're first in line when {who} at your level show up.</T>
+              </>)}
             </View>
             <View style={{ gap: space.md }}>
               {data.sample.map((p, i) => (

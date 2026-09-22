@@ -7,16 +7,28 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const gen = useRef(0);
+  const alive = useRef(true);
+  // `run` is memoised on the caller's deps, so without this it would keep calling the
+  // fn from whichever render last changed them -- a stale closure waiting to happen.
+  const latest = useRef(fn);
+  latest.current = fn;
+
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
+
   const run = useCallback(async () => {
     const g = ++gen.current;
+    const ok = () => alive.current && g === gen.current;
     setLoading(true);
     try {
-      const r = await fn();
-      if (g === gen.current) { setData(r); setError(null); }
+      const r = await latest.current();
+      if (ok()) { setData(r); setError(null); }
     } catch (e: any) {
-      if (g === gen.current) setError(e?.message ?? 'Something went wrong');
+      if (ok()) setError(e?.message ?? 'Something went wrong');
     } finally {
-      if (g === gen.current) setLoading(false);
+      if (ok()) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

@@ -9,6 +9,7 @@ import { CourtSurface } from './Court';
 import { color } from '@/theme/tokens';
 import { levelBig, windowShout } from '@/lib/format';
 import type { HitRequest, Profile } from '@/data/types';
+import { textShadow } from '@/lib/shadow';
 
 export const ShareCard = forwardRef<View, { req: HitRequest; me: Profile }>(function ShareCard({ req, me }, ref) {
   const start = new Date(req.windowStart);
@@ -57,7 +58,7 @@ const s = StyleSheet.create({
   top: { alignItems: 'center', marginTop: 40 },
   court: { width: 780, height: 1120, marginTop: 60 },
   side: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: 8 },
-  num: { fontSize: 160, lineHeight: 164, letterSpacing: -8, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 6 }, textShadowRadius: 0 },
+  num: { fontSize: 160, lineHeight: 164, letterSpacing: -8, ...textShadow({ y: 6, color: 'rgba(0,0,0,0.3)' }) },
   banner: { position: 'absolute', left: -40, right: -40, top: '50%', marginTop: -70, backgroundColor: color.ball, paddingVertical: 12, alignItems: 'center', transform: [{ rotate: '-3deg' }] },
   foot: { alignItems: 'center', marginTop: 50 },
 });

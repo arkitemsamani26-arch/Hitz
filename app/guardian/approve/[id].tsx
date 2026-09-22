@@ -29,7 +29,7 @@ export default function Approve() {
   const toast = useToast();
   const { tick } = useSession();
   const { data, loading, reload } = useAsync(() => api.guardianHit(id), [id, tick]);
-  const assurance = useAsync(() => api.assurance(id), [id]);
+  const assurance = useAsync(() => api.assurance(id), [id, tick]);
   const [busy, setBusy] = useState<'yes' | 'no' | null>(null);
   const [blocking, setBlocking] = useState(false);
   const [burst, setBurst] = useState(0);

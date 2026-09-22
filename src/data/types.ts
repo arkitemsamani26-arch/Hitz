@@ -30,8 +30,7 @@ export interface Profile {
 
 // Planned together while the parents decide. Small, one-tap choices both sides see.
 export interface HitPlan {
-  ballsBy: 'me' | 'them' | null;      // relative to the viewer? No: stored as a profile id
-  ballsById: string | null;
+  ballsById: string | null;           // who is bringing them, as a profile id
   format: 'sets' | 'drills' | 'both' | null;
   meetAt: 'gate' | 'court' | null;
   lateById: string | null;            // who flagged "running 5 late"

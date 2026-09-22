@@ -73,8 +73,16 @@ export default function Hits() {
     } catch (e: any) { setSent(s => s.filter(x => x !== p.id)); toast(e.message); }
   }, [profile, canRequest, toast, courtIds]);
 
-  const accept = async (r: HitRequest) => { await api.accept(r.id); haptic.accepted(); play('pop'); await reqs.reload(); router.push(`/hit/${r.id}`); };
-  const decline = async (r: HitRequest, reason: DeclineReason) => { await api.decline(r.id, reason); await reqs.reload(); };
+  // Both of these can be refused by the backend -- someone else moved first, the turn
+  // flipped, the network went. Unhandled they were a dead button and a console warning.
+  const accept = async (r: HitRequest) => {
+    try { await api.accept(r.id); haptic.accepted(); play('pop'); await reqs.reload(); router.push(`/hit/${r.id}`); }
+    catch (e: any) { haptic.warn(); toast(e?.message ?? "Couldn't accept that one."); void reqs.reload(); }
+  };
+  const decline = async (r: HitRequest, reason: DeclineReason) => {
+    try { await api.decline(r.id, reason); } catch (e: any) { toast(e?.message ?? "Couldn't pass on that one."); }
+    finally { void reqs.reload(); }
+  };
   const open = (p: Player) => router.push(`/player/${p.id}`);
   const courtW = Math.min(width - 32, 480), courtH = Math.min(courtW * 1.5, 540);
 

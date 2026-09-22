@@ -65,7 +65,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 const iso = (d: Date) => d.toISOString();
 const hoursAgo = (h: number) => iso(new Date(Date.now() - h * 3600000));
 
-const emptyPlan = (): HitPlan => ({ ballsBy: null, ballsById: null, format: null, meetAt: null, lateById: null });
+const emptyPlan = (): HitPlan => ({ ballsById: null, format: null, meetAt: null, lateById: null });
 
 // Roster codes are handed out by a coach or captain. Known demo codes:
 const DEMO_ROSTERS: Roster[] = [
@@ -79,11 +79,12 @@ type State = {
     displayName: string; lastInitial: string; dateOfBirth: string; levelValue: number;
     levelSource: Profile['levelSource']; homeCourtId: string; availabilityMask: number;
     lookingToHitUntil: string | null; lastActiveAt: string;
-    guardianEmail: string | null; guardianVerified: boolean;
+    guardianEmail: string | null; guardianPhone?: string | null; guardianVerified: boolean;
     guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null;
   };
   rosters: Roster[];
   pushToken: string | null;
+  reports: { profileId: string; reason: string; body: string; hitId: string | null; at: string }[];
   requests: Row[];
   messages: Message[];
   blocked: string[];
@@ -94,7 +95,7 @@ type State = {
 
 const blank = (): State => ({
   session: null, profile: null, requests: [], messages: [], blocked: [],
-  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], pushToken: null,
+  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], pushToken: null, reports: [],
 });
 
 // Bay Area sprawl: mile steps to 15, then fives. People here drive 280.
@@ -114,22 +115,29 @@ function bandOf(dob: string): 'minor' | 'adult' {
 export class DemoApi implements HitsApi {
   readonly mode = 'demo' as const;
   private s: State = blank();
-  private loaded = false;
+  private loading: Promise<void> | null = null;
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<() => void>();
   private timers: ReturnType<typeof setTimeout>[] = [];
 
   // ---- plumbing ----------------------------------------------------------------
-  private async load() {
-    if (this.loaded) return;
+  // A cold start from a deep link calls this three times in the same tick. The promise
+  // is the lock: a flag set after an await is no lock at all, and the losers used to
+  // each overwrite the state and start their own forever-interval.
+  private load() {
+    if (!this.loading) this.loading = this.read();
+    return this.loading;
+  }
+
+  private async read() {
     try {
       const raw = await AsyncStorage.getItem(KEY);
       if (raw) this.s = { ...blank(), ...JSON.parse(raw) };
     } catch { /* fresh state */ }
-    this.loaded = true;
     // Simulated replies are timers; a reload would drop them. Settle anything that has
     // been waiting long enough, and keep settling in the background.
     this.reconcile();
-    setInterval(() => { if (this.reconcile()) this.save(); }, 3000);
+    if (!this.heartbeat) this.heartbeat = setInterval(() => { if (this.reconcile()) this.save(); }, 3000);
   }
 
   private reconcile(): boolean {
@@ -186,7 +194,12 @@ export class DemoApi implements HitsApi {
     this.s.session = { ...this.s.session, userId: ME, isGuardian: false };
     this.save();
   }
-  async reset() { this.timers.forEach(clearTimeout); this.s = blank(); await AsyncStorage.removeItem(KEY); this.listeners.forEach(l => l()); }
+  async reset() {
+    this.timers.forEach(clearTimeout); this.timers = [];
+    if (this.heartbeat) { clearInterval(this.heartbeat); this.heartbeat = null; }
+    this.s = blank(); this.loading = null;
+    await AsyncStorage.removeItem(KEY); this.listeners.forEach(l => l());
+  }
 
   // ---- auth --------------------------------------------------------------------
   async restore() { await this.load(); return this.s.session; }
@@ -270,8 +283,9 @@ export class DemoApi implements HitsApi {
     };
   }
   async courts() { await this.load(); return COURTS; }
-  async peek(level: number, band: 'minor' | 'adult') {
+  async peek(level: number, dateOfBirth: string) {
     await this.wait(250);
+    const band = bandOf(dateOfBirth);
     const pool = SEED.filter(p => p.band === band && Math.abs(p.level - level) <= 1.0);
     const sample = pool.sort((a, b) => Math.abs(a.level - level) - Math.abs(b.level - level)).slice(0, 3).map(p => this.toPlayer(p, level));
     return { count: pool.length + 9, sample };
@@ -428,7 +442,9 @@ export class DemoApi implements HitsApi {
     await this.load(); const r = this.find(id);
     if (!['confirmed', 'completed'].includes(r.state)) return [];
     const other = r.fromId === ME ? r.toId : r.fromId;
-    return (r.shares ?? []).map(pid => ({ profileId: pid, phone: pid === ME ? (this.s.session?.phone ?? '') : '+1 (650) 555-01' + (SEED.findIndex(p => p.id === other) + 10), mine: pid === ME }));
+    // A non-seed counterparty gave findIndex -1 and a nine-digit number.
+    const seat = Math.max(0, SEED.findIndex(p => p.id === other)) + 10;
+    return (r.shares ?? []).map(pid => ({ profileId: pid, phone: pid === ME ? (this.s.session?.phone ?? '') : `+1 (650) 555-01${seat}`, mine: pid === ME }));
   }
 
   // ---- rosters -----------------------------------------------------------------
@@ -492,12 +508,18 @@ export class DemoApi implements HitsApi {
     this.s.requests.filter(r => r.fromId === profileId || r.toId === profileId).forEach(r => { if (!['completed'].includes(r.state)) r.state = 'cancelled'; });
     this.save();
   }
-  async report() { await this.wait(300); }
+  // The demo has nobody to escalate to, but dropping the report silently made the
+  // flow untestable. Keep it where a walkthrough can see it landed.
+  async report(profileId: string, reason: string, body: string, hitId?: string) {
+    await this.load();
+    this.s.reports = [...(this.s.reports ?? []), { profileId, reason, body, hitId: hitId ?? null, at: iso(new Date()) }];
+    this.save();
+  }
 
   // ---- guardian ----------------------------------------------------------------
-  async inviteGuardian(email: string) {
+  async inviteGuardian(email: string, phone: string) {
     await this.load(); if (!this.s.profile) throw new ApiError('no profile');
-    this.s.profile.guardianEmail = email; this.s.profile.guardianVerified = false;
+    this.s.profile.guardianEmail = email; this.s.profile.guardianPhone = phone; this.s.profile.guardianVerified = false;
     this.s.profile.guardianSentAt = iso(new Date()); this.s.profile.guardianOpenedAt = null;
     // In the demo the parent opens the text in a few seconds and says yes soon after.
     this.later(4000, () => { if (this.s.profile) this.s.profile.guardianOpenedAt = iso(new Date()); });

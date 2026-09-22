@@ -21,7 +21,8 @@ export default function Filters() {
   const { profile } = useSession();
   const [f, setF] = useState(filters);
   const my = profile?.levelValue ?? 6;
-  const band = f.levelLo == null ? null : +(my - f.levelLo).toFixed(1);
+  // Read and write at the same precision, or the pill you just tapped deselects itself.
+  const band = f.levelLo == null ? null : +(my - f.levelLo).toFixed(2);
   const setBand = (d: number | null) => setF(x => ({ ...x, levelLo: d == null ? null : +(my - d).toFixed(2), levelHi: d == null ? null : +(my + d).toFixed(2) }));
   return (
     <Screen sky={120} bottom={<Centered><View style={{ flexDirection: 'row', gap: space.md }}>

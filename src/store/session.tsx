@@ -32,19 +32,34 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setProfile(s && !s.isGuardian ? await api.me() : null);
   }, []);
 
+  // Whatever happens, the app has to become interactive. Restore is two network calls,
+  // and if either threw here the splash was already gone and the user sat looking at an
+  // empty green screen with no error and no way back.
   useEffect(() => {
+    let alive = true;
     (async () => {
       try {
         const v = await AsyncStorage.getItem(LIST_KEY);
-        if (v != null) setListPref(v === '1');
-      } catch {}
-      await refresh();
-      setReady(true);
+        if (v != null && alive) setListPref(v === '1');
+      } catch { /* the default is fine */ }
+      try {
+        await refresh();
+      } catch {
+        if (alive) { setSession(null); setProfile(null); }
+      } finally {
+        if (alive) setReady(true);
+      }
     })();
+    return () => { alive = false; };
   }, [refresh]);
 
   useEffect(() => api.onChange(() => setTick(t => t + 1)), []);
-  useEffect(() => { if (session && !session.isGuardian) void api.me().then(setProfile); }, [tick, session]);
+  useEffect(() => {
+    if (!session || session.isGuardian) return;
+    let alive = true;
+    void api.me().then(p => { if (alive) setProfile(p); }, () => { /* keep what we have */ });
+    return () => { alive = false; };
+  }, [tick, session]);
 
   // List is the default for everyone; the court is the browse mode you switch to.
   const listMode = listPref ?? true;
