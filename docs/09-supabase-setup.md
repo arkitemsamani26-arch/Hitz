@@ -16,12 +16,43 @@ in your Supabase org. URL `https://pvkzcbgpbebllnzmxxwg.supabase.co`; publishabl
 - Edge functions deployed: `notify` (push delivery + tomorrow reminders + request expiry)
   and `guardian-invite` (parent SMS/email with a magic link). Both require a JWT.
 
-### Not yet applied to the live project
+### The grant bug worth knowing about
 
-`20260922000400_invites.sql` and `20260922000500_moderation.sql` are in the repo and green
-against a scratch Postgres (`npm run db:test`), but have **not** been pushed to the live
-project. Apply them when you want the invite field and the one-call review path live;
-neither touches an existing row.
+Applying the invite migration meant reading the live grants back, which turned up two
+things, both caused by the same habit: leaning on Postgres's default of EXECUTE-to-PUBLIC
+on every new function.
+
+- **~40 `app` functions were reachable by `anon`** — `discover`, `can_view_profile`,
+  `hit_assurance`, `shared_phone` — because nothing ever took PUBLIC away. None of them
+  leak: each is SECURITY DEFINER and gates on `app.uid()`, null for an anonymous caller.
+  But `01` claims "nothing in `app` is granted to anon/authenticated except the explicit
+  RPCs", and that was not true here.
+- **The scheduled jobs were broken in production.** The hardening pass revoked EXECUTE
+  from `public` on `expire_requests()` and `enqueue_tomorrow_reminders()` so a signed-in
+  user could not expire everybody's requests. Right call — except PUBLIC was the *only*
+  grant those functions had, and `service_role` is not a superuser. `notify` called them
+  every minute, got 403 twice, discarded both results and returned 200. Reminders and
+  request expiry had not run since.
+
+`20260922000600_execute_surface.sql` fixes both, and `supabase/tests/17_execute_surface.sql`
+pins the result: anon may execute exactly five RPCs and read zero tables, and `service_role`
+must be able to run every job the edge functions call. Drop that migration and four of its
+six assertions fail, which is the point — `ALTER DEFAULT PRIVILEGES` was supposed to prevent
+this and does not, since it only covers objects created afterwards by the role that ran it.
+
+### Still to do by hand: schedule `notify`
+
+**Nothing pushes a notification until this is done, and nothing in the repo can do it** —
+it needs the `service_role` key, which does not belong in a file. `pg_cron` is not
+installed on the project and there is no schedule, so the outbox has never been drained.
+
+Dashboard → Edge Functions → `notify` → Schedules, every minute. Or install `pg_cron` and
+`pg_net` and schedule it with an `Authorization: Bearer <service role key>` header — the
+function verifies JWTs, and deploying it with `--no-verify-jwt` instead would let anyone
+on the internet drain the outbox.
+
+Step 5 of `supabase/moderation.sql` is how you notice if it stops: if `oldest_waiting` is
+more than a couple of minutes, nobody is being notified of anything.
 
 ## What only the dashboard can do (about 10 minutes)
 

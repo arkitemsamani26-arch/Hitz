@@ -47,6 +47,18 @@ select * from app.moderation_auto_hidden;
 -- Suspending outside a report (something you found yourself):
 -- select app.suspend_profile('<profile id>');
 
--- 5. Density by cohort, and where the signups actually came from.
+-- 5. Is the outbox moving?
+--
+-- notify() drains this every minute -- if it is scheduled. It was not, for a while, and
+-- separately it had lost the EXECUTE grant it needed, and nothing anywhere said so. If
+-- `oldest_waiting` is more than a couple of minutes, nobody is being notified of anything:
+-- check the schedule (Dashboard -> Edge Functions -> notify -> Schedules) and the function
+-- logs, which now carry the actual error.
+select count(*)                                  as waiting,
+       max(now() - created_at)                   as oldest_waiting,
+       count(*) filter (where created_at < now() - interval '15 minutes') as stale
+  from app.notifications where sent_at is null;
+
+-- 6. Density by cohort, and where the signups actually came from.
 select * from app.market_cohort_density;
 select * from app.invite_funnel;

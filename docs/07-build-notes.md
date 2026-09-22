@@ -162,6 +162,15 @@ enough to be misleading, so this is what it actually looks like now.
   `20260922*` migrations — discovery was writing no location at all, and the sender could
   accept their own request.
 
+**Found while applying the above to the live project**, and worth reading as a pattern
+rather than two bugs: every grant in the schema was resting on Postgres's default of
+EXECUTE-to-PUBLIC. That made roughly forty functions anon-reachable (harmless — they all
+gate on `app.uid()` — but not what `01` claims), and it made the hardening pass's revoke
+of PUBLIC quietly take `service_role` down with it, so the minute-by-minute `notify` job
+had been getting 403s on `expire_requests()` and `enqueue_tomorrow_reminders()` and
+returning 200 anyway. Both fixed, and test 17 now pins the exact executable surface so it
+cannot drift back. `notify` itself no longer discards a single error.
+
 **Still open:**
 
 - The counter screen now shows what you are answering, but the hit thread still doesn't
@@ -170,6 +179,8 @@ enough to be misleading, so this is what it actually looks like now.
 - Clubs remain a reserved shape with no verification flow, which is the gate on any
   cross-band relaxation.
 - `useAsync` + `tick` is still a thin substitute for a query cache.
+- `notify` has no schedule on the live project and `pg_cron` is not installed, so no push
+  has ever been delivered. That one is a dashboard step with the service key (`09`).
 
 ## How to check the claims in these notes
 

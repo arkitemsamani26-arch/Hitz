@@ -33,7 +33,11 @@ Deno.serve(async () => {
   // Before the partner credential lands this is a no-op rather than a pile of 500s.
   if (!configured()) return Response.json({ skipped: 'UTR credentials not set' });
 
-  const { data: due } = await sb.rpc('utr_due_for_sync', { p_limit: 100 });
+  const { data: due, error: dueErr } = await sb.rpc('utr_due_for_sync', { p_limit: 100 });
+  // "No rows" and "we are not allowed to ask" look identical once the error is dropped,
+  // and the second one is what actually happened for a while: the only EXECUTE grant this
+  // RPC had was the PUBLIC default, and a hardening migration revoked it.
+  if (dueErr) return Response.json({ error: `utr_due_for_sync: ${dueErr.message}` }, { status: 500 });
   let synced = 0, retired = 0, failed = 0;
 
   for (const link of due ?? []) {
@@ -48,8 +52,8 @@ Deno.serve(async () => {
       // A revoked or expired grant is the player disconnecting us. Retire the badge
       // rather than leaving a stale one standing.
       if (tok.status === 400 || tok.status === 401) {
-        await sb.rpc('retire_utr', { p_profile: link.profile_id });
-        retired++;
+        const { error } = await sb.rpc('retire_utr', { p_profile: link.profile_id });
+        if (error) failed++; else retired++;
         continue;
       }
       if (!tok.ok) { failed++; continue; }
