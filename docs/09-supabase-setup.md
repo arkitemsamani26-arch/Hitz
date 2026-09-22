@@ -40,6 +40,14 @@ must be able to run every job the edge functions call. Drop that migration and f
 six assertions fail, which is the point — `ALTER DEFAULT PRIVILEGES` was supposed to prevent
 this and does not, since it only covers objects created afterwards by the role that ran it.
 
+### Realtime was subscribed to nothing
+
+Same shape again: `onChange` subscribes to `postgres_changes` on three tables, and the
+`supabase_realtime` publication was empty, so the channel could never fire. Nothing
+arriving on an already-open screen — a request, a message, a parent's approval — ever
+showed up until you navigated or pulled to refresh, which is precisely why it looked fine.
+`20260922000700_realtime.sql` adds the three tables and test 17 asserts the list.
+
 ### Still to do by hand: schedule `notify`
 
 **Nothing pushes a notification until this is done, and nothing in the repo can do it** —

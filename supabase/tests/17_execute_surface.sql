@@ -12,7 +12,7 @@
 -- belongs in and say so out loud in a migration. Do not add it here to make the red go
 -- away.
 begin;
-select plan(6);
+select plan(7);
 set search_path = app, public;
 
 -- Anonymous ------------------------------------------------------------------------------
@@ -60,5 +60,15 @@ select is(
                         'mint_code', 'snap_point')),
   '{}'::text[],
   'and a signed-in player still cannot reach any of it');
+
+-- Live updates ------------------------------------------------------------------------------
+-- The client subscribes to postgres_changes on exactly these three. A publication with
+-- nothing in it is a subscription that never fires, which is what the live project had.
+select is(
+  (select coalesce(array_agg(tablename::text order by tablename), '{}')
+     from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'app'),
+  array['hit_guardian_approvals', 'hit_messages', 'hit_requests'],
+  'realtime carries the three tables the app subscribes to, and no others');
 
 rollback;
