@@ -48,7 +48,7 @@ export default function PlayerScreen() {
   return (
     <Screen sky={120} bottom={!reporting ? <Centered><Button kind="ball" title={canRequest ? `Request a hit` : 'Unlocks when your parent says yes'} disabled={!canRequest} onPress={() => router.push(`/request/${p.id}`)} /></Centered> : undefined}>
       <Centered>
-        <Header right={<Tap onPress={() => setMore(true)} style={{ minHeight: 48, justifyContent: 'center' }} accessibilityLabel="More"><T v="h2">···</T></Tap>} />
+        <Header right={<Tap onPress={() => setMore(true)} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 8 }} accessibilityRole="button" accessibilityLabel="More options for this player"><T v="h2">···</T></Tap>} />
         <PlayerCard p={p} />
         <Card style={{ marginTop: space.md }}>
           <T v="micro" tone="ink3">Usually free</T>
@@ -82,4 +82,3 @@ export default function PlayerScreen() {
     </Screen>
   );
 }
-const s = StyleSheet.create({});

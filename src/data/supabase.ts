@@ -19,7 +19,6 @@ export class SupabaseApi implements HitsApi {
   readonly mode = 'supabase' as const;
   private sb: SupabaseClient<any, 'app', any>;
   private uid: string | null = null;
-  private listeners = new Set<() => void>();
 
   constructor(url: string, anonKey: string) {
     this.sb = createClient<any, 'app', any>(url, anonKey, {
@@ -29,13 +28,12 @@ export class SupabaseApi implements HitsApi {
   }
 
   onChange(cb: () => void) {
-    this.listeners.add(cb);
     const ch = this.sb.channel('hits-changes')
       .on('postgres_changes', { event: '*', schema: 'app', table: 'hit_requests' }, () => cb())
       .on('postgres_changes', { event: '*', schema: 'app', table: 'hit_messages' }, () => cb())
       .on('postgres_changes', { event: '*', schema: 'app', table: 'hit_guardian_approvals' }, () => cb())
       .subscribe();
-    return () => { this.listeners.delete(cb); void this.sb.removeChannel(ch); };
+    return () => { void this.sb.removeChannel(ch); };
   }
 
   private fail(e: { message: string } | null, fallback = 'Something went wrong'): never {

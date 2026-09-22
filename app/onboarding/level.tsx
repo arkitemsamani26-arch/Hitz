@@ -95,12 +95,12 @@ export default function Level() {
 
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.lg, flexWrap: 'wrap' }}>
             {mode ? (
-              <Tap onPress={() => { setMode(false); setV(null); setSrc(null); setUtrText(''); }} style={s.link} tick>
+              <Tap onPress={() => { setMode(false); setV(null); setSrc(null); setUtrText(''); }} style={s.link} tick accessibilityRole="button">
                 <T v="smallM" tone="onCourt">Back to the list</T>
               </Tap>
             ) : (<>
-              <Tap onPress={() => { setMode('utr'); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my UTR</T></Tap>
-              <Tap onPress={() => { setMode('ntrp'); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my NTRP</T></Tap>
+              <Tap onPress={() => { setMode('utr'); }} style={s.link} tick accessibilityRole="button"><T v="smallM" tone="onCourt">I know my UTR</T></Tap>
+              <Tap onPress={() => { setMode('ntrp'); }} style={s.link} tick accessibilityRole="button"><T v="smallM" tone="onCourt">I know my NTRP</T></Tap>
             </>)}
           </View>
         </ScrollView>

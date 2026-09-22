@@ -20,7 +20,9 @@ export function Button({ title, onPress, kind = 'court', disabled, loading, styl
 }
 const s = StyleSheet.create({
   base: { minHeight: hit.min + 4, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xl, flexDirection: 'row' },
-  small: { minHeight: 40, paddingHorizontal: space.lg },
+  // 'small' is the shape, not the target. Pass, Counter, I'm in and the guardian's
+  // Approve/Remove pair all use it, and 40 is under every platform's minimum.
+  small: { minHeight: hit.min, paddingHorizontal: space.lg },
   court: { backgroundColor: color.court },
   ball: { backgroundColor: color.ball },
   white: { backgroundColor: color.paper },

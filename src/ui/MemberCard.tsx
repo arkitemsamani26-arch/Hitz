@@ -13,7 +13,7 @@ export function MemberCard({ name, level, verified, court, roster, minor, number
   const Line = ({ k, v, blink }: { k: string; v: string; blink?: boolean }) => (
     <View style={{ marginBottom: space.sm }}>
       <T v="micro" tone="ink3">{k}</T>
-      <View style={s.val}><T v="h2" tone={v ? 'ink' : 'ink3'}>{v || '—'}</T>{blink && <View style={s.cursor} />}</View>
+      <View style={s.val}><T v="h2" tone={v ? 'ink' : 'ink3'} numberOfLines={1} style={{ flexShrink: 1 }}>{v || '—'}</T>{blink && <View style={s.cursor} />}</View>
     </View>
   );
   return (

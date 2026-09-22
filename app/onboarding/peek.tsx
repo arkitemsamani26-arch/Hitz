@@ -8,6 +8,7 @@ import { T } from '@/ui/Text';
 import { Button } from '@/ui/Button';
 import { PlayerCard } from '@/ui/Player';
 import { Rally } from '@/ui/Rally';
+import { Ladder } from '@/ui/Ladder';
 import { space } from '@/theme/tokens';
 import { api } from '@/data';
 import { useDraft, isMinor } from '@/store/onboarding';
@@ -38,13 +39,20 @@ export default function Peek() {
                 <T v="body" tone="ink2" style={{ marginTop: space.sm }}>Finish your card and you're first in line when {who} at your level show up.</T>
               </>)}
             </View>
-            <View style={{ gap: space.md }}>
-              {data.sample.map((p, i) => (
-                <Animated.View key={p.id} entering={FadeInDown.delay(i * 90).springify().damping(18)}>
-                  <PlayerCard p={p} anonymous />
-                </Animated.View>
-              ))}
-            </View>
+            {/* Nobody is named here. Against the live backend the sample is always empty,
+                because a user with no profile row is not allowed to see anyone -- so the
+                cohort is drawn instead of listed. */}
+            {data.sample.length > 0 ? (
+              <View style={{ gap: space.md }}>
+                {data.sample.map((p, i) => (
+                  <Animated.View key={p.id} entering={FadeInDown.delay(i * 90).springify().damping(18)}>
+                    <PlayerCard p={p} anonymous />
+                  </Animated.View>
+                ))}
+              </View>
+            ) : (
+              <Ladder count={data.count} label={who} />
+            )}
           </>
         )}
       </Centered>

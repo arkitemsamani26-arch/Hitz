@@ -87,7 +87,10 @@ export default function Hits() {
   const courtW = Math.min(width - 32, 480), courtH = Math.min(courtW * 1.5, 540);
 
   return (
-    <Screen sky={150}>
+    <Screen sky={150} onRefresh={async () => {
+      // Pulling down should do what it looks like it does: ask everything again.
+      await Promise.all([players.reload(), reqs.reload(), market.reload(), api.touch().catch(() => {})]);
+    }}>
       <Centered>
         <View style={s.head}>
           <View>
@@ -214,14 +217,15 @@ function Pick({ p, me, courtIds, courtName, onOpen, onHit, disabled }:
           </View>
           <Score value={p.levelValue} size="score" verified={p.levelVerified} tone="ink" />
         </Tap>
+        {/* One distance, not two. distanceBucket is how far they are from you; apart is
+            how far the two home courts are. Showing both reads as a contradiction. */}
         <View style={s.pickFacts}>
-          {p.distanceBucket && <Pill label={`${p.distanceBucket} away`} tone="white" />}
-          {!middle && p.homeCourtName && <Pill label={`Plays ${p.homeCourtName}`} tone="white" />}
-          {!middle && apart && <Pill label={apart} tone="white" />}
+          <Pill label={p.distanceBucket ? `${p.distanceBucket} away` : (apart ?? 'Nearby')} tone="white" />
+          {p.homeCourtName && <Pill label={`Plays ${p.homeCourtName}`} tone="white" />}
         </View>
         {middle && (
           <View style={s.pickCourt}>
-            <T v="micro" tone="ink" style={{ opacity: 0.7 }}>Meet in the middle{apart ? ` · ${apart}` : ''}</T>
+            <T v="micro" tone="ink" style={{ opacity: 0.7 }}>Meet in the middle</T>
             <T v="bodyM" tone="ink" numberOfLines={1}>{middle}</T>
           </View>
         )}

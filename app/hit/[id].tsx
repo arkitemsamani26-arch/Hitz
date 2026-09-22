@@ -17,7 +17,7 @@ import { MatchFound } from '@/ui/MatchFound';
 import { BallBurst } from '@/ui/BallBurst';
 import { play } from '@/lib/sound';
 import { useToast } from '@/ui/Toast';
-import { color, font, radius, space } from '@/theme/tokens';
+import { color, font, hit, radius, space } from '@/theme/tokens';
 import { api, demo } from '@/data';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
@@ -144,7 +144,7 @@ export default function Hit() {
       </View></Centered>
     ) : bottom}>
       <Centered>
-        <Header right={<Tap onPress={() => setMore(true)} style={{ minHeight: 48, justifyContent: 'center' }} accessibilityLabel="More"><T v="h2">···</T></Tap>} />
+        <Header right={<Tap onPress={() => setMore(true)} style={{ minHeight: hit.min, justifyContent: 'center', paddingHorizontal: space.sm }} accessibilityRole="button" accessibilityLabel="More options for this hit"><T v="h2">···</T></Tap>} />
         <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: space.xl }} showsVerticalScrollIndicator={false}>
           {head}
           {canChat && (

@@ -23,7 +23,9 @@ export function Score({ value, size = 'display', verified, tone = 'ink', animate
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
       <T v={size} tone={tone} style={{ fontVariant: ['tabular-nums'] }}>{levelBig(shown)}</T>
-      {verified && <T v="micro" tone={tone === 'onCourt' ? 'onCourt' : 'court'} style={{ marginTop: 6 }}>UTR</T>}
+      {/* Court blue on ball yellow is 4.39:1 -- just under AA for this size. On a yellow
+          card the badge takes the number's own colour instead. */}
+      {verified && <T v="micro" tone={tone === 'onCourt' ? 'onCourt' : tone === 'ink' || tone === 'onBall' ? 'ink' : 'court'} style={{ marginTop: 6 }}>UTR</T>}
     </View>
   );
 }

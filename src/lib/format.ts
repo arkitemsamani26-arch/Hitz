@@ -1,8 +1,3 @@
-export function levelText(v: number | null | undefined): string {
-  if (v == null) return '—';
-  return v.toFixed(2).replace(/0$/, '').replace(/\.$/, '.0');
-}
-
 export function levelBig(v: number | null | undefined): string {
   if (v == null) return '–';
   return v.toFixed(1);

@@ -11,7 +11,6 @@ export const spring = {
   fling: { damping: 26, stiffness: 260, mass: 0.9, overshootClamping: true },
 } as const;
 
-export const duration = { instant: 90, fast: 150, normal: 240, slow: 420 } as const;
 
 export function useMotion() {
   const reduced = useReducedMotion();

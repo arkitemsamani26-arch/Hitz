@@ -1,7 +1,7 @@
 // Every screen is sky, then court. Content sits on white sheets. The sky is real light:
 // it changes with the time of day, there is a sun in it, and the ground has grain.
 import React from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,8 +53,16 @@ export function Sky({ height = 190 }: { height?: number }) {
   );
 }
 
-export function Screen({ children, scroll = true, pad = true, style, bottom, sky = 190, ground = color.ground }:
-  { children: React.ReactNode; scroll?: boolean; pad?: boolean; style?: StyleProp<ViewStyle>; bottom?: React.ReactNode; sky?: number; ground?: string }) {
+export function Screen({ children, scroll = true, pad = true, style, bottom, sky = 190, ground = color.ground, onRefresh }:
+  { children: React.ReactNode; scroll?: boolean; pad?: boolean; style?: StyleProp<ViewStyle>; bottom?: React.ReactNode; sky?: number; ground?: string;
+    // Pull to refresh. Passing this is what turns it on.
+    onRefresh?: () => Promise<unknown> | void }) {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const pull = React.useCallback(async () => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    try { await onRefresh(); } finally { setRefreshing(false); }
+  }, [onRefresh]);
   const insets = useSafeAreaInsets();
   const inner = [pad && s.pad, { paddingTop: insets.top + space.md, paddingBottom: bottom ? space.md : insets.bottom + space.xl }, style];
   return (
@@ -64,7 +72,8 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
       <Image source={grain} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity: 0.25, pointerEvents: "none" } as any]} />
       {sky > 0 && <Sky height={sky + insets.top} />}
       {scroll
-        ? <ScrollView contentContainerStyle={[s.grow, inner]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{children}</ScrollView>
+        ? <ScrollView contentContainerStyle={[s.grow, inner]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+            refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={color.paper} colors={[color.court]} progressBackgroundColor={color.paper} /> : undefined}>{children}</ScrollView>
         : <View style={[s.fill, inner]}>{children}</View>}
       {bottom && <View style={[s.bottom, { paddingBottom: insets.bottom + space.lg }]}>{bottom}</View>}
     </KeyboardAvoidingView>

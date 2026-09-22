@@ -18,7 +18,6 @@ export async function loadSoundPref() {
   try { const v = await AsyncStorage.getItem(KEY); if (v != null) enabled = v === '1'; } catch {}
   return enabled;
 }
-export function soundEnabled() { return enabled; }
 export async function setSoundEnabled(v: boolean) {
   enabled = v;
   try { await AsyncStorage.setItem(KEY, v ? '1' : '0'); } catch {}

@@ -12,7 +12,7 @@ export function Avatar({ name, photo, size = 40, ring }: { name: string; photo?:
   return (
     <View style={[s.a, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }, ring && s.ring]}>
       {photo
-        ? <Image source={{ uri: photo }} style={{ width: '100%', height: '100%', borderRadius: size / 2 }} accessibilityLabel={`${name}'s photo`} />
+        ? <Image source={{ uri: photo }} style={{ width: '100%', height: '100%', borderRadius: size / 2 }} accessibilityRole="image" accessibilityLabel={`${name}'s photo`} />
         : <T v="bodyM" tone="onCourt" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: size * 0.42, lineHeight: size * 0.5 }}>{name.slice(0, 1).toUpperCase()}</T>}
     </View>
   );

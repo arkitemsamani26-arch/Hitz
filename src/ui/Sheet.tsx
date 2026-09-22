@@ -29,7 +29,6 @@ export function OptionSheet({ open, onClose, title, options, children }: { open:
     </Modal>
   );
 }
-export { OptionSheet as Sheet };
 const s = StyleSheet.create({
   dim: { flex: 1, backgroundColor: 'rgba(14,27,51,0.55)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: color.paper, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.xl, gap: 2, width: '100%', maxWidth: 560, alignSelf: 'center' },

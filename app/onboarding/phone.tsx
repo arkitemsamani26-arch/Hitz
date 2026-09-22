@@ -49,7 +49,7 @@ export default function Phone() {
               {!codeName && code.trim().length >= 5 && <T v="small" tone="ink3" style={{ marginTop: space.sm }}>Don't know that code. You can join without one.</T>}
             </View>
           ) : (
-            <Tap onPress={() => setShowCode(true)} style={{ minHeight: 44, justifyContent: 'center' }} tick><T v="smallM" tone="court">Got a team code? →</T></Tap>
+            <Tap onPress={() => setShowCode(true)} style={{ minHeight: 44, justifyContent: 'center' }} tick accessibilityRole="button"><T v="smallM" tone="court">Got a team code? →</T></Tap>
           )}
           {err && <T v="small" tone="danger">{err}</T>}
           {api.mode === 'demo' && <T v="small" tone="ink3">Demo mode. Any number works. The code is 000000.</T>}
