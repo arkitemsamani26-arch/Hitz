@@ -53,7 +53,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; };
   }, [refresh]);
 
-  useEffect(() => api.onChange(() => setTick(t => t + 1)), []);
+  // Fifteen useAsync calls across six screens key off `tick`, so one bump refetches
+  // everything mounted -- your invites and your UTR status included, for a message in a
+  // hit thread. That was harmless while the realtime publication was empty and the
+  // channel never fired; now that it does, a burst of rows (accepting a hit writes the
+  // request, both approvals and two notifications) would otherwise mean a burst of
+  // refetches. Coalesce them into one. The real fix is a query cache that knows which
+  // table changed, and this is not it -- it is the difference between one refetch and
+  // six while that waits.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stop = api.onChange(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; setTick(t => t + 1); }, 250);
+    });
+    return () => { if (timer) clearTimeout(timer); stop(); };
+  }, []);
   useEffect(() => {
     if (!session || session.isGuardian) return;
     let alive = true;
