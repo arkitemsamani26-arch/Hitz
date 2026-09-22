@@ -1,7 +1,8 @@
+// When you play. Rough is fine: exact times get picked per hit.
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered } from '@/ui/Screen';
+import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
@@ -12,6 +13,8 @@ import { useDraft, isMinor } from '@/store/onboarding';
 import { useSession } from '@/store/session';
 import { SLOTS } from '@/data/types';
 
+const ALL = SLOTS.reduce((m, s) => m | s.bit, 0);
+
 export default function Availability() {
   const router = useRouter();
   const { draft, patch } = useDraft();
@@ -20,13 +23,16 @@ export default function Availability() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const toggle = (b: number) => setMask(m => m ^ b);
-  const go = async () => {
+  const flexible = mask === ALL;
+
+  const finish = async (m: number) => {
     setBusy(true); setErr(null);
     try {
-      patch({ availabilityMask: mask });
+      patch({ availabilityMask: m });
       const p = await api.createProfile({
         displayName: draft.displayName, lastInitial: draft.lastInitial, dateOfBirth: draft.dateOfBirth!,
-        levelValue: draft.levelValue!, levelSource: draft.levelSource!, homeCourtId: draft.homeCourtId!, availabilityMask: mask, rosterCode: draft.rosterCode,
+        levelValue: draft.levelValue!, levelSource: draft.levelSource!, homeCourtId: draft.homeCourtId!,
+        availabilityMask: m, rosterCode: draft.rosterCode,
       });
       setProfile(p);
       if (draft.photoBase64) { try { setProfile(await api.setPhoto(draft.photoBase64)); } catch { /* photo is optional */ } }
@@ -34,33 +40,63 @@ export default function Availability() {
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
   };
+
   const groups = [SLOTS.slice(0, 3), SLOTS.slice(3)];
   return (
-    <Screen sky={230} bottom={<Centered><Button title="Next" kind="ball" onPress={go} loading={busy} disabled={mask === 0} /></Centered>}>
+    <Screen sky={150} bottom={
       <Centered>
-        <T v="display" style={{ marginTop: space.xl }}>When can you{'\n'}usually hit?</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.lg, marginBottom: space.xl }}>Rough is right. You'll pick exact times per hit.</T>
+        <Button title="Next" kind="ball" onPress={() => finish(mask)} loading={busy} disabled={mask === 0} />
+        {/* Skipping is fine. Everything open beats a blank week. */}
+        <Tap onPress={() => finish(ALL)} style={s.skip} tick accessibilityRole="button">
+          <T v="smallM" tone="onCourt">Skip for now</T>
+        </Tap>
+      </Centered>
+    }>
+      <Centered>
+        <View style={{ marginTop: space.lg, marginBottom: space.lg }}>
+          <T v="display">When do you hit?</T>
+          <T v="body" tone="ink2" style={{ marginTop: 4 }}>Rough is right. You pick exact times per hit.</T>
+        </View>
+
+        <Pop on={flexible}>
+          <Tap onPress={() => setMask(flexible ? 0 : ALL)} tick style={[s.flex, flexible && s.flexOn]}
+            accessibilityRole="checkbox" accessibilityState={{ checked: flexible }} aria-checked={flexible}>
+            <View style={{ flex: 1 }}>
+              <T v="h2" tone="ink">I'm flexible</T>
+              <T v="small" tone={flexible ? 'ink' : 'ink2'} style={flexible ? { opacity: 0.75 } : undefined}>Anytime works. Just ask me.</T>
+            </View>
+          </Tap>
+        </Pop>
+
+        <T v="micro" tone="onCourt" style={{ marginTop: space.xl, marginBottom: space.sm }}>Or pick your usual</T>
         {groups.map((g, gi) => (
-          <View key={gi} style={{ marginBottom: space.xl }}>
-            <T v="micro" tone="onCourt" style={{ marginBottom: space.sm }}>{g[0].label}s</T>
+          <View key={gi} style={{ marginBottom: space.md }}>
+            <T v="micro" tone="ink3" style={{ marginBottom: space.sm }}>{g[0].label}s</T>
             <View style={{ flexDirection: 'row', gap: space.sm }}>
               {g.map(sl => {
                 const on = !!(mask & sl.bit);
                 return (
-                  <Pop key={sl.bit} on={on} style={{ flex: 1 }}><Tap onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]} accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} accessibilityLabel={`${sl.label} ${sl.part}`}>
-                    <T v="bodyM" tone={on ? 'onBall' : 'ink'}>{sl.part}</T>
-                  </Tap></Pop>
+                  <Pop key={sl.bit} on={on} style={{ flex: 1 }}>
+                    <Tap onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]}
+                      accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on}
+                      accessibilityLabel={`${sl.label} ${sl.part}`}>
+                      <T v="bodyM" tone={on ? 'onBall' : 'ink'}>{sl.part}</T>
+                    </Tap>
+                  </Pop>
                 );
               })}
             </View>
           </View>
         ))}
-        {err && <T v="small" tone="onCourt">{err}</T>}
+        {err && <Sheet style={{ marginTop: space.md }}><T v="small" tone="danger">{err}</T></Sheet>}
       </Centered>
     </Screen>
   );
 }
 const s = StyleSheet.create({
-  tile: { flex: 1, minHeight: 68, borderRadius: radius.md, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center' },
+  flex: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.paper, minHeight: 76, justifyContent: 'center' },
+  flexOn: { backgroundColor: color.ball },
+  tile: { flex: 1, minHeight: 64, borderRadius: radius.md, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center' },
   on: { backgroundColor: color.ball },
+  skip: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: space.sm },
 });

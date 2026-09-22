@@ -36,12 +36,12 @@ export default function GuardianLink() {
     catch (e: any) { toast(e.message); } finally { setBusy(false); }
   };
   return (
-    <Screen sky={200} bottom={<Centered><Button title={preview?.verified ? 'Open your dashboard' : `Yes — I'm ${kid}'s parent`} kind="ball" onPress={preview?.verified ? () => router.replace('/guardian') : yes} loading={busy} /></Centered>}>
+    <Screen sky={200} bottom={<Centered><Button title={preview?.verified ? 'Open your dashboard' : `Yes, I'm ${kid}'s parent`} kind="ball" onPress={preview?.verified ? () => router.replace('/guardian') : yes} loading={busy} /></Centered>}>
       <Centered>
         <Header />
         <T v="micro" tone="ink2">Hits · Parent approval</T>
         <T v="display" style={{ marginTop: space.sm, fontSize: 34, lineHeight: 36 }}>{kid} finds the hit.{'\n'}You approve the meeting.</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Hits helps tennis players find hitting partners at their level nearby. For players under 18, nothing gets locked in without you. Tap the button and you're done — about 30 seconds.</T>
+        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Hits finds tennis partners at your kid's level nearby. Under 18, nothing gets locked in without you. One tap and you're done.</T>
         <Sheet style={s.box}><T v="micro" tone="court">You control</T>
           <Row k="Every meetup" v="A hit only becomes real after you tap approve. You see who, where and when first." />
           <Row k="The link itself" v="Pause or remove it any time. Their account stops working for meetups the moment you do." />
@@ -54,7 +54,7 @@ export default function GuardianLink() {
         <Sheet style={s.box}><T v="micro" tone="court">Built in, not optional</T>
           <Row k="Under-18s only see under-18s" v="Adults cannot see, find or message your kid. Enforced in the database, not a setting anyone can flip." />
           <Row k="Public courts only" v="Meetups happen at courts from a curated list. Never a house." />
-          <Row k="Approximate location" v="Other players see a rough distance — '~4 mi' — never a pin." />
+          <Row k="Approximate location" v="Players see a rough distance like '~4 mi'. Never a pin." />
         </Sheet>
       </Centered>
     </Screen>

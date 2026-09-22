@@ -42,7 +42,7 @@ export default function You() {
   const createTeam = async () => {
     if (teamName.trim().length < 2) return;
     setCreating(true);
-    try { const r = await api.createRoster(teamName.trim(), 20); setTeamName(''); await rosters.reload(); void Share.share({ message: `Join ${r.name} on Hits — code ${r.code}. Find hitting partners at your level in Palo Alto.` }).catch(() => {}); }
+    try { const r = await api.createRoster(teamName.trim(), 20); setTeamName(''); await rosters.reload(); void Share.share({ message: `Join ${r.name} on Hits. Code ${r.code}. Find hitting partners at your level in Palo Alto.` }).catch(() => {}); }
     catch (e: any) { toast(e.message); } finally { setCreating(false); }
   };
 
@@ -97,7 +97,7 @@ export default function You() {
             <View style={s.stat}><T v="h1" tone="court">{pct(profile.responseRate) ?? '—'}</T><T v="micro" tone="ink3">Reply rate</T></View>
             <View style={s.stat}><T v="h1" tone="court">{pct(profile.acceptRate) ?? '—'}</T><T v="micro" tone="ink3">Say yes</T></View>
           </View>
-          <T v="small" tone="ink3" style={{ marginTop: space.sm }}>Everyone sees these. Reply — even "no" — and they stay good.</T>
+          <T v="small" tone="ink3" style={{ marginTop: space.sm }}>Everyone sees these. Always reply. Even a no counts.</T>
         </Sheet>
 
         {/* Rosters: one code brings a whole team. */}
@@ -105,7 +105,7 @@ export default function You() {
           <T v="h2">Bring your team</T>
           <T v="small" tone="ink2">Make a code for your team, academy group or club ladder. Everyone who joins with it counts toward opening the courts.</T>
           {(rosters.data ?? []).map(r => (
-            <Tap key={r.id} onPress={() => void Share.share({ message: `Join ${r.name} on Hits — code ${r.code}.` }).catch(() => {})} style={s.roster} accessibilityRole="button">
+            <Tap key={r.id} onPress={() => void Share.share({ message: `Join ${r.name} on Hits. Code ${r.code}.` }).catch(() => {})} style={s.roster} accessibilityRole="button">
               <View style={{ flex: 1 }}><T v="bodyM">{r.name}</T><T v="small" tone="ink2">{r.joined} of {r.cap} joined</T></View>
               <Pill label={r.code} tone="ball" />
             </Tap>

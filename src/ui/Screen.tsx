@@ -65,7 +65,7 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
       {sky > 0 && <Sky height={sky + insets.top} />}
       {scroll
         ? <ScrollView contentContainerStyle={[s.grow, inner]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{children}</ScrollView>
-        : <View style={[s.grow, inner]}>{children}</View>}
+        : <View style={[s.fill, inner]}>{children}</View>}
       {bottom && <View style={[s.bottom, { paddingBottom: insets.bottom + space.lg }]}>{bottom}</View>}
     </KeyboardAvoidingView>
   );
@@ -93,6 +93,9 @@ const s = StyleSheet.create({
   sun: { position: 'absolute', width: 54, height: 54, borderRadius: 27, marginLeft: -27, marginTop: -27 },
   floodlight: { position: 'absolute', left: '10%', right: '10%', height: 260, borderRadius: 200, backgroundColor: 'rgba(229,255,61,0.10)', transform: [{ scaleX: 1.8 }] },
   grow: { flexGrow: 1 },
+  // A non-scrolling screen must not grow past the viewport, or an inner list pushes the
+  // bottom button off the bottom of the phone. minHeight 0 lets that list shrink instead.
+  fill: { flex: 1, minHeight: 0 },
   pad: { paddingHorizontal: space.lg },
   bottom: { paddingHorizontal: space.lg, paddingTop: space.md },
   sheet: { backgroundColor: color.paper, borderRadius: 24, padding: space.lg, overflow: 'hidden' },

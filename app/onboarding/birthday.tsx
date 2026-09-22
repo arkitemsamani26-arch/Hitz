@@ -33,13 +33,13 @@ export default function Birthday() {
     <Screen sky={250} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!dob || tooYoung} /></Centered>}>
       <Centered>
         <T v="display" style={{ marginTop: space.xl }}>When's your{'\n'}birthday?</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Nobody else sees this. It decides one thing — see below.</T>
+        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Nobody sees this. We match you by level, not age.</T>
         <Field big value={v} onChangeText={onChange} placeholder="MM / DD / YYYY" keyboardType="number-pad" inputMode="numeric" autoFocus accessibilityLabel="Birthday, month day year" onSubmitEditing={go} />
-        {tooYoung && <T v="body" tone="onCourt" style={{ marginTop: space.lg }}>Hits is for players 13 and up. Come back on your birthday — we'll be here.</T>}
+        {tooYoung && <T v="body" tone="onCourt" style={{ marginTop: space.lg }}>Hits is for 13 and up. Come back on your birthday.</T>}
         {dob && !tooYoung && (
           <Sheet style={{ marginTop: space.lg }}>
             {minor
-              ? <><T v="bodyM">Under 18: you find the hit, a parent approves the meetup.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>That's the only thing that's different. Browsing, requesting, chatting — all yours.</T></>
+              ? <><T v="bodyM">Under 18: you find the hit, a parent approves the meetup.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>That's the only difference. Browsing, requesting and chatting are all yours.</T></>
               : <><T v="bodyM">18+: you're set.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>You'll see adult players, and they'll see you.</T></>}
           </Sheet>
         )}

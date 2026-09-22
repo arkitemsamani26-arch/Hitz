@@ -89,7 +89,7 @@ export default function Approve() {
                 : <Line text={`${o.displayName} is an adult player.`} />}
               {a.otherGuardianVerified && <Line ok text={`Their parent has approved ${a.otherGuardianApprovals} ${a.otherGuardianApprovals === 1 ? 'hit' : 'hits'} before this one.`} />}
               <Line ok={a.otherPlayerReports === 0} text={`${o.displayName} has played ${a.otherPlayerHits} ${a.otherPlayerHits === 1 ? 'hit' : 'hits'} through Hits over ${a.otherPlayerMemberMonths} months, with ${a.otherPlayerReports === 0 ? 'no reports' : `${a.otherPlayerReports} report${a.otherPlayerReports === 1 ? '' : 's'}`}.`} />
-              {a.bothMinors && <Line ok text="Both players are under 18. Adults cannot see, find or contact either of them on Hits — that is enforced in the database, not a setting." />}
+              {a.bothMinors && <Line ok text="Both players are under 18. No adult can see, find or contact them here. The database enforces it." />}
             </View>
           ) : <T v="small" tone="ink2">Checking…</T>}
         </Sheet>

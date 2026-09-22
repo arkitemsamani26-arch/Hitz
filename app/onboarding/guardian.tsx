@@ -30,9 +30,9 @@ export default function Guardian() {
   return (
     <Screen sky={250} bottom={<Centered><Button title="Text and email them" kind="ball" onPress={go} loading={busy} disabled={!ok} /></Centered>}>
       <Centered>
-        <T v="display" style={{ marginTop: space.xl }}>One more —{'\n'}for a parent.</T>
+        <T v="display" style={{ marginTop: space.xl }}>One more.{'\n'}For a parent.</T>
         <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>
-          You find the hit. They approve the meetup. That's the whole deal — they don't pick your partners or read over your shoulder while you browse.
+          You find the hit. They approve the meetup. That's the whole deal. They don't pick your partners.
         </T>
         <Sheet style={{ marginBottom: space.md }}>
           <T v="micro" tone="court">What they get</T>

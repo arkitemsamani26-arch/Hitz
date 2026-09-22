@@ -82,7 +82,7 @@ export default function GuardianHome() {
             onPress: async () => { if (!revoking) return; try { await api.guardianRevoke(revoking.id); await refresh(); toast('Removed.'); } catch (e: any) { toast(e.message); } } },
           { label: 'Keep it', onPress: () => {} },
         ]} />
-        <T v="small" tone="onCourt" style={{ opacity: 0.9 }}>You see every request and every message on {kids?.[0]?.profile.displayName ?? 'your kid'}'s account, in full. Adults can't find or contact under-18s on Hits — that's enforced in the database, not a setting.</T>
+        <T v="small" tone="onCourt" style={{ opacity: 0.9 }}>You see every request and every message on {kids?.[0]?.profile.displayName ?? 'your kid'}'s account, in full. No adult can find or contact an under-18 here. The database enforces it.</T>
         {demo && (() => { const d = demo; return (
           <View style={{ marginTop: space.xl }}>
             <Button title="Back to the player view (demo)" kind="white" onPress={async () => { d.switchToPlayer(); await refresh(); router.replace('/(tabs)'); }} />

@@ -130,7 +130,7 @@ export default function Hit() {
   } else if (r.state === 'declined') {
     const mineDecline = r.awaitingId === null && r.fromId !== me;
     head = <Status kicker={mineDecline ? 'You passed' : `${r.other.displayName} passed`} title={r.declineReason ?? 'Not this time.'} r={r}
-      sub={mineDecline ? 'They got a reason, not silence. That is the whole point.' : 'A real reply. No hard feelings — find the next one.'} />;
+      sub={mineDecline ? 'They got a reason, not silence. That is the whole point.' : 'A real reply, not silence. Go find the next one.'} />;
     bottom = <Centered><Button title="Find another hit" kind="ball" onPress={() => router.replace('/(tabs)')} /></Centered>;
   } else {
     head = <Status kicker={r.state} title="This one's closed." r={r} />;
@@ -155,7 +155,7 @@ export default function Hit() {
             </View>
           )}
         </ScrollView>
-        <OptionSheet open={passing} onClose={() => setPassing(false)} title={`Pass on ${r.other.displayName} — they'll see why`}
+        <OptionSheet open={passing} onClose={() => setPassing(false)} title={`Pass on ${r.other.displayName}. They'll see why.`}
           options={(Object.keys(DECLINE_COPY) as DeclineReason[]).map(k => ({ label: DECLINE_COPY[k], onPress: () => act(() => api.decline(r.id, k)) }))} />
         <OptionSheet open={more} onClose={() => setMore(false)} options={[
           { label: `See ${r.other.displayName}'s profile`, onPress: () => router.push(`/player/${r.other.id}`) },

@@ -39,7 +39,7 @@ export function MemberCard({ name, level, verified, court, roster, minor, number
   );
 }
 const s = StyleSheet.create({
-  card: { backgroundColor: color.paper, borderRadius: 18, padding: space.lg, marginBottom: space.md, transform: [{ rotate: '-1deg' }], overflow: 'hidden', ...shadow({ y: 12, blur: 24, color: '#0A2A12', opacity: 0.3 }) },
+  card: { backgroundColor: color.paper, borderRadius: 18, padding: space.lg, marginBottom: space.md, overflow: 'hidden', ...shadow({ y: 12, blur: 24, color: '#0A2A12', opacity: 0.3 }) },
   head: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: space.md },
   val: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1.5, borderBottomColor: color.paper3, paddingBottom: 2, minHeight: 28 },
   cursor: { width: 2, height: 20, backgroundColor: color.ink, marginLeft: 3 },

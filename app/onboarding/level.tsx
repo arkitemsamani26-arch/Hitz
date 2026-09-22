@@ -1,31 +1,33 @@
 // The level step is a self-assessment, not a form field. Pick the sentence that sounds
-// like you; the number follows.
+// like you. No raw numbers on the card: a row of balls shows the step, the number is
+// ours to work out.
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered } from '@/ui/Screen';
+import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
-import { Score } from '@/ui/Score';
-import { color, hit, radius, space } from '@/theme/tokens';
-import { Sheet } from '@/ui/Screen';
+import { Field } from '@/ui/Field';
 import { Pop } from '@/ui/Pop';
+import { color, hit, radius, space } from '@/theme/tokens';
 import { useDraft } from '@/store/onboarding';
 import type { LevelSource } from '@/data/types';
 
-// USTA NTRP to the UTR scale, midpoint of the usual overlap. Self-reported, so stored as
-// 'utr_self' -- the verified badge only comes from a real UTR link.
-const NTRP: { n: string; v: number }[] = [
-  { n: '2.5', v: 1.8 }, { n: '3.0', v: 2.6 }, { n: '3.5', v: 3.6 }, { n: '4.0', v: 4.8 }, { n: '4.5', v: 6.0 }, { n: '5.0', v: 7.5 }, { n: '5.5', v: 9.0 }, { n: '6.0+', v: 10.5 },
+// USTA NTRP onto the UTR scale, midpoint of the usual overlap. Self-reported, so stored
+// as 'utr_self'. The verified badge only ever comes from a real UTR link.
+const NTRP = [
+  { n: '2.5', v: 1.8 }, { n: '3.0', v: 2.6 }, { n: '3.5', v: 3.6 }, { n: '4.0', v: 4.8 },
+  { n: '4.5', v: 6.0 }, { n: '5.0', v: 7.5 }, { n: '5.5', v: 9.0 }, { n: '6.0+', v: 10.5 },
 ];
+
 const LADDER: { label: string; sub: string; v: number }[] = [
-  { label: 'Getting rallies going', sub: 'Newer to the game, working on consistency', v: 2.0 },
-  { label: 'I can hold a rally', sub: 'Solid strokes, serve is a work in progress', v: 3.5 },
-  { label: 'JV / club player', sub: 'Play regularly, know how to construct a point', v: 5.0 },
-  { label: 'Varsity starter', sub: 'Competitive matches, real weapons', v: 6.5 },
-  { label: 'Tournament player', sub: 'Sectionals, a ranking, a coach', v: 8.0 },
-  { label: 'National / college level', sub: 'D1–D3 or top-tier juniors', v: 10.0 },
+  { label: 'Getting rallies going', sub: 'Still figuring it out. Here to play.', v: 2.0 },
+  { label: 'I can hold a rally', sub: 'Strokes are there. Serve is coming.', v: 3.5 },
+  { label: 'JV or club player', sub: 'You play weekly. You know the points.', v: 5.0 },
+  { label: 'Varsity starter', sub: 'Real matches. Real weapons.', v: 6.5 },
+  { label: 'Tournament player', sub: 'Sectionals, a ranking, a coach.', v: 8.0 },
+  { label: 'College level', sub: 'Top juniors and college tennis.', v: 10.0 },
 ];
 
 export default function Level() {
@@ -33,57 +35,72 @@ export default function Level() {
   const { draft, patch } = useDraft();
   const [v, setV] = useState<number | null>(draft.levelValue);
   const [src, setSrc] = useState<LevelSource | null>(draft.levelSource);
-  const [knows, setKnows] = useState<false | 'utr' | 'ntrp'>(draft.levelSource === 'utr_self' ? 'utr' : false);
+  const [mode, setMode] = useState<false | 'utr' | 'ntrp'>(draft.levelSource === 'utr_self' ? 'utr' : false);
+  const [utrText, setUtrText] = useState(draft.levelValue ? String(draft.levelValue) : '');
   const go = () => { if (v == null || !src) return; patch({ levelValue: v, levelSource: src }); router.push('/onboarding/peek'); };
-  const step = (d: number) => { setV(x => Math.min(16.5, Math.max(1, +((x ?? 6) + d).toFixed(2)))); setSrc('utr_self'); };
+
+  // Typed straight in. Anything from 1 to 16.5 is a real UTR.
+  const onUtr = (t: string) => {
+    setUtrText(t);
+    const n = parseFloat(t);
+    if (!isNaN(n) && n >= 1 && n <= 16.5) { setV(n); setSrc('utr_self'); } else { setV(null); setSrc(null); }
+  };
+
   return (
-    <Screen scroll={false} sky={140} bottom={<Centered><Button title="That's me" kind="ball" onPress={go} disabled={v == null} /></Centered>}>
+    <Screen scroll={false} sky={150} bottom={<Centered><Button title="That's me" kind="ball" onPress={go} disabled={v == null} /></Centered>}>
       <Centered>
-        <View style={s.head}>
-          <View style={{ flex: 1 }}>
-            <T v="h1">How do you play?</T>
-            <T v="small" tone="ink2" style={{ marginTop: 4 }}>Pick the one that sounds like you.</T>
-          </View>
-          <Pop on={v != null}><View style={s.badge}><Score value={v} size="score" tone={v == null ? 'ink' : 'court'} animate /></View></Pop>
+        <View style={{ marginTop: space.lg, marginBottom: space.lg }}>
+          <T v="display">How do you play?</T>
+          <T v="body" tone="ink2" style={{ marginTop: 4 }}>Pick the one that sounds like you.</T>
         </View>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingBottom: space.xl }}>
-          {!knows && LADDER.map(l => {
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingBottom: space.xl }}>
+          {!mode && LADDER.map((l, i) => {
             const on = v === l.v && src === 'estimated';
             return (
-              <Tap key={l.v} onPress={() => { setV(l.v); setSrc('estimated'); }} tick style={[s.opt, on && s.on]} accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
-                <View style={{ flex: 1 }}>
-                  <T v="bodyM" tone="ink">{l.label}</T>
-                  <T v="small" tone="ink2">{l.sub}</T>
-                </View>
-                <T v="h2" tone={on ? 'ink' : 'ink3'}>{l.v.toFixed(1)}</T>
-              </Tap>
+              <Pop key={l.v} on={on}>
+                <Tap onPress={() => { setV(l.v); setSrc('estimated'); }} tick style={[s.opt, on && s.on]}
+                  accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
+                  <View style={{ flex: 1 }}>
+                    <T v="h2" tone="ink" style={{ fontSize: 21, lineHeight: 25 }}>{l.label}</T>
+                    <T v="small" tone={on ? 'ink' : 'ink2'} style={[{ marginTop: 2 }, on && { opacity: 0.75 }]}>{l.sub}</T>
+                    <View style={s.balls}>
+                      {Array.from({ length: 6 }, (_, k) => (
+                        <View key={k} style={[s.pip, k <= i && (on ? s.pipOnBall : s.pipOn)]} />
+                      ))}
+                    </View>
+                  </View>
+                </Tap>
+              </Pop>
             );
           })}
-          {knows === 'ntrp' && (
-            <View style={s.stepper}>
-              <T v="small" tone="ink2" center style={{ marginBottom: space.md }}>Your USTA NTRP. We map it onto the UTR scale as a starting point.</T>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, justifyContent: 'center' }}>
+
+          {mode === 'ntrp' && (
+            <Sheet style={{ gap: space.md }}>
+              <T v="h2">Your NTRP</T>
+              <T v="small" tone="ink2">We line it up with the UTR scale. Just a starting point.</T>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
                 {NTRP.map(x => <Button key={x.n} title={x.n} kind={v === x.v ? 'ball' : 'line'} small onPress={() => { setV(x.v); setSrc('utr_self'); }} />)}
               </View>
-            </View>
+            </Sheet>
           )}
-          {knows === 'utr' && (
-            <View style={s.stepper}>
-              <T v="small" tone="ink2" center style={{ marginBottom: space.md }}>Your UTR. Close enough is fine — this isn't a rating, it's a starting point.</T>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.md }}>
-                <Button title="−0.5" kind="line" onPress={() => step(-0.5)} small />
-                <Button title="−0.1" kind="line" onPress={() => step(-0.1)} small />
-                <Button title="+0.1" kind="line" onPress={() => step(0.1)} small />
-                <Button title="+0.5" kind="line" onPress={() => step(0.5)} small />
-              </View>
-            </View>
+
+          {mode === 'utr' && (
+            <Sheet style={{ gap: space.md }}>
+              <T v="h2">Your UTR</T>
+              <T v="small" tone="ink2">Type it in. Close enough is fine.</T>
+              <Field big value={utrText} onChangeText={onUtr} placeholder="8.5" keyboardType="decimal-pad" inputMode="decimal" autoFocus maxLength={5} accessibilityLabel="Your UTR rating" />
+              <T v="small" tone="ink3" center>Link your UTR account later and we verify it for you.</T>
+            </Sheet>
           )}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.lg }}>
-            {knows ? (
-              <Tap onPress={() => { setKnows(false); setV(null); setSrc(null); }} style={s.link} tick><T v="smallM" tone="onCourt">← Back to the list</T></Tap>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.lg, flexWrap: 'wrap' }}>
+            {mode ? (
+              <Tap onPress={() => { setMode(false); setV(null); setSrc(null); setUtrText(''); }} style={s.link} tick>
+                <T v="smallM" tone="onCourt">Back to the list</T>
+              </Tap>
             ) : (<>
-              <Tap onPress={() => { setKnows('utr'); setSrc('utr_self'); setV(x => x ?? 6.0); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my UTR →</T></Tap>
-              <Tap onPress={() => { setKnows('ntrp'); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my NTRP →</T></Tap>
+              <Tap onPress={() => { setMode('utr'); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my UTR</T></Tap>
+              <Tap onPress={() => { setMode('ntrp'); }} style={s.link} tick><T v="smallM" tone="onCourt">I know my NTRP</T></Tap>
             </>)}
           </View>
         </ScrollView>
@@ -91,11 +108,13 @@ export default function Level() {
     </Screen>
   );
 }
+
 const s = StyleSheet.create({
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: space.lg, marginTop: space.lg, marginBottom: space.xl },
-  opt: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: hit.row, padding: space.lg, borderRadius: radius.md, backgroundColor: color.paper },
+  opt: { minHeight: hit.row + 16, padding: space.lg, borderRadius: radius.lg, backgroundColor: color.paper },
   on: { backgroundColor: color.ball },
-  stepper: { padding: space.lg, borderRadius: radius.md, backgroundColor: color.paper },
-  badge: { backgroundColor: color.paper, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 4 },
+  balls: { flexDirection: 'row', gap: 5, marginTop: space.md },
+  pip: { width: 9, height: 9, borderRadius: 5, backgroundColor: color.paper3 },
+  pipOn: { backgroundColor: color.court },
+  pipOnBall: { backgroundColor: color.ink },
   link: { minHeight: hit.min, justifyContent: 'center', alignItems: 'center' },
 });

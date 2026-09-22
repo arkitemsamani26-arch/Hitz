@@ -239,7 +239,7 @@ export class DemoApi implements HitsApi {
     this.later(6000, () => {
       if (this.s.requests.some(r => r.fromId === first.id)) return;
       const start = nextSlot(first.avail & input.availabilityMask || first.avail, 1);
-      this.s.requests.push(row(first.id, ME, first.court, start, 'Saw you just joined — up for a hit?', ME));
+      this.s.requests.push(row(first.id, ME, first.court, start, 'Saw you just joined. Up for a hit?', ME));
       void notifyLocal(`${first.name} wants to hit`, 'Saturday morning at ' + (COURTS.find(c => c.id === first.court)?.name ?? 'the courts'));
     });
     this.save();
@@ -470,7 +470,7 @@ export class DemoApi implements HitsApi {
     const m: Message = { id: uid(), hitId: id, senderId: ME, body, createdAt: iso(new Date()) };
     this.s.messages.push(m);
     const otherId = r.fromId === ME ? r.toId : r.fromId;
-    const replies = ['sounds good', "i'll bring balls", 'see you there', 'perfect', 'yes — new can of balls on me', 'works for me'];
+    const replies = ['sounds good', "i'll bring balls", 'see you there', 'perfect', 'yes, new can of balls on me', 'works for me'];
     this.later(2500 + Math.random() * 2500, () => {
       this.s.messages.push({ id: uid(), hitId: id, senderId: otherId, body: replies[Math.floor(Math.random() * replies.length)], createdAt: iso(new Date()) });
     });
