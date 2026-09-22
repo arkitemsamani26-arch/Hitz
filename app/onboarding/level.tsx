@@ -89,7 +89,7 @@ export default function Level() {
               <T v="h2">Your UTR</T>
               <T v="small" tone="ink2">Type it in. Close enough is fine.</T>
               <Field big value={utrText} onChangeText={onUtr} placeholder="8.5" keyboardType="decimal-pad" inputMode="decimal" autoFocus maxLength={5} accessibilityLabel="Your UTR rating" />
-              <T v="small" tone="ink3" center>Link your UTR account later and we verify it for you.</T>
+              <T v="small" tone="ink3" center>Get it verified from your profile once you're in. Verified levels carry the badge.</T>
             </Sheet>
           )}
 

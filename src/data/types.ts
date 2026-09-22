@@ -145,6 +145,31 @@ export interface DiscoverFilters {
   onlyLooking: boolean;
 }
 
+// What UTR says about you, minus everything that must stay on the server. Absent means
+// no link at all; present with a non-'rated' status means linked but not yet rated, which
+// is a real UTR state and not the same as never having linked.
+export interface UtrStatus {
+  playerId: string | null;
+  rating: number | null;
+  ratingStatus: 'rated' | 'projected' | 'unrated' | string;
+  linkedAt: string | null;
+  syncedAt: string | null;
+}
+
+// A player's standing claim on a UTR, checked by a person against utrsports.net. The
+// badge it leads to is the same one the Engage API grants; only the provenance differs.
+export interface UtrClaim {
+  id: string;
+  claimedRating: number;
+  profileUrl: string;
+  fullName: string;
+  state: 'pending' | 'approved' | 'rejected';
+  decidedRating: number | null;
+  reviewerNote: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
 export interface ProfileInput {
   displayName: string;
   lastInitial: string;

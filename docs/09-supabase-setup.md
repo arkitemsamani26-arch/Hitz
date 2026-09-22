@@ -40,17 +40,75 @@ Then `cp .env.example .env` and `npm start`.
 `supabase/moderation.sql` is the queue: run it in the SQL editor daily. Reports involving a
 minor sort first.
 
-## UTR / USTA
+## UTR: two roads to the same badge
 
-The accurate level comes from UTR, and the app is built for it: `Link UTR` on the You tab
-starts an OAuth round trip (`begin_utr_link` → UTR → the `utr-link` edge function →
-`apply_utr`, which only the server can call). A rated player's number becomes their
-`utr_verified` level; tokens never reach a client (test 10). What is missing is the
-partner credential: apply at https://www.utrsports.net/pages/engage-api (the $250
-application fee applies without an existing partnership), then set the secrets
-`UTR_CLIENT_ID`, `UTR_CLIENT_SECRET`, `UTR_AUTH_URL`, `UTR_TOKEN_URL`, `UTR_PROFILE_URL` on
-the function and `EXPO_PUBLIC_UTR_AUTH_URL` / `EXPO_PUBLIC_UTR_CLIENT_ID` in the app. The
-profile field names in `utr-link/index.ts` are marked for adjustment against the docs.
+The verified level is the most valuable thing in the product, so it does not wait on a
+paid API application. There are two ways a player gets it, and neither lets them grant it
+to themselves -- both write through a service-role-only function.
 
-USTA has no public API for NTRP; the level step now takes an NTRP rating directly and maps
-it onto the UTR scale as a self-reported starting point.
+### 1. Review (live now, no subscription)
+
+A player states their UTR, the link to their UTR profile, and the name on that profile
+(`/verify-utr` in the app). That files a claim; it does **not** grant anything. Their
+number shows as self-reported in the meantime.
+
+You review it in the SQL editor with `supabase/utr-review.sql`:
+
+```sql
+select * from app.utr_review_queue;             -- who is waiting, with their profile link
+select app.review_utr_claim('<claim_id>', true);         -- approve at the number they claimed
+select app.review_utr_claim('<claim_id>', true, 8.42);   -- approve at the number you saw
+select app.review_utr_claim('<claim_id>', false, null, 'That profile is a different name.');
+```
+
+Open their profile link, check the name matches, check the rating matches within about
+0.2, check it is a real playing record. Be stricter for anyone under 18: the level decides
+who they are matched with, and an inflated number puts a fourteen-year-old across the net
+from a college player. A rejection's note is shown to the player, so write it as an
+instruction rather than a verdict.
+
+`app.profiles.utr_verified_by` records `'review'` for these and `'api'` for the OAuth
+path, so the two are always distinguishable -- which matters if UTR ever asks.
+
+Taking a badge back: `select app.retire_utr('<profile_id>');`
+
+### 2. Engage API (when the credential lands)
+
+`Link UTR` on the You tab starts an OAuth round trip: `begin_utr_link` -> UTR -> the
+`utr-link` edge function -> `apply_utr`, which only the server can call. Tokens never
+reach a client (test 10). What is missing is the partner credential: apply at
+https://www.utrsports.net/pages/engage-api (there is a $250 application fee without an
+existing partnership). Then:
+
+1. Set the function secrets `UTR_CLIENT_ID`, `UTR_CLIENT_SECRET`, `UTR_TOKEN_URL`,
+   `UTR_PROFILE_URL`, `APP_URL`, and in the app `EXPO_PUBLIC_UTR_AUTH_URL` and
+   `EXPO_PUBLIC_UTR_CLIENT_ID`.
+2. Deploy the callback **without JWT verification** -- it is a browser redirect from
+   UTR's domain and arrives with no Supabase token:
+   `supabase functions deploy utr-link --no-verify-jwt`
+3. Deploy `utr-sync` and schedule it hourly. It refreshes each stored token and rewrites
+   the rating, so a verified badge tracks UTR instead of freezing on the day it was
+   issued. It is a no-op until the secrets are set.
+4. If the profile response field names differ from the guesses, set `UTR_PROFILE_FIELDS`
+   on both functions rather than redeploying:
+   `id=playerId,rating=singlesUtr,status=ratingStatus`
+5. Add the callback URL to Authentication -> URL configuration.
+
+Nothing about the review path has to be turned off when this lands. It stays as the
+fallback for players the API cannot match.
+
+USTA has no public API for NTRP; the level step takes an NTRP rating directly and maps it
+onto the UTR scale as a self-reported starting point.
+
+## Checking it is all actually wired up
+
+```
+npm run check:backend
+```
+
+Asks the live project the same questions the app asks, in the same order: is the key
+accepted, is the `app` schema exposed, does the court directory read, are the RPCs
+callable, is phone sign-in on, are the edge functions deployed. It names the dashboard
+setting to change for each failure. The app falls back to the in-memory demo when
+Supabase is not configured, which is the right default and a terrible way to discover a
+misconfiguration, so run this after any dashboard change.

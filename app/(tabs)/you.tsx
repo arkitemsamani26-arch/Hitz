@@ -20,9 +20,9 @@ import { Avatar } from '@/ui/Avatar';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
 import { slotsOf, SLOTS } from '@/data/types';
-import { pct } from '@/lib/format';
+import { pct, relTime } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
-import type { Profile } from '@/data/types';
+import type { Profile, UtrClaim, UtrStatus } from '@/data/types';
 
 // What the utr-link function sends back, in words a player can act on.
 const UTR_TROUBLE: Record<string, string> = {
@@ -39,6 +39,8 @@ export default function You() {
   const { profile, setProfile, setSession, listMode, setListMode, refresh, tick } = useSession();
   const { data: courts } = useAsync(() => api.courts(), []);
   const rosters = useAsync(() => api.myRosters(), [tick]);
+  const utr = useAsync(() => api.utrStatus(), [tick]);
+  const utrClaim = useAsync(() => api.myUtrClaim(), [tick]);
   const [editingAvail, setEditingAvail] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -76,27 +78,8 @@ export default function You() {
           ...(profile.photoUrl ? [{ label: 'Remove photo', danger: true, onPress: () => guard(() => api.setPhoto(null)) }] : []),
         ]} />
 
-        {profile.levelSource !== 'utr_verified' && (
-          <Sheet style={[s.row, { alignItems: 'flex-start' }]}>
-            <View style={{ flex: 1 }}>
-              <T v="bodyM">Verify your level with UTR</T>
-              <T v="small" tone="ink2">Link your UTR account and your number comes from your match results, not a guess. Verified levels get the badge and better matches.</T>
-            </View>
-            <Button title="Link UTR" small kind="court" onPress={async () => {
-              try {
-                const url = await api.beginUtrLink();
-                if (!url) { toast('UTR linking opens the moment our Engage API access is approved.'); return; }
-                const r = await WebBrowser.openAuthSessionAsync(url, 'hits://you');
-                // The callback says what happened; without reading it a failure looked
-                // exactly like a success.
-                const outcome = r.type === 'success' ? new URL(r.url).searchParams.get('utr') : null;
-                await refresh();
-                if (outcome === 'linked') { haptic.confirmed(); toast('UTR linked. Your level is verified.'); }
-                else if (outcome) toast(UTR_TROUBLE[outcome] ?? "UTR didn't finish. Try again.");
-              } catch (e: any) { toast(e?.message ?? "UTR didn't finish. Try again."); }
-            }} />
-          </Sheet>
-        )}
+        <UtrCard profile={profile} status={utr.data} claim={utrClaim.data} reload={async () => { await utr.reload(); await utrClaim.reload(); await refresh(); }} toast={toast} />
+
         <Sheet accent={looking} style={s.row}>
           <View style={{ flex: 1 }}>
             <T v="bodyM">Looking to hit this week</T>
@@ -182,6 +165,104 @@ export default function You() {
     </Screen>
   );
 }
+// The UTR card. Four states, all of them true statements:
+//   not linked        -> the pitch
+//   linked + rated    -> the badge, the number, when we last checked
+//   linked, no rating -> UTR knows you, it has not rated you yet
+//   not yet available -> we are honest that the partner API is not live
+function UtrCard({ profile, status, claim, reload, toast }:
+  { profile: Profile; status: UtrStatus | null; claim: UtrClaim | null; reload: () => Promise<void>; toast: (m: string) => void }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const rated = status?.ratingStatus === 'rated' && profile.levelSource === 'utr_verified';
+  const reviewed = !status && profile.levelSource === 'utr_verified';
+
+  const link = async () => {
+    setBusy(true);
+    try {
+      const url = await api.beginUtrLink();
+      if (!url) { toast('UTR linking opens the moment our Engage API access is approved.'); return; }
+      const r = await WebBrowser.openAuthSessionAsync(url, 'hits://you');
+      // The callback says what happened. Without reading it, a failure looked exactly
+      // like a success.
+      const outcome = r.type === 'success' ? new URL(r.url).searchParams.get('utr') : null;
+      await reload();
+      if (outcome === 'linked') { haptic.confirmed(); toast('UTR linked. Your level comes from your results now.'); }
+      else if (outcome) toast(UTR_TROUBLE[outcome] ?? "UTR didn't finish. Try again.");
+    } catch (e: any) { toast(e?.message ?? "UTR didn't finish. Try again."); }
+    finally { setBusy(false); }
+  };
+
+  const unlink = async () => {
+    setBusy(true);
+    try { await api.unlinkUtr(); await reload(); toast('UTR unlinked. Your level is self-reported again.'); }
+    catch (e: any) { toast(e?.message ?? "Couldn't unlink."); }
+    finally { setBusy(false); }
+  };
+
+  // Verified by a person rather than by UTR's API. Same badge, different provenance.
+  if (reviewed) {
+    return (
+      <Sheet accent style={[s.row, { alignItems: 'flex-start' }]}>
+        <View style={{ flex: 1 }}>
+          <T v="bodyM">UTR verified</T>
+          <T v="small" tone="ink2">We checked your UTR profile ourselves. Your level carries the badge.</T>
+        </View>
+        <Score value={profile.levelValue} size="h1" verified tone="court" />
+      </Sheet>
+    );
+  }
+
+  if (!status) {
+    // Two roads to the same badge. The OAuth one only appears once we have Engage API
+    // access; until then the review path is the real one, so it leads.
+    const waiting = claim?.state === 'pending';
+    return (
+      <Sheet style={{ marginBottom: space.md, gap: space.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.md }}>
+          <View style={{ flex: 1 }}>
+            <T v="bodyM">{waiting ? "We're checking your UTR" : 'Verify your level'}</T>
+            <T v="small" tone="ink2">
+              {waiting
+                ? 'A person is confirming your UTR profile. Usually within a day.'
+                : claim?.state === 'rejected'
+                  ? "We couldn't verify the last one. Send it again with the right link."
+                  : 'A verified level is the one other players trust. Send us your UTR and we check it against your profile.'}
+            </T>
+          </View>
+          {claim && <Score value={claim.claimedRating} size="h1" tone="court" />}
+        </View>
+        <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
+          <Button title={waiting ? 'See your claim' : 'Get verified'} small kind="court" onPress={() => router.push('/verify-utr')} />
+          <Button title="Link UTR account" small kind="line" onPress={link} loading={busy} />
+        </View>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet accent={rated} style={{ marginBottom: space.md, gap: space.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+        <View style={{ flex: 1 }}>
+          <T v="bodyM">{rated ? 'UTR verified' : 'UTR linked'}</T>
+          <T v="small" tone="ink2">
+            {rated
+              ? `Your level is your UTR${status.syncedAt ? `, checked ${relTime(status.syncedAt)} ago` : ''}. It updates on its own.`
+              : status.ratingStatus === 'projected'
+                ? 'UTR has you projected, not rated yet. The badge arrives with your rating.'
+                : 'UTR knows your account but has not rated you yet. Play a few rated matches.'}
+          </T>
+        </View>
+        {status.rating != null && <Score value={status.rating} size="h1" verified={rated} tone="court" />}
+      </View>
+      <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
+        <Button title="Refresh" kind="line" small onPress={link} loading={busy} />
+        <Button title="Unlink" kind="ghost" small onPress={unlink} />
+      </View>
+    </Sheet>
+  );
+}
+
 const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
   stats: { flexDirection: 'row' },

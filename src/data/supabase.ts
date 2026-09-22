@@ -9,7 +9,7 @@ import { decode } from 'base64-arraybuffer';
 import { ApiError, type HitsApi } from './api';
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  MarketStatus, Message, Player, Profile, ProfileInput, Session,
+  MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 import { DECLINE_COPY } from './types';
 
@@ -264,6 +264,47 @@ export class SupabaseApi implements HitsApi {
     const redirect = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/utr-link`;
     return `${auth}?response_type=code&client_id=${encodeURIComponent(cid)}&redirect_uri=${encodeURIComponent(redirect)}&state=${encodeURIComponent(String(data))}&scope=profile`;
   }
+  // utr_links holds the OAuth tokens and has no client grants, so the non-secret half
+  // comes back through a definer RPC.
+  async utrStatus(): Promise<UtrStatus | null> {
+    if (!this.uid) return null;
+    const { data } = await this.sb.rpc('my_utr_status');
+    const r = Array.isArray(data) ? data[0] : data;
+    if (!r?.linked) return null;
+    return {
+      playerId: r.utr_player_id ?? null,
+      rating: r.rating == null ? null : Number(r.rating),
+      ratingStatus: r.rating_status ?? 'unrated',
+      linkedAt: r.linked_at ?? null,
+      syncedAt: r.synced_at ?? null,
+    };
+  }
+  async unlinkUtr() {
+    const { error } = await this.sb.rpc('unlink_utr');
+    if (error) this.fail(error);
+    return (await this.me())!;
+  }
+  // Manual verification. submit_utr_claim only files it; the badge still comes from a
+  // service-role call, exactly like the API path, so nobody can verify themselves.
+  async submitUtrClaim(rating: number, profileUrl: string, fullName: string, note?: string) {
+    const { error } = await this.sb.rpc('submit_utr_claim', {
+      p_rating: rating, p_profile_url: profileUrl, p_full_name: fullName, p_note: note ?? null,
+    });
+    if (error) this.fail(error);
+  }
+  async myUtrClaim(): Promise<UtrClaim | null> {
+    if (!this.uid) return null;
+    const { data } = await this.sb.rpc('my_utr_claim');
+    const r = Array.isArray(data) ? data[0] : data;
+    if (!r) return null;
+    return {
+      id: r.id, claimedRating: Number(r.claimed_rating), profileUrl: r.profile_url,
+      fullName: r.full_name, state: r.state,
+      decidedRating: r.decided_rating == null ? null : Number(r.decided_rating),
+      reviewerNote: r.reviewer_note ?? null, decidedAt: r.decided_at ?? null, createdAt: r.created_at,
+    };
+  }
+  async withdrawUtrClaim() { const { error } = await this.sb.rpc('withdraw_utr_claim'); if (error) this.fail(error); }
   async sharePhone(id: string, share: boolean) { const { error } = await this.sb.rpc('share_my_phone', { p_hit: id, p_share: share }); if (error) this.fail(error); }
   async sharedPhones(id: string) {
     const { data } = await this.sb.rpc('shared_phone', { p_hit: id });

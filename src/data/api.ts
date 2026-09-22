@@ -1,6 +1,6 @@
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
-  MarketStatus, Message, Player, Profile, ProfileInput, Session,
+  MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 
 // The one interface the screens talk to. Two implementations: `supabase` for the real
@@ -48,6 +48,13 @@ export interface HitsApi {
   sharePhone(id: string, share: boolean): Promise<void>;
   // UTR linking: returns the OAuth URL to open, or null when not configured.
   beginUtrLink(): Promise<string | null>;
+  // Null when there is no link. A link with an unrated status is still a link.
+  utrStatus(): Promise<UtrStatus | null>;
+  unlinkUtr(): Promise<Profile>;
+  // The bridge while Engage API access is pending: state your UTR, a person checks it.
+  submitUtrClaim(rating: number, profileUrl: string, fullName: string, note?: string): Promise<void>;
+  myUtrClaim(): Promise<UtrClaim | null>;
+  withdrawUtrClaim(): Promise<void>;
   // Photos: a square JPEG as base64; returns the new profile. null removes it.
   setPhoto(base64: string | null): Promise<Profile>;
   guardianRemovePhoto(childId: string): Promise<void>;

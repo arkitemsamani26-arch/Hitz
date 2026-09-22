@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi } from './api';
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  MarketStatus, Message, Player, Profile, ProfileInput, Session,
+  MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim,
 } from './types';
 import { DECLINE_COPY } from './types';
 import { notifyLocal } from '@/lib/push';
@@ -85,6 +85,7 @@ type State = {
   rosters: Roster[];
   pushToken: string | null;
   reports: { profileId: string; reason: string; body: string; hitId: string | null; at: string }[];
+  utrClaim: UtrClaim | null;
   requests: Row[];
   messages: Message[];
   blocked: string[];
@@ -95,7 +96,7 @@ type State = {
 
 const blank = (): State => ({
   session: null, profile: null, requests: [], messages: [], blocked: [],
-  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], pushToken: null, reports: [],
+  cohortOpen: true, listMode: null, seenConfirmed: [], rosters: [], pushToken: null, reports: [], utrClaim: null,
 });
 
 // Bay Area sprawl: mile steps to 15, then fives. People here drive 280.
@@ -416,6 +417,29 @@ export class DemoApi implements HitsApi {
   }
   async setPushToken(token: string) { await this.load(); this.s.pushToken = token; this.save(); }
   async beginUtrLink() { return null; }
+  async utrStatus() { await this.load(); return null; }
+  async unlinkUtr() { await this.load(); return (await this.me())!; }
+  // In the demo the reviewer is fast and always says yes, so the whole path is walkable.
+  async submitUtrClaim(rating: number, profileUrl: string, fullName: string, note?: string) {
+    await this.load();
+    if (!/^https?:\/\//i.test(profileUrl.trim())) throw new ApiError('We need the link to your UTR profile so we can check it.');
+    if (fullName.trim().length < 2) throw new ApiError('We need the name on your UTR profile.');
+    if (!(rating >= 1 && rating <= 16.5)) throw new ApiError('That is not a UTR.');
+    this.s.utrClaim = {
+      id: uid(), claimedRating: rating, profileUrl: profileUrl.trim(), fullName: fullName.trim(),
+      state: 'pending', decidedRating: null, reviewerNote: null, decidedAt: null, createdAt: iso(new Date()),
+    };
+    if (this.s.profile) { this.s.profile.levelValue = rating; if (this.s.profile.levelSource !== 'utr_verified') this.s.profile.levelSource = 'utr_self'; }
+    this.later(6000, () => {
+      const c = this.s.utrClaim; if (!c || c.state !== 'pending') return;
+      c.state = 'approved'; c.decidedRating = c.claimedRating; c.decidedAt = iso(new Date());
+      if (this.s.profile) { this.s.profile.levelSource = 'utr_verified'; this.s.profile.levelValue = c.claimedRating; }
+      void notifyLocal('Your UTR is verified', 'Your level now carries the badge.');
+    });
+    this.save();
+  }
+  async myUtrClaim() { await this.load(); return this.s.utrClaim ?? null; }
+  async withdrawUtrClaim() { await this.load(); if (this.s.utrClaim?.state === 'pending') this.s.utrClaim = null; this.save(); }
   async setPhoto(base64: string | null) {
     await this.load(); if (!this.s.profile) throw new ApiError('no profile');
     const url = base64 ? `data:image/jpeg;base64,${base64}` : null;
