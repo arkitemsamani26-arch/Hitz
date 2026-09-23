@@ -31,7 +31,7 @@ export default function Availability() {
     // it missing, and sending nulls made a minor look like an adult.
     if (!draft.dateOfBirth || draft.levelValue == null || !draft.levelSource || !draft.homeCourtId) {
       setErr('We lost a couple of answers. Start again from the top.');
-      router.replace('/onboarding/name');
+      router.replace('/onboarding/court');
       return;
     }
     setBusy(true); setErr(null);

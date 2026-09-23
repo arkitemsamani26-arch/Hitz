@@ -41,7 +41,7 @@ export default function CourtPick() {
     } finally { setLocating(false); }
   };
 
-  const go = () => { if (!id) return; patch({ homeCourtId: id }); router.push('/onboarding/availability'); };
+  const go = () => { if (!id) return; patch({ homeCourtId: id }); router.push('/onboarding/name'); };
 
   return (
     <Screen scroll={false} sky={150} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!id} /></Centered>}>

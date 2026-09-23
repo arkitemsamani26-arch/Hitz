@@ -27,7 +27,7 @@ export default function Code() {
       setProfile(me);
       if (s.isGuardian) router.replace('/guardian');
       else if (me) router.replace('/(tabs)');
-      else router.replace('/onboarding/name');
+      else router.replace('/onboarding/court');
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
   };

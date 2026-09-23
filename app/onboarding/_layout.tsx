@@ -5,7 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Progress } from '@/ui/Progress';
 import { color, space } from '@/theme/tokens';
 
-const STEPS = ['phone', 'code', 'name', 'photo', 'birthday', 'level', 'peek', 'court', 'availability', 'guardian', 'ready'];
+// Location comes first now: the court step is what asks for it, and asking at step
+// eight meant the whole of discovery was guessing until you were nearly done.
+const STEPS = ['phone', 'code', 'court', 'name', 'photo', 'birthday', 'level', 'peek', 'availability', 'guardian', 'ready'];
 
 export default function OnboardingLayout() {
   const path = usePathname();

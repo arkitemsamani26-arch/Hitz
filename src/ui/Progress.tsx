@@ -16,6 +16,11 @@ export function Progress({ value }: { value: number }) {
   );
 }
 const s = StyleSheet.create({
-  track: { height: 4, backgroundColor: 'rgba(14,27,51,0.12)', borderRadius: 2, overflow: 'hidden' },
-  fill: { height: 4, backgroundColor: color.paper, borderRadius: 2 },
+  // The track has to carry its own contrast. At 12% navy it was painted onto whatever the
+  // sky happened to be doing behind it -- and the sun sits right behind this bar, so the
+  // line washed out in the middle and picked up again at the right, which reads as a bent
+  // or broken bar rather than an unfilled one. Dark enough to hold its line over the sun,
+  // and it is what gives the white fill something to sit on.
+  track: { height: 5, backgroundColor: 'rgba(11,18,32,0.45)', borderRadius: 3, overflow: 'hidden' },
+  fill: { height: 5, backgroundColor: color.paper, borderRadius: 3 },
 });

@@ -22,7 +22,7 @@ export default function Peek() {
   const { data, loading } = useAsync(() => api.peek(draft.levelValue ?? 6, dob), [draft.levelValue, dob]);
   const who = band === 'minor' ? 'juniors' : 'players';
   return (
-    <Screen sky={220} bottom={<Centered><Button title="Keep going" kind="ball" onPress={() => router.push('/onboarding/court')} /></Centered>}>
+    <Screen sky={220} bottom={<Centered><Button title="Keep going" kind="ball" onPress={() => router.push('/onboarding/availability')} /></Centered>}>
       <Centered>
         {loading || !data ? <Rally label="Looking around Palo Alto…" a={(draft.levelValue ?? 6).toFixed(1)} /> : (
           <>
