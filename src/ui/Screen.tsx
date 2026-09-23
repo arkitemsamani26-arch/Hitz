@@ -53,10 +53,12 @@ export function Sky({ height = 190 }: { height?: number }) {
   );
 }
 
-export function Screen({ children, scroll = true, pad = true, style, bottom, sky = 190, ground = color.ground, onRefresh }:
+export function Screen({ children, scroll = true, pad = true, style, bottom, sky = 190, ground = color.ground, onRefresh, extraBottom = 0 }:
   { children: React.ReactNode; scroll?: boolean; pad?: boolean; style?: StyleProp<ViewStyle>; bottom?: React.ReactNode; sky?: number; ground?: string;
     // Pull to refresh. Passing this is what turns it on.
-    onRefresh?: () => Promise<unknown> | void }) {
+    onRefresh?: () => Promise<unknown> | void;
+    // Room to leave under the content for anything floating over it -- the tab bar.
+    extraBottom?: number }) {
   const [refreshing, setRefreshing] = React.useState(false);
   const pull = React.useCallback(async () => {
     if (!onRefresh) return;
@@ -64,7 +66,7 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
     try { await onRefresh(); } finally { setRefreshing(false); }
   }, [onRefresh]);
   const insets = useSafeAreaInsets();
-  const inner = [pad && s.pad, { paddingTop: insets.top + space.md, paddingBottom: bottom ? space.md : insets.bottom + space.xl }, style];
+  const inner = [pad && s.pad, { paddingTop: insets.top + space.md, paddingBottom: (bottom ? space.md : insets.bottom + space.xl) + extraBottom }, style];
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[s.root, { backgroundColor: ground }]}>
       <StatusBar style="dark" />

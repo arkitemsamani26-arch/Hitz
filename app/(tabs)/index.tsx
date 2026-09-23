@@ -19,6 +19,7 @@ import { useToast } from '@/ui/Toast';
 import { color, hit, space } from '@/theme/tokens';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
+import { TAB_BAR_H } from './_layout';
 import { useFilters, activeFilterCount } from '@/store/filters';
 import { useAsync } from '@/store/useAsync';
 import { bestMatch, defaultProposal, matchReason } from '@/lib/defaults';
@@ -87,7 +88,7 @@ export default function Hits() {
   const courtW = Math.min(width - 32, 480), courtH = Math.min(courtW * 1.5, 540);
 
   return (
-    <Screen sky={150} onRefresh={async () => {
+    <Screen sky={150} extraBottom={TAB_BAR_H} onRefresh={async () => {
       // Pulling down should do what it looks like it does: ask everything again.
       await Promise.all([players.reload(), reqs.reload(), market.reload(), api.touch().catch(() => {})]);
     }}>

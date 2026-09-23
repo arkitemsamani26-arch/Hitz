@@ -11,10 +11,10 @@ import { color, radius, space } from '@/theme/tokens';
 import { api } from '@/data';
 import { useDraft, isMinor } from '@/store/onboarding';
 import { useSession } from '@/store/session';
-import { SLOTS } from '@/data/types';
+import { AvailabilityGrid, ALL_SLOTS as ALL } from '@/ui/Availability';
 import { flushLocation } from '@/lib/location';
 
-const ALL = SLOTS.reduce((m, s) => m | s.bit, 0);
+
 
 export default function Availability() {
   const router = useRouter();
@@ -51,7 +51,6 @@ export default function Availability() {
     finally { setBusy(false); }
   };
 
-  const groups = [SLOTS.slice(0, 3), SLOTS.slice(3)];
   return (
     <Screen sky={150} bottom={
       <Centered>
@@ -79,25 +78,7 @@ export default function Availability() {
         </Pop>
 
         <T v="micro" tone="onCourt" style={{ marginTop: space.xl, marginBottom: space.sm }}>Or pick your usual</T>
-        {groups.map((g, gi) => (
-          <View key={gi} style={{ marginBottom: space.md }}>
-            <T v="micro" tone="ink3" style={{ marginBottom: space.sm }}>{g[0].label}s</T>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              {g.map(sl => {
-                const on = !!(mask & sl.bit);
-                return (
-                  <Pop key={sl.bit} on={on} style={{ flex: 1 }}>
-                    <Tap onPress={() => toggle(sl.bit)} tick style={[s.tile, on && s.on]}
-                      accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on}
-                      accessibilityLabel={`${sl.label} ${sl.part}`}>
-                      <T v="bodyM" tone={on ? 'onBall' : 'ink'}>{sl.part}</T>
-                    </Tap>
-                  </Pop>
-                );
-              })}
-            </View>
-          </View>
-        ))}
+        <Sheet><AvailabilityGrid mask={mask} onToggle={toggle} /></Sheet>
         {err && <Sheet style={{ marginTop: space.md }}><T v="small" tone="danger">{err}</T></Sheet>}
       </Centered>
     </Screen>

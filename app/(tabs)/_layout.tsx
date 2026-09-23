@@ -9,6 +9,11 @@ import { color, hit, radius, space } from '@/theme/tokens';
 import { shadow } from '@/lib/shadow';
 
 const LABELS: Record<string, string> = { index: 'Hits', you: 'You' };
+
+// How much of the screen the floating bar covers, above the safe area. Screens add this
+// to their scroll padding -- without it the last row of any list sits underneath the bar,
+// where it cannot be read and, worse, cannot be tapped: the bar swallows the press.
+export const TAB_BAR_H = space.sm + 5 + hit.min + 5 + space.sm;
 type BarProps = { state: { index: number; routes: { key: string; name: string }[] }; navigation: { navigate: (name: string) => void } };
 
 // Two tabs, and the whole loop lives on the first. A ball-yellow pill slides under the
@@ -56,7 +61,7 @@ export default function TabsLayout() {
 }
 const s = StyleSheet.create({
   wrap: { alignItems: 'center', paddingTop: space.sm, backgroundColor: 'transparent' },
-  bar: { flexDirection: 'row', backgroundColor: color.paper, borderRadius: radius.pill, padding: 5, ...shadow({ y: 6, blur: 20, opacity: 0.28 }) },
+  bar: { flexDirection: 'row', backgroundColor: color.paper, borderRadius: radius.pill, padding: 5, ...shadow({ y: 4, blur: 14, opacity: 0.18 }) },
   pill: { position: 'absolute', left: 5, top: 5, bottom: 5, backgroundColor: color.ball, borderRadius: radius.pill },
   tab: { flex: 1, minHeight: hit.min, alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
   roller: { position: 'absolute', top: 9, left: 5, width: 14, height: 14, borderRadius: 7, backgroundColor: color.paper, borderWidth: 1.5, borderColor: color.ink, alignItems: 'center', justifyContent: 'center', zIndex: 2 },

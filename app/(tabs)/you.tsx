@@ -18,8 +18,10 @@ import { loadSoundPref, setSoundEnabled } from '@/lib/sound';
 import { OptionSheet } from '@/ui/Sheet';
 import { Avatar } from '@/ui/Avatar';
 import { useSession } from '@/store/session';
+import { TAB_BAR_H } from './_layout';
 import { useAsync } from '@/store/useAsync';
-import { slotsOf, SLOTS } from '@/data/types';
+import { slotsOf } from '@/data/types';
+import { AvailabilityGrid } from '@/ui/Availability';
 import { pct, relTime } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import type { Profile, UtrClaim, UtrStatus } from '@/data/types';
@@ -76,7 +78,7 @@ export default function You() {
   };
 
   return (
-    <Screen sky={150}>
+    <Screen sky={150} extraBottom={TAB_BAR_H}>
       <Centered>
         <Tap onPress={() => setPhotoSheet(true)} accessibilityRole="button" accessibilityLabel="Change your photo" scaleTo={0.985}>
           <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`} level={profile.levelValue} verified={profile.levelSource === 'utr_verified'} court={court} roster={profile.rosterName} minor={profile.band === 'minor'} photo={profile.photoUrl} />
@@ -154,8 +156,8 @@ export default function You() {
             <T v="smallM" tone="court">{editingAvail ? 'Done' : 'Edit'}</T>
           </Tap>
           {editingAvail && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingBottom: space.lg }}>
-              {SLOTS.map(sl => <Pill key={sl.bit} label={`${sl.label} ${sl.part.toLowerCase()}`} on={!!(profile.availabilityMask & sl.bit)} onPress={() => toggleSlot(sl.bit)} />)}
+            <View style={{ paddingBottom: space.lg }}>
+              <AvailabilityGrid mask={profile.availabilityMask} onToggle={toggleSlot} />
             </View>
           )}
           <View style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]}>

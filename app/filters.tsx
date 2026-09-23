@@ -9,7 +9,7 @@ import { Header } from '@/ui/Header';
 import { space } from '@/theme/tokens';
 import { useFilters, DEFAULT_FILTERS } from '@/store/filters';
 import { useSession } from '@/store/session';
-import { SLOTS } from '@/data/types';
+import { AvailabilityGrid } from '@/ui/Availability';
 
 // Bay Area: 10 is a normal drive, 25 reaches San Jose.
 const RADII = [5, 10, 15, 25];
@@ -41,8 +41,8 @@ export default function Filters() {
           {BANDS.map(b => <Pill key={b.label} label={b.label} on={band === b.d} onPress={() => setBand(b.d)} />)}
         </View>
         <T v="micro" tone="ink3" style={{ marginTop: space.lg }}>Free when</T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-          {SLOTS.map(sl => <Pill key={sl.bit} label={`${sl.label} ${sl.part.toLowerCase()}`} on={!!(f.availability & sl.bit)} onPress={() => setF(x => ({ ...x, availability: x.availability ^ sl.bit }))} />)}
+        <View style={{ marginTop: space.sm }}>
+          <AvailabilityGrid mask={f.availability} onToggle={bit => setF(x => ({ ...x, availability: x.availability ^ bit }))} />
         </View>
         <View style={{ marginTop: space.lg }}><Pill label="Only players looking to hit this week" on={f.onlyLooking} onPress={() => setF(x => ({ ...x, onlyLooking: !x.onlyLooking }))} /></View>
         </Sheet>
