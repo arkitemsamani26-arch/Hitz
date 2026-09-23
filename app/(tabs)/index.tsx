@@ -174,10 +174,12 @@ export default function Hits() {
           // means closer to your level. You're the ball at the baseline.
           <View style={{ alignItems: 'center', paddingBottom: space.lg }}>
             <CourtSurface tilt style={{ width: courtW, height: courtH }}>
-              {(() => { const ps = visible.slice(0, 12); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={false} onPress={() => setPicked(p)} />); })()}
+              {(() => { const ps = visible.slice(0, 12); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={false} stand onPress={() => setPicked(p)} />); })()}
               <You level={profile?.levelValue ?? null} />
             </CourtSurface>
-            <T v="small" tone="onCourt" center style={{ marginTop: space.md, opacity: 0.9 }}>Closer to the net, closer to your level. Left to right is distance.</T>
+            {/* The lean pushes the court's bottom edge below its layout box, so this needs
+                real clearance or it sits on the baseline. */}
+            <T v="small" tone="onCourt" center style={{ marginTop: space.xl + space.lg, opacity: 0.9 }}>Closer to the net, closer to your level. Left to right is distance.</T>
           </View>
         )}
 

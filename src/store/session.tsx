@@ -76,8 +76,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; };
   }, [tick, session]);
 
-  // List is the default for everyone; the court is the browse mode you switch to.
-  const listMode = listPref ?? true;
+  // The court is the default. It is the thing that makes this app look like tennis
+  // rather than a table of names, and behind a toggle almost nobody found it.
+  const listMode = listPref ?? false;
   const setListMode = useCallback((v: boolean) => {
     setListPref(v);
     void AsyncStorage.setItem(LIST_KEY, v ? '1' : '0').catch(() => {});

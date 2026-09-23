@@ -75,7 +75,9 @@ export function parseMiles(b: string | null): number {
 }
 
 // A token drops onto the court like a ball: falls, squashes on impact, settles.
-export function Token({ p, x, y, onPress, hot, delay = 0, above }: { p: Player; x: number; y: number; onPress: () => void; hot?: boolean; delay?: number; above?: boolean }) {
+export function Token({ p, x, y, onPress, hot, delay = 0, above, stand }: { p: Player; x: number; y: number; onPress: () => void; hot?: boolean; delay?: number; above?: boolean; stand?: boolean }) {
+  // Further up the court is further away: 1.0 at the net, 0.82 at the far baseline.
+  const depth = stand ? 0.82 + (y / 0.46) * 0.18 : 1;
   const fall = useSharedValue(-60), sq = useSharedValue(1), op = useSharedValue(0);
   useEffect(() => {
     op.value = withDelay(delay, withTiming(1, { duration: 80 }));
@@ -83,14 +85,22 @@ export function Token({ p, x, y, onPress, hot, delay = 0, above }: { p: Player; 
     sq.value = withDelay(delay + 300, withSequence(withTiming(0.72, { duration: 70 }), withSpring(1, { damping: 9, stiffness: 400 })));
   }, [delay, fall, sq, op]);
   const drop = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ translateY: fall.value }, { scaleY: sq.value }, { scaleX: 2 - sq.value }] }));
+  // Two layers on purpose. The outer one holds the standing-up transform; the inner one
+  // is the drop animation. They cannot share a node -- a style's `transform` replaces the
+  // one before it rather than composing with it, so the animation would flatten the token
+  // back onto the leaning court the instant it ran.
   return (
-    <Animated.View style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove, drop]} pointerEvents="box-none">
-      {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
-      <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, sunShadow(9), hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
-        <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 15 }}>{p.levelValue?.toFixed(1)}</T>
-      </Tap>
-      {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
-    </Animated.View>
+    <View style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove,
+                  stand && { transform: [{ perspective: 620 }, { rotateX: '-20deg' }, { scale: depth }] }]}
+          pointerEvents="box-none">
+      <Animated.View style={[s.tokInner, drop]} pointerEvents="box-none">
+        {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
+        <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, sunShadow(9), hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
+          <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 15 }}>{p.levelValue?.toFixed(1)}</T>
+        </Tap>
+        {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
+      </Animated.View>
+    </View>
   );
 }
 
@@ -105,12 +115,16 @@ export function You({ level }: { level: number | null }) {
 
 const s = StyleSheet.create({
   court: { backgroundColor: color.court, borderWidth: 3, borderColor: color.line, borderRadius: 3, overflow: 'visible', ...shadow({ y: 16, blur: 28, opacity: 0.35 }) },
-  tilt: { transform: [{ perspective: 900 }, { rotateX: '9deg' }] },
+  // 9 degrees read as a wonky rectangle rather than a court seen from the baseline.
+  // The depth only lands once the surface leans properly AND the tokens stand up
+  // against it -- see tokStand, which cancels the lean per token.
+  tilt: { transform: [{ perspective: 620 }, { rotateX: '20deg' }] },
   vline: { position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: color.line },
   hline: { position: 'absolute', height: 3, backgroundColor: color.line },
   net: { position: 'absolute', left: -6, right: -6, top: '50%', height: 4, marginTop: -2, backgroundColor: color.line, ...shadow({ y: 2, blur: 3, opacity: 0.25, color: '#000000' }) },
   mark: { position: 'absolute', left: '50%', width: 3, height: 8, marginLeft: -1.5, backgroundColor: color.line },
   tokWrap: { position: 'absolute', width: 84, height: 74, marginLeft: -42, marginTop: -23, alignItems: 'center' },
+  tokInner: { alignItems: 'center' },
   tokWrapAbove: { marginTop: -51, justifyContent: 'flex-end' },
   tok: { width: 48, height: 48, borderRadius: 24, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
   tokHot: { backgroundColor: color.ball },
