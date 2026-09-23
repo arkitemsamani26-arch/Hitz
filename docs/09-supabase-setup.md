@@ -192,3 +192,16 @@ callable, is phone sign-in on, are the edge functions deployed. It names the das
 setting to change for each failure. The app falls back to the in-memory demo when
 Supabase is not configured, which is the right default and a terrible way to discover a
 misconfiguration, so run this after any dashboard change.
+
+That pass uses the publishable key, so it sees exactly what a phone sees — and **all three
+of the bugs above were invisible to it**. The second pass is the inside:
+
+```
+SUPABASE_SERVICE_ROLE_KEY=... npm run check:backend -- --service
+```
+
+It reads the key from the environment and never from a file, and asks `app.ops_health()`
+the five questions a phone cannot: can `service_role` run the scheduled jobs, does realtime
+carry three tables, can `anon` still reach exactly five RPCs, is anything scheduled, and —
+whatever the cause — is the outbox actually moving. Run it after any deploy and after any
+migration that touches grants.

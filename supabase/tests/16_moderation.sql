@@ -2,7 +2,7 @@
 -- rules that make that promise keepable, and the one that makes it safe: no signed-in
 -- user can reach any of it.
 begin;
-select plan(14);
+select plan(16);
 set search_path = app, public;
 
 \set junior_a '00000000-0000-0000-0000-0000000000a1'
@@ -29,7 +29,7 @@ select is((select count(*)::int from app.moderation_queue
   'and it is in the queue the reviewer actually reads');
 
 -- Nobody signed in can reach any of this ------------------------------------------------
-select ok(not has_function_privilege('authenticated', 'app.review_report(uuid, text, text, boolean)', 'EXECUTE'),
+select ok(not has_function_privilege('authenticated', 'app.review_report(uuid, text, text, text, boolean)', 'EXECUTE'),
   'a signed-in user cannot review a report');
 select ok(not has_function_privilege('authenticated', 'app.suspend_profile(uuid)', 'EXECUTE'),
   'nor suspend anybody');
@@ -40,20 +40,31 @@ select ok(not has_table_privilege('authenticated', 'app.moderation_queue', 'SELE
 
 -- A decision is one call ------------------------------------------------------------------
 select throws_ok(
-  $$ select app.review_report('00000000-0000-0000-0000-00000000bb01', 'suspend', '   ') $$,
+  $$ select app.review_report('00000000-0000-0000-0000-00000000bb01', 'suspend', '   ', 'sam') $$,
   'every decision leaves a resolution',
   'and it never lands without a resolution');
 
+-- app.uid() is null in the SQL editor, which is where moderation.sql says to work, so
+-- "who decided this" has to be typed rather than inferred.
 select throws_ok(
-  $$ select app.review_report('00000000-0000-0000-0000-00000000bb01', 'ban', 'because') $$,
+  $$ select app.review_report('00000000-0000-0000-0000-00000000bb01', 'suspend', 'because', '  ') $$,
+  'every decision leaves a reviewer',
+  'nor without a reviewer -- nobody suspends anybody anonymously');
+
+select throws_ok(
+  $$ select app.review_report('00000000-0000-0000-0000-00000000bb01', 'ban', 'because', 'sam') $$,
   'action must be suspend or dismiss, not ban',
   'there are two actions, not a free-text verb');
 
 select is(
   (select app.review_report('00000000-0000-0000-0000-00000000bb01', 'suspend',
-                            'suspended: repeated abuse in thread')),
+                            'suspended: repeated abuse in thread', 'sam@hits.test')),
   1,
   'suspending reports how many live hits it just cancelled');
+
+select is((select reviewer from app.moderation_log
+            where report_id = '00000000-0000-0000-0000-00000000bb01'), 'sam@hits.test',
+  'and the log says who made the call');
 
 select is((select status from app.profiles where id = :'junior_b'::uuid), 'suspended'::app.profile_status,
   'the profile is hidden');
@@ -79,7 +90,7 @@ insert into app.reports (id, reporter_profile_id, reported_profile_id, reason, b
 values ('00000000-0000-0000-0000-00000000bb02', :'adult_b'::uuid, :'adult_a'::uuid, 'other', 'Nonsense.');
 update app.profiles set status = 'suspended' where id = :'adult_a'::uuid;
 
-select app.review_report('00000000-0000-0000-0000-00000000bb02', 'dismiss', 'nothing to it', true);
+select app.review_report('00000000-0000-0000-0000-00000000bb02', 'dismiss', 'nothing to it', 'sam@hits.test', true);
 select is((select status from app.profiles where id = :'adult_a'::uuid), 'active'::app.profile_status,
   'a dismissal can put back someone the auto-hide rule took down');
 

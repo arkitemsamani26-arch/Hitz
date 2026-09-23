@@ -20,14 +20,17 @@
 -- The queue --------------------------------------------------------------------------
 select * from app.utr_review_queue;
 
+-- The third argument is you. It is required, and it is not inferred: app.uid() is null in
+-- the SQL editor, so a decision that does not name its reviewer records one as nothing.
+--
 -- Approve, taking the rating they claimed:
---   select app.review_utr_claim('<claim_id>', true);
+--   select app.review_utr_claim('<claim_id>', true, 'sam@hits');
 --
 -- Approve, but with the number you actually saw on their profile:
---   select app.review_utr_claim('<claim_id>', true, 8.42);
+--   select app.review_utr_claim('<claim_id>', true, 'sam@hits', 8.42);
 --
 -- Reject, with a reason the player will read:
---   select app.review_utr_claim('<claim_id>', false, null,
+--   select app.review_utr_claim('<claim_id>', false, 'sam@hits', null,
 --     'That profile is under a different name. Send the link to your own UTR page.');
 
 -- Common rejections, worded so they tell the player what to do next -------------------

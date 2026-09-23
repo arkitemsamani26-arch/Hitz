@@ -26,8 +26,11 @@ select * from app.moderation_queue;
 -- makes ("goes to a person, same day"), and a reporter who never hears anything learns
 -- not to bother next time.
 --
--- select app.review_report(:'rid', 'suspend', 'suspended: repeated abuse in thread');
--- select app.review_report(:'rid', 'dismiss', 'no basis; counterparty misread a joke');
+-- The fourth argument is you. It is required, and it is not inferred: app.uid() is null
+-- in the SQL editor, so a decision that does not name its reviewer records one as nothing.
+--
+-- select app.review_report(:'rid', 'suspend', 'suspended: repeated abuse in thread', 'sam@hits');
+-- select app.review_report(:'rid', 'dismiss', 'no basis; counterparty misread a joke', 'sam@hits');
 
 -- 4. Profiles the auto-hide rule took down that no human has ruled on yet.
 --
@@ -39,7 +42,7 @@ select * from app.moderation_auto_hidden;
 -- Dismissing the LAST open report against an auto-hidden profile should usually put them
 -- back. Passing true does it in the same call, so a cleared name does not stay hidden
 -- because nobody remembered a fourth statement.
--- select app.review_report(:'rid', 'dismiss', 'all three reports were one group pile-on', true);
+-- select app.review_report(:'rid', 'dismiss', 'all three were one group pile-on', 'sam@hits', true);
 
 -- Reinstating outside a report decision (an appeal, a mistake of ours):
 -- select app.reinstate_profile('<profile id>');
@@ -47,7 +50,12 @@ select * from app.moderation_auto_hidden;
 -- Suspending outside a report (something you found yourself):
 -- select app.suspend_profile('<profile id>');
 
--- 5. Is the outbox moving?
+-- 5. What has been decided, and by whom.
+--
+-- The first place to look when somebody asks why an account is suspended.
+select * from app.moderation_log limit 50;
+
+-- 6. Is the outbox moving?
 --
 -- notify() drains this every minute -- if it is scheduled. It was not, for a while, and
 -- separately it had lost the EXECUTE grant it needed, and nothing anywhere said so. If
@@ -59,6 +67,6 @@ select count(*)                                  as waiting,
        count(*) filter (where created_at < now() - interval '15 minutes') as stale
   from app.notifications where sent_at is null;
 
--- 6. Density by cohort, and where the signups actually came from.
+-- 7. Density by cohort, and where the signups actually came from.
 select * from app.market_cohort_density;
 select * from app.invite_funnel;

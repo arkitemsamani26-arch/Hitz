@@ -1,7 +1,7 @@
 -- Verified levels by human review. The rule that matters: a player can file a claim and
 -- can never grant themselves the badge.
 begin;
-select plan(12);
+select plan(13);
 set search_path = app, public;
 
 \set adult_a '00000000-0000-0000-0000-0000000000b1'
@@ -39,7 +39,7 @@ select is((select count(*)::int from app.utr_claims where profile_id = :'adult_a
   'so there is only ever one open claim');
 
 -- The line that matters ------------------------------------------------------------------
-select ok(not has_function_privilege('authenticated', 'app.review_utr_claim(uuid, boolean, numeric, text)', 'EXECUTE'),
+select ok(not has_function_privilege('authenticated', 'app.review_utr_claim(uuid, boolean, text, numeric, text)', 'EXECUTE'),
   'a player cannot approve their own claim');
 
 -- Nor read anyone else's.
@@ -53,12 +53,14 @@ select is((select count(*) from app.utr_claims), 0::bigint,
 reset role;
 select app.review_utr_claim(
   (select id from app.utr_claims where profile_id = :'adult_a'::uuid and state = 'pending'),
-  true, 9.35, null);
+  true, 'sam@hits.test', 9.35, null);
 
 select is((select level_source from app.profiles where id = :'adult_a'::uuid), 'utr_verified'::app.level_source,
   'a reviewed claim grants the badge');
 select is((select level_value::numeric from app.profiles where id = :'adult_a'::uuid), 9.35::numeric,
   'at the number the reviewer actually saw, not the one claimed');
+select is((select decided_by from app.utr_claims where profile_id = :'adult_a'::uuid and state = 'approved'),
+  'sam@hits.test', 'and the claim records who checked it against utrsports.net');
 select is((select utr_verified_by from app.profiles where id = :'adult_a'::uuid), 'review',
   'and the provenance is recorded, so a UTR partnership can tell the two apart');
 

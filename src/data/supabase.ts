@@ -130,9 +130,21 @@ export class SupabaseApi implements HitsApi {
       discoveryOpen: r.discovery_open,
     };
   }
+  // The court directory is a fixed list of public courts in one market. It was being
+  // re-fetched by every player() call -- so once per row of the requests list -- for data
+  // that does not change inside a session. Cached as the promise, so ten callers at once
+  // share one request rather than racing to make ten.
+  private courtsOnce: Promise<Court[]> | null = null;
   async courts(): Promise<Court[]> {
-    const { data } = await this.sb.from('courts').select('id, name, access, indoor, surface').eq('is_active', true).order('name');
-    return (data ?? []).map(c => ({ id: c.id, name: c.name, access: c.access, indoor: c.indoor, surface: c.surface, distanceBucket: null }));
+    this.courtsOnce ??= (async () => {
+      const { data, error } = await this.sb.from('courts')
+        .select('id, name, access, indoor, surface').eq('is_active', true).order('name');
+      // Don't cache a failure: a court list that came back empty because the network was
+      // down would otherwise stay empty for the whole session.
+      if (error) { this.courtsOnce = null; this.fail(error); }
+      return (data ?? []).map(c => ({ id: c.id, name: c.name, access: c.access, indoor: c.indoor, surface: c.surface, distanceBucket: null }));
+    })();
+    return this.courtsOnce;
   }
   async peek(levelValue: number, dateOfBirth: string) {
     // No profile row yet, so RLS shows this user nothing and that is correct. A definer
@@ -172,6 +184,17 @@ export class SupabaseApi implements HitsApi {
     if (!data) return null;
     return this.mapPlayer(data, await this.courtMap());
   }
+  // The peers on a list of hits, in one round trip. RLS still decides which of them come
+  // back; anyone it hides gets the unknown-player placeholder, exactly as before.
+  private async players(ids: string[]): Promise<Map<string, Player>> {
+    const want = [...new Set(ids)].filter(Boolean);
+    if (!want.length) return new Map();
+    const [{ data }, courts] = await Promise.all([
+      this.sb.from('profiles').select('*').in('id', want),
+      this.courtMap(),
+    ]);
+    return new Map((data ?? []).map((r: any) => [r.id, this.mapPlayer(r, courts)]));
+  }
 
   // ---- hits --------------------------------------------------------------------
   // Someone can vanish from view between the request and the read: blocked, suspended,
@@ -188,9 +211,13 @@ export class SupabaseApi implements HitsApi {
     };
   }
 
-  private async mapRequest(r: any, viewer: string): Promise<HitRequest> {
+  // Takes the peers already resolved rather than fetching one per row. It used to await
+  // player() inside the map, so a list of ten hits was ten profile queries and ten court
+  // queries behind the one that fetched the hits -- twenty-one round trips, on a phone, on
+  // the screen people open first.
+  private mapRequest(r: any, viewer: string, peers: Map<string, Player>): HitRequest {
     const otherId = r.from_profile_id === viewer ? r.to_profile_id : r.from_profile_id;
-    const other = (await this.player(otherId)) ?? SupabaseApi.unknownPlayer(otherId);
+    const other = peers.get(otherId) ?? SupabaseApi.unknownPlayer(otherId);
     const approvals = (r.hit_guardian_approvals ?? []).map((a: any): Approval => ({
       hitId: r.id, minorId: a.minor_profile_id,
       // Only the counterparty's name is in hand here; a guardian view patches its own child's.
@@ -210,15 +237,21 @@ export class SupabaseApi implements HitsApi {
     };
   }
   private sel = '*, courts(name), hit_guardian_approvals(*), hit_confirmations(*)';
+  // Resolve every peer on the list once, then map. One row or fifty, it is two queries.
+  private async mapRequests(rows: any[], viewer: string): Promise<HitRequest[]> {
+    const peers = await this.players(rows.map(r => r.from_profile_id === viewer ? r.to_profile_id : r.from_profile_id));
+    return rows.map(r => this.mapRequest(r, viewer, peers));
+  }
   async requests() {
     const { data } = await this.sb.from('hit_requests').select(this.sel).order('created_at', { ascending: false });
-    return Promise.all((data ?? []).map(r => this.mapRequest(r, this.uid!)));
+    return this.mapRequests(data ?? [], this.uid!);
   }
   async hit(id: string) {
     const { data } = await this.sb.from('hit_requests').select(this.sel).eq('id', id).maybeSingle();
     if (!data) return null;
     const msgs = (await this.sb.from('hit_messages').select('*').eq('hit_request_id', id).order('created_at')).data ?? [];
-    return { request: await this.mapRequest(data, this.uid!), messages: msgs.map(m => ({ id: m.id, hitId: id, senderId: m.sender_profile_id, body: m.body, createdAt: m.created_at })) };
+    const [request] = await this.mapRequests([data], this.uid!);
+    return { request, messages: msgs.map(m => ({ id: m.id, hitId: id, senderId: m.sender_profile_id, body: m.body, createdAt: m.created_at })) };
   }
   async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null) {
     const market = (await this.sb.from('profiles').select('market_id').eq('id', this.uid!).single()).data;
@@ -227,7 +260,7 @@ export class SupabaseApi implements HitsApi {
       window_start: start.toISOString(), window_end: end.toISOString(), note, awaiting_profile_id: toId,
     }).select(this.sel).single();
     if (error) this.fail(error, "You can't reach this player.");
-    return this.mapRequest(data, this.uid!);
+    return (await this.mapRequests([data], this.uid!))[0];
   }
   async cancelRequest(id: string) { await this.sb.from('hit_requests').update({ state: 'cancelled', awaiting_profile_id: null }).eq('id', id); }
   async accept(id: string) {
@@ -426,7 +459,7 @@ export class SupabaseApi implements HitsApi {
       if (!p) continue;
       const profile = this.mapProfile(p, { guardianVerified: true, guardianPending: false });
       const rows = (await this.sb.from('hit_requests').select(this.sel).or(`from_profile_id.eq.${p.id},to_profile_id.eq.${p.id}`)).data ?? [];
-      const reqs = await Promise.all(rows.map(r => this.mapRequest(r, p.id)));
+      const reqs = await this.mapRequests(rows, p.id);
       const pendingApprovals = reqs.flatMap(r => r.approvals.filter(a => a.minorId === p.id && a.decision == null).map(a => ({ ...a, minorName: profile.displayName, request: r })));
       out.push({ profile, pendingApprovals, upcoming: reqs.filter(r => r.state === 'confirmed') });
     }
@@ -445,6 +478,7 @@ export class SupabaseApi implements HitsApi {
     const child = kids.find(k => k.profile.id === data.from_profile_id || k.profile.id === data.to_profile_id)?.profile;
     if (!child) return null;
     const msgs = (await this.sb.from('hit_messages').select('*').eq('hit_request_id', hitId).order('created_at')).data ?? [];
-    return { request: await this.mapRequest(data, child.id), messages: msgs.map(m => ({ id: m.id, hitId, senderId: m.sender_profile_id, body: m.body, createdAt: m.created_at })), child };
+    const [request] = await this.mapRequests([data], child.id);
+    return { request, messages: msgs.map(m => ({ id: m.id, hitId, senderId: m.sender_profile_id, body: m.body, createdAt: m.created_at })), child };
   }
 }

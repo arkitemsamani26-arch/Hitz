@@ -12,7 +12,7 @@
 -- belongs in and say so out loud in a migration. Do not add it here to make the red go
 -- away.
 begin;
-select plan(7);
+select plan(9);
 set search_path = app, public;
 
 -- Anonymous ------------------------------------------------------------------------------
@@ -70,5 +70,18 @@ select is(
     where pubname = 'supabase_realtime' and schemaname = 'app'),
   array['hit_guardian_approvals', 'hit_messages', 'hit_requests'],
   'realtime carries the three tables the app subscribes to, and no others');
+
+-- The self-check --------------------------------------------------------------------------
+-- What check:backend --service asks. It has to be reachable by the server and by nobody
+-- else, and it has to report the surface this file pins, or the two drift apart and the
+-- check starts agreeing with a broken deployment.
+select ok(has_function_privilege('service_role', 'app.ops_health()', 'EXECUTE')
+      and not has_function_privilege('authenticated', 'app.ops_health()', 'EXECUTE'),
+  'ops_health is the server asking about itself, not a client feature');
+
+select is(
+  (select array[realtime_tables, anon_executable] from app.ops_health()),
+  array[3, 5],
+  'and it counts the same three realtime tables and five anon RPCs asserted above');
 
 rollback;
