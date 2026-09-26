@@ -34,7 +34,13 @@ This is the one that is genuinely new and the one most likely to fail review.
 - **Google Play** exposes equivalent age signals, and both stores expect developers to act
   on them rather than just collect them.
 - **Texas, Utah and Louisiana** each have an App Store Accountability Act covering everyone
-  under 18. Failing to use the signals shows up as a compliance gap in review.
+  under 18, and each pushes obligations onto the *developer*, not only the store. Only
+  Texas is in force: it took effect **1 January 2026** after the Fifth Circuit stayed an
+  injunction against it. **Utah**'s compliance deadline was extended to **6 May 2027** and
+  **Louisiana**'s was pushed to **1 July 2027**. Failing to use the signals shows up as a
+  compliance gap in review.
+  ([Morrison Foerster](https://www.mofo.com/resources/insights/251111-texas-targets-app-stores-with-new-accountability-law) ·
+  [Wiley](https://www.wiley.law/alert-State-App-Store-Accountability-Acts-Introduce-New-Obligations-for-App-Developers))
 
 Hits currently asks for a birthday and trusts the answer. That is no longer enough for an
 app in this category. The work: request the entitlement, read the band at launch, and

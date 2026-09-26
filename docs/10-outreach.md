@@ -142,6 +142,63 @@ yes. In person beats a link, every time, at this scale.
 
 ---
 
+## 5. Adjacent platforms — anyone else with minors arranging to meet
+
+The tennis pitch is one market. The *problem* is bigger than tennis, and this version
+travels: any platform where under-18s arrange to meet, train or be coached is on the same
+regulatory clock.
+
+Worth writing to, roughly in order of fit:
+
+- **USTA** — owns junior tennis in America and has safeguarding obligations already.
+- **PlayYourCourt, TennisONE, Swing Vision** — tennis apps with juniors and no consent layer.
+- **CourtReserve, ClubSpark, Playtomic** — court booking; juniors book courts.
+- **TeamSnap, SportsEngine, LeagueApps** — youth sports operations at scale; the parent is
+  already the account holder, which makes the argument land faster.
+- **Aspen Institute Project Play** — not a buyer, but they publish the research you are
+  citing, and being cited by them is worth more than a meeting.
+
+> Hi [name],
+>
+> I build things, and I've just spent nine days building one that I think is relevant to
+> [company].
+>
+> It's called Hits. On the surface it's a hitting-partner app for junior tennis players.
+> Underneath it's a parental-consent layer: two minors cannot turn a conversation into a
+> real meeting until a parent approves that specific meeting — that person, that place,
+> that time. Minors and adults never appear to each other. Both rules are enforced in the
+> database rather than in the interface, so a bug in the app can't expose a child. 184
+> automated tests hold them.
+>
+> The reason I'm writing to you rather than only to tennis companies: any platform where
+> under-18s arrange to meet, train or be coached has the same problem arriving on the same
+> timetable. Texas's App Store Accountability Act took effect on 1 January 2026 and pushes
+> obligations onto developers; Utah follows in May 2027 and Louisiana in July 2027. Apple
+> now hands apps a declared age range in iOS 26 and expects them to act on it. Meanwhile
+> 88% of youth sports parents already say a coach should pass a background check — the
+> expectation is well ahead of what most apps actually do.
+>
+> Retrofitting this is the expensive part. Adding real parental consent to a product that
+> already has adults and minors in one pool means changing how every row is read, not
+> adding a screen.
+>
+> It's live and takes ten seconds to look at: [demo link]. Sign in with any number, the
+> code is 000000, then open the parent's view.
+>
+> I'm not selling anything today. I'd like twenty minutes with whoever owns trust and
+> safety or youth product at [company], to hear whether I've built something you need or
+> something you've already solved.
+>
+> [name]
+
+**Why it's written that way.** It leads with their deadline rather than your product. The
+last paragraph offers them a cheap way to say "already solved", which is what makes a busy
+person reply at all — and if they do say it, that is a genuinely useful answer.
+
+Every figure in this email is sourced in `12`. Do not send a number you cannot defend.
+
+---
+
 ## What to expect
 
 - **Cold email to a funded company: most get no reply.** That is normal and not about you.
