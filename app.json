@@ -3,6 +3,9 @@
     "name": "Hits",
     "slug": "hits",
     "version": "0.1.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "scheme": "hits",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,6 +21,9 @@
       "bundleIdentifier": "app.hits.mobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Hits uses your approximate location to find players near you. Other players only ever see a rough distance, never where you are."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {

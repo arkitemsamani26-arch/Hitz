@@ -61,6 +61,15 @@ export class SupabaseApi implements HitsApi {
   }
   async signOut() { await this.sb.auth.signOut(); this.uid = null; }
 
+  // The RPC deletes the auth user, but the access token in memory stays valid until it
+  // expires -- so the sign-out is not politeness, it is the second half of the delete.
+  // It runs even if the RPC throws: a half-deleted session is worse than a signed-out one.
+  async deleteAccount() {
+    const { error } = await this.sb.rpc('delete_account');
+    try { await this.sb.auth.signOut(); } finally { this.uid = null; }
+    if (error) this.fail(error, "We couldn't delete your account. Nothing was changed.");
+  }
+
   // ---- me ----------------------------------------------------------------------
   private mapProfile(r: any, extras: { guardianVerified: boolean; guardianPending: boolean; guardianSentAt?: string | null; guardianOpenedAt?: string | null; rosterName?: string | null }): Profile {
     return {

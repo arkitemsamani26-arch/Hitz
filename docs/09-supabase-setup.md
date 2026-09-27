@@ -48,19 +48,26 @@ arriving on an already-open screen — a request, a message, a parent's approval
 showed up until you navigated or pulled to refresh, which is precisely why it looked fine.
 `20260922000700_realtime.sql` adds the three tables and test 17 asserts the list.
 
-### Still to do by hand: schedule `notify`
+### Scheduled work (done, September 2026)
 
-**Nothing pushes a notification until this is done, and nothing in the repo can do it** —
-it needs the `service_role` key, which does not belong in a file. `pg_cron` is not
-installed on the project and there is no schedule, so the outbox has never been drained.
+`pg_cron` and `pg_net` are installed and three jobs are scheduled:
 
-Dashboard → Edge Functions → `notify` → Schedules, every minute. Or install `pg_cron` and
-`pg_net` and schedule it with an `Authorization: Bearer <service role key>` header — the
-function verifies JWTs, and deploying it with `--no-verify-jwt` instead would let anyone
-on the internet drain the outbox.
+| Job | Every | Does |
+|---|---|---|
+| `hits-expire-requests` | 10 min | `app.expire_requests()` |
+| `hits-tomorrow-reminders` | hour, at :07 | `app.enqueue_tomorrow_reminders()` |
+| `hits-drain-outbox` | minute | `app.drain_outbox()` → calls the `notify` edge function |
 
-Step 5 of `supabase/moderation.sql` is how you notice if it stops: if `oldest_waiting` is
-more than a couple of minutes, nobody is being notified of anything.
+`app.drain_outbox()` reads the `service_role` key from **Supabase Vault**, not from a file,
+so nothing secret is committed anywhere. It returns `'no key'` and does nothing until the
+secret exists.
+
+**One manual step remains.** Dashboard → Project Settings → Vault → New secret, named
+`service_role_key`, value the project's `service_role` key. Optionally a second secret
+`functions_base_url` if the functions URL ever differs from the project's own.
+
+Check it with `select app.drain_outbox();` — `called N` means it is working, `no key` means
+the secret is not there yet, `idle` means the outbox is empty.
 
 ## What only the dashboard can do (about 10 minutes)
 

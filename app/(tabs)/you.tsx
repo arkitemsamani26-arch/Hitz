@@ -24,6 +24,7 @@ import { slotsOf } from '@/data/types';
 import { AvailabilityGrid } from '@/ui/Availability';
 import { pct, relTime } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
+import { legal } from '@/lib/links';
 import type { Profile, UtrClaim, UtrStatus } from '@/data/types';
 
 // What the utr-link function sends back, in words a player can act on.
@@ -172,6 +173,22 @@ export default function You() {
             <View style={{ flex: 1 }}><T v="bodyM">What a parent sees</T><T v="small" tone="ink2">The page they get when you add them.</T></View>
             <T v="smallM" tone="court">View</T>
           </Tap>
+          {legal && (() => { const L = legal; return (
+            <>
+              <Tap onPress={() => void WebBrowser.openBrowserAsync(L.support)} style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]} accessibilityRole="link">
+                <View style={{ flex: 1 }}><T v="bodyM">Help</T><T v="small" tone="ink2">Reach a person. Safety reports same day.</T></View>
+                <T v="smallM" tone="court">Open</T>
+              </Tap>
+              <Tap onPress={() => void WebBrowser.openBrowserAsync(L.privacy)} style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]} accessibilityRole="link">
+                <View style={{ flex: 1 }}><T v="bodyM">Privacy policy</T><T v="small" tone="ink2">What we keep, who sees it, how to delete it.</T></View>
+                <T v="smallM" tone="court">Open</T>
+              </Tap>
+              <Tap onPress={() => void WebBrowser.openBrowserAsync(L.terms)} style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]} accessibilityRole="link">
+                <View style={{ flex: 1 }}><T v="bodyM">Terms of use</T><T v="small" tone="ink2">The rules, and what Hits is not responsible for.</T></View>
+                <T v="smallM" tone="court">Open</T>
+              </Tap>
+            </>
+          ); })()}
         </Sheet>
 
         <View style={{ gap: space.md }}>
@@ -187,6 +204,12 @@ export default function You() {
             </Sheet>
           ); })()}
           <Button title="Sign out" kind="ghost" onPress={async () => { await api.signOut(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} small />
+          {/* Not a ghost button next to Sign out, because the two are not the same size of
+              decision and should not look alike. Its own row, its own colour, and the
+              screen behind it does the explaining. */}
+          <Tap onPress={() => router.push('/delete-account')} style={s.danger} accessibilityRole="button">
+            <T v="small" tone="danger">Delete my account</T>
+          </Tap>
         </View>
       </Centered>
     </Screen>
@@ -296,4 +319,5 @@ const s = StyleSheet.create({
   stat: { flex: 1, gap: 2 },
   roster: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, borderTopWidth: 1, borderTopColor: color.hair, paddingVertical: space.sm },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: hit.row, paddingVertical: space.md },
+  danger: { minHeight: hit.min, alignItems: 'center', justifyContent: 'center' },
 });

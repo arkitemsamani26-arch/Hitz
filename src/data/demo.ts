@@ -218,6 +218,9 @@ export class DemoApi implements HitsApi {
     return this.s.session;
   }
   async signOut() { this.s.session = null; this.save(); }
+  // In the demo there is nothing on a server to delete, so this is the reset -- which is
+  // also the honest answer: everything the demo knows about you was only ever local.
+  async deleteAccount() { await this.reset(); }
 
   // ---- me ----------------------------------------------------------------------
   private myBand(): 'minor' | 'adult' { return this.s.profile ? bandOf(this.s.profile.dateOfBirth) : 'minor'; }

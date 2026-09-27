@@ -13,6 +13,9 @@ export interface HitsApi {
   sendCode(phone: string): Promise<void>;
   verifyCode(phone: string, code: string): Promise<Session>;
   signOut(): Promise<void>;
+  // Irreversible, and required by both stores: an app that lets you make an account
+  // has to let you delete it from inside the app. Signs you out on the way through.
+  deleteAccount(): Promise<void>;
 
   // me
   me(): Promise<Profile | null>;
