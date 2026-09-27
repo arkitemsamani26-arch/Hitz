@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { Share, StyleSheet, Switch, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Share, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { shadow } from '@/lib/shadow';
 import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
@@ -26,6 +28,7 @@ import { pct, relTime } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { legal } from '@/lib/links';
 import type { Profile, UtrClaim, UtrStatus } from '@/data/types';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 // What the utr-link function sends back, in words a player can act on.
 const UTR_TROUBLE: Record<string, string> = {
@@ -93,12 +96,9 @@ export default function You() {
 
         <UtrCard profile={profile} status={utr.data} claim={utrClaim.data} reload={async () => { await utr.reload(); await utrClaim.reload(); await refresh(); }} toast={toast} />
 
-        <Sheet accent={looking} style={s.row}>
-          <View style={{ flex: 1 }}>
-            <T v="bodyM">Looking to hit this week</T>
-            <T v="small" tone="ink2">Puts you at the net for players near your level. Expires on its own.</T>
-          </View>
-          <Switch value={looking} onValueChange={setLooking} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Looking to hit this week" />
+        <Sheet accent={looking} style={{ paddingVertical: 4, marginBottom: space.md }}>
+          <Toggle title="Looking to hit this week" value={looking} onChange={setLooking}
+                  note="Puts you at the net for players near your level. Expires on its own." />
         </Sheet>
 
         {profile.band === 'minor' && (
@@ -161,14 +161,12 @@ export default function You() {
               <AvailabilityGrid mask={profile.availabilityMask} onToggle={toggleSlot} />
             </View>
           )}
-          <View style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]}>
-            <View style={{ flex: 1 }}><T v="bodyM">Sound</T><T v="small" tone="ink2">One ball strike when a hit locks in. Off in silent mode anyway.</T></View>
-            <Switch value={sound} onValueChange={v => { setSound(v); void setSoundEnabled(v); }} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Sound" />
-          </View>
-          <View style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]}>
-            <View style={{ flex: 1 }}><T v="bodyM">Browse on the court</T><T v="small" tone="ink2">Players placed by level and distance, instead of the list.</T></View>
-            <Switch value={!listMode} onValueChange={v => setListMode(!v)} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Browse on the court" />
-          </View>
+          <Toggle title="Sound" value={sound} onChange={v => { setSound(v); void setSoundEnabled(v); }}
+                  note="One ball strike when a hit locks in. Off in silent mode anyway."
+                  style={{ borderTopWidth: 1, borderTopColor: color.hair }} />
+          <Toggle title="Browse on the court" value={!listMode} onChange={v => setListMode(!v)}
+                  note="Players placed by level and distance, instead of the list."
+                  style={{ borderTopWidth: 1, borderTopColor: color.hair }} />
           <Tap onPress={() => router.push('/guardian/link')} style={[s.line, { borderTopWidth: 1, borderTopColor: color.hair }]} accessibilityRole="button">
             <View style={{ flex: 1 }}><T v="bodyM">What a parent sees</T><T v="small" tone="ink2">The page they get when you add them.</T></View>
             <T v="smallM" tone="court">View</T>
@@ -195,10 +193,8 @@ export default function You() {
           {demo && (() => { const d = demo; return (
             <Sheet style={{ gap: space.md }}>
               <T v="micro" tone="ink3">Demo controls</T>
-              <View style={[s.line, { paddingVertical: 0 }]}>
-                <View style={{ flex: 1 }}><T v="bodyM">Cohort open</T><T v="small" tone="ink2">Off shows the countdown state.</T></View>
-                <Switch value={d.cohortOpen} onValueChange={v => { d.setCohortOpen(v); }} trackColor={{ true: color.court, false: color.paper3 }} thumbColor={color.paper} accessibilityLabel="Cohort open (demo)" />
-              </View>
+              <Toggle title="Cohort open" value={d.cohortOpen} onChange={v => { d.setCohortOpen(v); }}
+                      note="Off shows the countdown state." />
               {profile.band === 'minor' && <Button title="Open the parent's view" kind="line" onPress={async () => { d.switchToGuardian(); await refresh(); router.replace('/guardian'); }} />}
               <Button title="Reset demo" kind="ghost" onPress={async () => { await d.reset(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} small />
             </Sheet>
@@ -215,6 +211,41 @@ export default function You() {
     </Screen>
   );
 }
+// A settings row where the whole row is the switch. Reanimated's Switch renders 40x20,
+// which is half the height a thumb needs, and nobody aims for the toggle anyway -- they
+// tap the words. The Switch keeps its own label so screen readers still announce state.
+// The picture of a toggle. 52x32 with a 26px thumb, which is a comfortable size to look at
+// and irrelevant to touch, because the whole row is the target.
+function Knob({ on }: { on: boolean }) {
+  const x = useSharedValue(on ? 22 : 2);
+  useEffect(() => { x.value = withSpring(on ? 22 : 2, { damping: 18, stiffness: 260 }); }, [on, x]);
+  const a = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  return (
+    <View pointerEvents="none" style={[s.track, on && { backgroundColor: color.court }]}>
+      <Animated.View style={[s.knob, a]} />
+    </View>
+  );
+}
+
+function Toggle({ title, note, value, onChange, style }:
+  { title: string; note?: string; value: boolean; onChange: (v: boolean) => void; style?: StyleProp<ViewStyle> }) {
+  return (
+    <Tap onPress={() => onChange(!value)} style={[s.line, style]} accessibilityRole="switch"
+         accessibilityState={{ checked: value }} aria-checked={value} accessibilityLabel={title}>
+      <View style={{ flex: 1 }}>
+        <T v="bodyM">{title}</T>
+        {note ? <T v="small" tone="ink2">{note}</T> : null}
+      </View>
+      {/* Drawn, not a real Switch. React Native Web's Switch renders a focusable checkbox,
+          and a focusable control inside a control that is itself a switch is a genuine a11y
+          failure (nested-interactive) that aria-hidden does not fix -- hiding something
+          does not take it out of the tab order. The row carries the role and the state; this
+          is just the picture of it. */}
+      <Knob on={value} />
+    </Tap>
+  );
+}
+
 // The UTR card. Four states, all of them true statements:
 //   not linked        -> the pitch
 //   linked + rated    -> the badge, the number, when we last checked
@@ -320,4 +351,6 @@ const s = StyleSheet.create({
   roster: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, borderTopWidth: 1, borderTopColor: color.hair, paddingVertical: space.sm },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: hit.row, paddingVertical: space.md },
   danger: { minHeight: hit.min, alignItems: 'center', justifyContent: 'center' },
+  track: { width: 52, height: 32, borderRadius: 16, backgroundColor: color.paper3, justifyContent: 'center' },
+  knob: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.paper, ...shadow({ y: 1, blur: 3, opacity: 0.25 }) },
 });

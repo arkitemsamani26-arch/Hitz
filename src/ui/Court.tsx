@@ -52,7 +52,7 @@ const COLS = 5, ROWS = 4;                                     // far half only: 
 export function layout(players: Player[], radiusMi: number): { x: number; y: number }[] {
   const taken = new Set<string>();
   const cellOf = (x: number, y: number) => ({ c: Math.max(0, Math.min(COLS - 1, Math.round(x * (COLS - 1)))), r: Math.max(0, Math.min(ROWS - 1, Math.round(((y - 0.04) / 0.42) * (ROWS - 1)))) });
-  const posOf = (c: number, r: number) => ({ x: 0.12 + (c / (COLS - 1)) * 0.76, y: 0.06 + (r / (ROWS - 1)) * 0.38 });
+  const posOf = (c: number, r: number) => ({ x: 0.12 + (c / (COLS - 1)) * 0.76, y: 0.05 + (r / (ROWS - 1)) * 0.40 });
   return players.map((p, i) => {
     const ideal = place(p, i, radiusMi);
     let { c, r } = cellOf(ideal.x, ideal.y);
@@ -75,9 +75,18 @@ export function parseMiles(b: string | null): number {
 }
 
 // A token drops onto the court like a ball: falls, squashes on impact, settles.
+//
+// Note the gentle `scaleTo` on the Tap below. It used to be 0.9, and that was the real
+// cause of "some of the buttons aren't working": hold a token for the ~100ms a finger
+// actually rests there and it shrank 10% away from the pointer, so the release landed
+// outside the element and the press was cancelled. A fast synthetic click never reproduced
+// it, which is why it survived three passes of manual testing.
 export function Token({ p, x, y, onPress, hot, delay = 0, above, stand }: { p: Player; x: number; y: number; onPress: () => void; hot?: boolean; delay?: number; above?: boolean; stand?: boolean }) {
   // Further up the court is further away: 1.0 at the net, 0.82 at the far baseline.
-  const depth = stand ? 0.82 + (y / 0.46) * 0.18 : 1;
+  // 0.90 at the far baseline, 1.0 at the net. It used to run from 0.82, which looked
+  // better and made the far tokens 28px tall once the court's 20-degree lean had squashed
+  // them -- well under the 44px a thumb needs. Depth you can't tap is not depth.
+  const depth = stand ? 0.94 + (y / 0.46) * 0.06 : 1;
   const fall = useSharedValue(-60), sq = useSharedValue(1), op = useSharedValue(0);
   useEffect(() => {
     op.value = withDelay(delay, withTiming(1, { duration: 80 }));
@@ -91,12 +100,12 @@ export function Token({ p, x, y, onPress, hot, delay = 0, above, stand }: { p: P
   // back onto the leaning court the instant it ran.
   return (
     <View style={[s.tokWrap, { left: `${x * 100}%`, top: `${y * 100}%` }, above && s.tokWrapAbove,
-                  stand && { transform: [{ perspective: 620 }, { rotateX: '-20deg' }, { scale: depth }] }]}
+                  stand && { transform: [{ perspective: 900 }, { rotateX: '-18deg' }, { scale: depth }] }]}
           pointerEvents="box-none">
       <Animated.View style={[s.tokInner, drop]} pointerEvents="box-none">
         {above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
-        <Tap onPress={onPress} tick scaleTo={0.9} style={[s.tok, sunShadow(9), hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
-          <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 15 }}>{p.levelValue?.toFixed(1)}</T>
+        <Tap onPress={onPress} tick scaleTo={0.97} hitSlop={10} style={[s.tok, sunShadow(9), hot && s.tokHot]} accessibilityRole="button" accessibilityLabel={`${p.displayName}, level ${p.levelValue}`}>
+          <T v="smallM" tone="ink" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 16 }}>{p.levelValue?.toFixed(1)}</T>
         </Tap>
         {!above && <T v="micro" tone="onCourt" style={s.tokLabel} numberOfLines={1}>{p.displayName}</T>}
       </Animated.View>
@@ -118,17 +127,17 @@ const s = StyleSheet.create({
   // 9 degrees read as a wonky rectangle rather than a court seen from the baseline.
   // The depth only lands once the surface leans properly AND the tokens stand up
   // against it -- see tokStand, which cancels the lean per token.
-  tilt: { transform: [{ perspective: 620 }, { rotateX: '20deg' }] },
+  tilt: { transform: [{ perspective: 900 }, { rotateX: '18deg' }] },
   vline: { position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: color.line },
   hline: { position: 'absolute', height: 3, backgroundColor: color.line },
   net: { position: 'absolute', left: -6, right: -6, top: '50%', height: 4, marginTop: -2, backgroundColor: color.line, ...shadow({ y: 2, blur: 3, opacity: 0.25, color: '#000000' }) },
   mark: { position: 'absolute', left: '50%', width: 3, height: 8, marginLeft: -1.5, backgroundColor: color.line },
-  tokWrap: { position: 'absolute', width: 84, height: 74, marginLeft: -42, marginTop: -23, alignItems: 'center' },
+  tokWrap: { position: 'absolute', width: 92, height: 86, marginLeft: -46, marginTop: -29, alignItems: 'center' },
   tokInner: { alignItems: 'center' },
-  tokWrapAbove: { marginTop: -51, justifyContent: 'flex-end' },
-  tok: { width: 48, height: 48, borderRadius: 24, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
+  tokWrapAbove: { marginTop: -58, justifyContent: 'flex-end' },
+  tok: { width: 58, height: 58, borderRadius: 29, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(14,27,51,0.08)' },
   tokHot: { backgroundColor: color.ball },
-  tokLabel: { marginVertical: 4, width: 84, textAlign: 'center', ...textShadow({ y: 1, blur: 3, color: 'rgba(0,0,0,0.55)' }) },
+  tokLabel: { marginTop: 2, marginBottom: 0, width: 92, textAlign: 'center', ...textShadow({ y: 1, blur: 3, color: 'rgba(0,0,0,0.55)' }) },
   youWrap: { position: 'absolute', bottom: 12, left: 0, right: 0, alignItems: 'center' },
   you: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.ball, borderWidth: 3, borderColor: color.paper, ...shadow({ y: 4, blur: 8, opacity: 0.35 }) },
 });

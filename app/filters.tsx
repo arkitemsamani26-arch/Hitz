@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useToast } from '@/ui/Toast';
+import { useGoBack } from '@/lib/nav';
 import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Pill } from '@/ui/Pill';
@@ -17,6 +19,8 @@ const BANDS: { label: string; d: number | null }[] = [{ label: '±0.5', d: 0.5 }
 
 export default function Filters() {
   const router = useRouter();
+  const toast = useToast();
+  const goBack = useGoBack();
   const { filters, set } = useFilters();
   const { profile } = useSession();
   const [f, setF] = useState(filters);
@@ -26,8 +30,8 @@ export default function Filters() {
   const setBand = (d: number | null) => setF(x => ({ ...x, levelLo: d == null ? null : +(my - d).toFixed(2), levelHi: d == null ? null : +(my + d).toFixed(2) }));
   return (
     <Screen sky={120} bottom={<Centered><View style={{ flexDirection: 'row', gap: space.md }}>
-      <Button title="Reset" kind="line" onPress={() => setF(DEFAULT_FILTERS)} />
-      <Button title="Show players" kind="ball" onPress={() => { set(f); router.back(); }} style={{ flex: 1 }} />
+      <Button title="Reset" kind="line" onPress={() => { setF(DEFAULT_FILTERS); toast('Filters cleared.'); }} />
+      <Button title="Show players" kind="ball" onPress={() => { set(f); goBack(); }} style={{ flex: 1 }} />
     </View></Centered>}>
       <Centered>
         <Header title="Filters" />

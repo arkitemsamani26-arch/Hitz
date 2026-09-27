@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "db:test": "./scripts/db-test.sh",
     "check:backend": "node scripts/check-backend.mjs",
-    "a11y": "node scripts/a11y.mjs"
+    "a11y": "node scripts/a11y.mjs",
+    "crawl": "node scripts/crawl.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/archivo": "^0.4.2",

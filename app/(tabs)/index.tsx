@@ -85,7 +85,7 @@ export default function Hits() {
     finally { void reqs.reload(); }
   };
   const open = (p: Player) => router.push(`/player/${p.id}`);
-  const courtW = Math.min(width - 32, 480), courtH = Math.min(courtW * 1.5, 540);
+  const courtW = Math.min(width - 32, 480), courtH = Math.min(courtW * 1.62, 620);
 
   return (
     <Screen sky={150} extraBottom={TAB_BAR_H} onRefresh={async () => {
@@ -175,7 +175,7 @@ export default function Hits() {
           // means closer to your level. You're the ball at the baseline.
           <View style={{ alignItems: 'center', paddingBottom: space.lg }}>
             <CourtSurface tilt style={{ width: courtW, height: courtH }}>
-              {(() => { const ps = visible.slice(0, 12); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={false} stand onPress={() => setPicked(p)} />); })()}
+              {(() => { const ps = visible.slice(0, 16); const pos = layout(ps, filters.radiusMi); return ps.map((p, i) => <Token key={p.id} p={p} x={pos[i].x} y={pos[i].y} hot={p.lookingToHit} delay={i * 60} above={false} stand onPress={() => setPicked(p)} />); })()}
               <You level={profile?.levelValue ?? null} />
             </CourtSurface>
             {/* The lean pushes the court's bottom edge below its layout box, so this needs

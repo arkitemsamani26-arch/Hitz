@@ -11,6 +11,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/nav';
 import { Screen, Centered, Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
@@ -26,6 +27,7 @@ const WORD = 'DELETE';
 
 export default function DeleteAccount() {
   const router = useRouter();
+  const goBack = useGoBack();
   const toast = useToast();
   const { profile, setSession, setProfile } = useSession();
   const [typed, setTyped] = useState('');
@@ -50,7 +52,7 @@ export default function DeleteAccount() {
   };
 
   return (
-    <Screen sky={150} bottom={
+    <Screen sky={150} extraBottom={space.xl} bottom={
       <Centered>
         <Button title="Delete my account" kind="danger" onPress={go} loading={busy} disabled={!ready} />
       </Centered>
@@ -100,7 +102,7 @@ export default function DeleteAccount() {
             accessibilityLabel={`Type ${WORD} to confirm`}
             big
           />
-          <Button title="Keep my account" kind="line" onPress={() => router.back()} />
+          <Button title="Keep my account" kind="line" onPress={goBack} />
         </Sheet>
 
         {demo && (

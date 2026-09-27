@@ -27,3 +27,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: axe, WCAG AA, ten screens
         run: npm run a11y
+
+      # Presses every button on every screen. "Some of the buttons aren't working" took
+      # three manual attempts to reproduce and turned out to be two dead back buttons, a
+      # button under a fixed bar, and targets below 44px. None of that is visible in a
+      # screenshot, and all of it is visible here.
+      - name: Press every button
+        run: npm run crawl

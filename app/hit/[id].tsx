@@ -144,7 +144,7 @@ export default function Hit() {
       </View></Centered>
     ) : bottom}>
       <Centered>
-        <Header right={<Tap onPress={() => setMore(true)} style={{ minHeight: hit.min, justifyContent: 'center', paddingHorizontal: space.sm }} accessibilityRole="button" accessibilityLabel="More options for this hit"><T v="h2">···</T></Tap>} />
+        <Header right={<Tap onPress={() => setMore(true)} style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="More options for this hit"><T v="h2">···</T></Tap>} />
         <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: space.xl }} showsVerticalScrollIndicator={false}>
           {head}
           {canChat && (
