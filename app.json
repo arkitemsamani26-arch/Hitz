@@ -20,7 +20,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.hits.mobile",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Hits uses your approximate location to find players near you. Other players only ever see a rough distance, never where you are."
+        "NSLocationWhenInUseUsageDescription": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored."
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -78,8 +78,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Hits uses your approximate location to find players near you. Other players only ever see a rough distance, never where you are.",
-          "locationWhenInUsePermission": "Hits uses your approximate location to find players near you. Other players only ever see a rough distance, never where you are.",
+          "locationAlwaysAndWhenInUsePermission": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored.",
+          "locationWhenInUsePermission": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored.",
           "isAndroidBackgroundLocationEnabled": false
         }
       ]

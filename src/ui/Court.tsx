@@ -22,7 +22,7 @@ export function CourtSurface({ style, children, dim, onLayout, tilt }: { style?:
       {/* Acrylic in sunlight: lighter toward the net, with a sheen and grain. */}
       <LinearGradient colors={['#2A63BE', '#3B7FE0', '#2A63BE']} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <LinearGradient colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.6 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
-      <Image source={grain} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity: 0.3, pointerEvents: "none" } as any]} />
+      <Image source={grain} resizeMode="repeat" alt="" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { opacity: 0.3, pointerEvents: "none" } as any]} />
       <View style={[s.vline, { left: `${SIDE * 100}%` }]} />
       <View style={[s.vline, { right: `${SIDE * 100}%` }]} />
       <View style={[s.hline, { top: `${SERVICE * 100}%`, left: `${SIDE * 100}%`, right: `${SIDE * 100}%` }]} />

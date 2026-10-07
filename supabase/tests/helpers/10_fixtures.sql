@@ -65,14 +65,32 @@ values
    'Adult', 'B', current_date - interval '30 years', 8.60, 'utr_self',
    '00000000-0000-0000-0000-0000000000e1', 8, now(), null);
 
--- Real locations, a few miles apart around Wellesley. The trigger derives snapped_point.
-insert into app.profiles_private (profile_id, exact_point) values
-  ('00000000-0000-0000-0000-0000000000a1', ST_SetSRID(ST_MakePoint(-71.2920, 42.2960), 4326)::geography),
-  ('00000000-0000-0000-0000-0000000000a2', ST_SetSRID(ST_MakePoint(-71.2731, 42.3012), 4326)::geography),
-  ('00000000-0000-0000-0000-0000000000a3', ST_SetSRID(ST_MakePoint(-71.3100, 42.2800), 4326)::geography),
-  ('00000000-0000-0000-0000-0000000000a4', ST_SetSRID(ST_MakePoint(-71.0589, 42.3601), 4326)::geography),
-  ('00000000-0000-0000-0000-0000000000b1', ST_SetSRID(ST_MakePoint(-71.2850, 42.2990), 4326)::geography),
-  ('00000000-0000-0000-0000-0000000000b2', ST_SetSRID(ST_MakePoint(-71.2600, 42.3100), 4326)::geography);
+-- Locations a few miles apart around Wellesley, set the way a real client sets them:
+-- through `set_my_location`, which rounds on arrival. These coordinates exist in this file
+-- and nowhere else -- there is no column left that could hold them.
+do $loc$
+declare r record;
+begin
+  for r in select * from (values
+    ('00000000-0000-0000-0000-0000000000a1'::uuid, 42.2960, -71.2920),
+    ('00000000-0000-0000-0000-0000000000a2'::uuid, 42.3012, -71.2731),
+    ('00000000-0000-0000-0000-0000000000a3'::uuid, 42.2800, -71.3100),
+    ('00000000-0000-0000-0000-0000000000a4'::uuid, 42.3601, -71.0589),
+    ('00000000-0000-0000-0000-0000000000b1'::uuid, 42.2990, -71.2850),
+    ('00000000-0000-0000-0000-0000000000b2'::uuid, 42.3100, -71.2600)
+  ) as t(id, lat, lon) loop
+    update app.profiles
+       set snapped_point = app.snap_point(
+             ST_SetSRID(ST_MakePoint(r.lon, r.lat), 4326)::geography),
+           located_at = now()
+     where id = r.id;
+  end loop;
+end $loc$;
+
+insert into app.profiles_private (profile_id) values
+  ('00000000-0000-0000-0000-0000000000a1'), ('00000000-0000-0000-0000-0000000000a2'),
+  ('00000000-0000-0000-0000-0000000000a3'), ('00000000-0000-0000-0000-0000000000a4'),
+  ('00000000-0000-0000-0000-0000000000b1'), ('00000000-0000-0000-0000-0000000000b2');
 
 -- a01 and a02 have verified guardians; a03 deliberately does not.
 insert into app.guardian_links

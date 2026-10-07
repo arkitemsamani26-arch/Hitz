@@ -48,7 +48,7 @@ export function Sky({ height = 190 }: { height?: number }) {
       {k.night && <View style={[s.floodlight, { top: height * 0.55 }]} />}
       {/* The horizon lives in the bottom fifth; nothing readable is placed there. */}
       <LinearGradient colors={['transparent', 'rgba(125,181,125,0.55)', color.ground]} locations={[0.72, 0.9, 1]} style={StyleSheet.absoluteFill} />
-      <Image source={grain} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity: 0.35 }]} />
+      <Image source={grain} resizeMode="repeat" alt="" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { opacity: 0.35 }]} />
     </View>
   );
 }
@@ -71,7 +71,7 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[s.root, { backgroundColor: ground }]}>
       <StatusBar style="dark" />
       <LinearGradient colors={[color.ground, '#256A3A']} style={StyleSheet.absoluteFill} />
-      <Image source={grain} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity: 0.25, pointerEvents: "none" } as any]} />
+      <Image source={grain} resizeMode="repeat" alt="" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { opacity: 0.25, pointerEvents: "none" } as any]} />
       {sky > 0 && <Sky height={sky + insets.top} />}
       {scroll
         ? <ScrollView contentContainerStyle={[s.grow, inner]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}

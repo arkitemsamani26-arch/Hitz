@@ -71,7 +71,7 @@ export default function DeleteAccount() {
         <Sheet style={{ gap: space.sm, marginBottom: space.md }}>
           <T v="micro" tone="ink3">What goes, immediately</T>
           <Line text="Your name, photo, level and home court" />
-          <Line text="Your phone number and the location we used to find courts near you" />
+          <Line text="Your phone number, and the rounded area used to find courts near you" />
           <Line text="Every message you have sent, and every hit in your history" />
           <Line text="Any hit that has not happened yet — the other player is told it is off" />
           {profile?.band === 'minor' && <Line text="The link to your parent, and their view of your account" />}

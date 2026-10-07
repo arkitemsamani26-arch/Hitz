@@ -74,7 +74,7 @@ select throws_ok($$
   update app.profiles
      set snapped_point = ST_SetSRID(ST_MakePoint(-71.0, 42.0), 4326)::geography
    where id = '00000000-0000-0000-0000-0000000000b1'
-$$, 'snapped_point is derived from profiles_private.exact_point',
+$$, 'snapped_point is set by set_my_location, from coordinates we do not keep',
   'the approximate location cannot be spoofed by the client');
 
 select * from finish();

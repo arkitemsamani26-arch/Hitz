@@ -18,7 +18,7 @@ actually does, the app is wrong and we want to know: <a href="mailto:[support@yo
 <tr><th>First name and last initial</th><td>Shown to other players. We do not ask for your full surname.</td></tr>
 <tr><th>Date of birth</th><td>Decides whether you are treated as an under-18 or an adult. Collected once and not editable afterwards.</td></tr>
 <tr><th>Photo</th><td>Optional. If you are under 18, your parent or guardian approves it before anyone else sees it, and can remove it at any time.</td></tr>
-<tr><th>Location</th><td>Two forms. A <em>rounded</em> position, snapped to roughly a two-kilometre grid, is what other players' distances are calculated from. The more precise position your device reported is held on our server, is never shown to another player, and is never sent back to any app.</td></tr>
+<tr><th>Location</th><td>A <em>rounded</em> position only, snapped to roughly a two-kilometre grid. Your device's precise coordinates are rounded the moment they reach us and the precise ones are never written down — there is no column in our database that could hold them. The rounded position is what other players' distances are calculated from.</td></tr>
 <tr><th>Tennis level</th><td>Your UTR or self-reported level. If you ask us to verify it, the UTR profile link and the name on it, so a person can check the two match.</td></tr>
 <tr><th>Availability</th><td>Which mornings, afternoons and evenings you can usually play.</td></tr>
 <tr><th>Messages</th><td>What you write to the other player about a specific hit.</td></tr>
@@ -40,7 +40,7 @@ the other way round.</p>
 <li><strong>Other players</strong> see your first name and last initial, your photo if you have one, your level, your approximate distance from them, and how often you reply.</li>
 <li><strong>Your phone number</strong> is hidden by default. You can share it for one confirmed hit, one at a time, and take it back afterwards.</li>
 <li><strong>Your parent or guardian</strong>, if you are under 18, sees who you are arranging to meet, where and when, the messages in that conversation, and your photo. They approve or refuse each meetup.</li>
-<li><strong>Nobody</strong> sees your date of birth, your precise location, or your phone number unless you shared it for a hit.</li>
+<li><strong>Nobody</strong> sees your date of birth or your phone number unless you shared it for a hit. Nobody sees your precise location, including us, because we do not keep it.</li>
 </ul>
 
 <h2>If you are under 18</h2>
@@ -51,6 +51,15 @@ another player on your behalf, or end the link at any time, and ending it stops 
 arranging anything new.</p>
 <p>Hits is not intended for children under 13 and we do not knowingly collect information
 from them. If you believe a child under 13 has an account, email us and we will delete it.</p>
+
+<h2>Cookies and storage</h2>
+<p><strong>Hits uses no cookies and no tracking technologies.</strong> There is no advertising
+identifier, no analytics SDK, no pixel, and nothing that follows you to another app or site.
+We have nothing to ask your consent for, which is why you will not see a cookie banner.</p>
+<p>The app stores two things on your own device: your sign-in so you are not asked for a code
+every time, and small preferences such as whether sound is on. That stays on your phone. The
+web version of the demo uses your browser's local storage for the same purpose, and clearing
+your browser data removes it.</p>
 
 <h2>Who we share it with</h2>
 <p>We do not sell your information and we never will. We use these services to run Hits, and
@@ -81,6 +90,7 @@ information about you.</p>
 <h2>How long we keep things</h2>
 <ul>
 <li>Your profile and messages: until you delete your account.</li>
+<li>Precise coordinates: never stored. They exist only for the moment it takes to round them.</li>
 <li>Completed hits: kept while your account exists, so your history and response rate make sense.</li>
 <li>Safety reports: [retention period, e.g. three years], as described above.</li>
 <li>Sign-in codes: minutes.</li>
