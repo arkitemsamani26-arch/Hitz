@@ -212,3 +212,40 @@ the five questions a phone cannot: can `service_role` run the scheduled jobs, do
 carry three tables, can `anon` still reach exactly five RPCs, is anything scheduled, and —
 whatever the cause — is the outbox actually moving. Run it after any deploy and after any
 migration that touches grants.
+
+---
+
+## Unfinished cleanup on the live project (9 October 2026)
+
+The behaviour changes all landed. Three dead objects did not, because Supabase's SQL API
+timed out on every `DROP` for about an hour — not a lock (checked `pg_stat_activity`:
+nothing blocking), the requests simply never came back.
+
+**Nothing is wrong with the live project.** These three are inert:
+
+| Leftover | Why it is harmless |
+|---|---|
+| `app.profiles_private.exact_point` | Empty, and `set_my_location` no longer writes it. Nothing can put a coordinate there. |
+| trigger `profiles_private_sync_snapped` | Fires on writes to `exact_point`, which never happen now. |
+| `app.drain_outbox()` | Unscheduled, and returns `'no key'` without the Vault secret, which does not exist. |
+
+To finish, run any one of these when the API is behaving:
+
+```sql
+drop trigger if exists profiles_private_sync_snapped on app.profiles_private;
+drop function if exists app.sync_snapped_point();
+alter table app.profiles_private drop column if exists exact_point;
+drop function if exists app.drain_outbox();
+```
+
+Or just apply the repo's migrations, which contain exactly that. Confirm with:
+
+```sql
+select * from app.ops_health();
+```
+
+`public_writable_by_anon` should read 3 until `public` comes out of the API's exposed
+schemas, and `1` after. That one is a dashboard setting, not SQL — Project Settings → API
+→ Exposed schemas, remove `public`. The app only ever talks to `app` (see the `createClient`
+call in `src/data/supabase.ts`), so nothing breaks. The remaining two are pg_net's own
+tables in the `net` schema, which PostgREST does not expose.
