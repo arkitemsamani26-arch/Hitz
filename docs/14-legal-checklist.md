@@ -27,7 +27,7 @@ were already true, and several are true in a way worth saying out loud to a revi
 | 16 | **Business details** | The brackets in `legal/` — your legal name and a postal address. Required by both stores and by privacy law. |
 | 17 | **Age consent for kids' data** | This is the product. Under 18 cannot be found or arrange anything until a guardian links and confirms; each meetup is approved separately; under 13 is prohibited. The gap is *verifiable* age, not consent — see `11`, item 4. |
 | 18 | **Unsubscribe in emails** | Hits sends no marketing email. The only emails are transactional, to a guardian, about their own child. A guardian can end the link from the page they were sent, which stops them. |
-| 19 | **Licence fonts and images** | Fonts are Bricolage Grotesque, Instrument Sans and Archivo through `@expo-google-fonts` — all SIL Open Font License, fine to ship commercially. **The icons and the court texture in `assets/` have no recorded provenance.** If you did not make them, find out where they came from before you list. |
+| 19 | **Licence fonts and images** | Fonts are DM Serif Display and DM Sans through `@expo-google-fonts` — both SIL Open Font License, fine to ship commercially. The wordmark uses the device's Arial / sans-serif. Interface icons are Lucide (ISC licence, notice kept in `src/ui/Icon.tsx`). The court drawing and the ball are drawn in code. **The app icon and splash image in `assets/` have no recorded provenance.** If you did not make them, find out where they came from before you list. |
 | 20 | **Data deletion request** | Done three ways: in-app under You, by email to support, and documented in the privacy policy — including the one thing that survives, and why. |
 
 ---

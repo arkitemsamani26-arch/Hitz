@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card } from '@/ui/Screen';
+import { Wordmark } from '@/ui/Wordmark';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
 import { Tap } from '@/ui/Tap';
-import { space } from '@/theme/tokens';
+import { fixed, space } from '@/theme/tokens';
+import { StyleSheet } from 'react-native';
+import { Court } from '@/ui/CourtArt';
 import { api } from '@/data';
 import { useDraft } from '@/store/onboarding';
 
@@ -40,33 +43,42 @@ export default function Phone() {
     finally { setBusy(false); }
   };
   return (
-    <Screen sky={260} bottom={<Centered><Button title="Text me a code" kind="ball" onPress={go} loading={busy} disabled={phone.replace(/\D/g, '').length < 10} /></Centered>}>
+    <Screen bottom={<Centered><Button title="Text me a code" arrow onPress={go} loading={busy} disabled={phone.replace(/\D/g, '').length < 10} /></Centered>}>
       <Centered>
-        <View style={{ marginTop: space.xxxl, marginBottom: space.xl }}>
-          <T v="micro" tone="ink2">{parent ? 'Hits · Parent' : 'Palo Alto'}</T>
-          <T v="display" style={{ fontSize: 48, lineHeight: 48 }}>{parent ? <>Signing in{'\n'}for your kid.</> : <>Find your{'\n'}next hit.</>}</T>
-          <T v="body" tone="ink2" style={{ marginTop: space.md }}>{parent ? 'Use the number their approval text came to.' : 'Players at your level, on courts near you, this week.'}</T>
+        <View style={{ marginTop: space.lg, marginBottom: space.lg }}><Wordmark /></View>
+        {/* A compact version of the hero: green, serif, one court. Not repeated on later steps. */}
+        <View style={s.welcome}>
+          <View style={s.inset} pointerEvents="none" />
+          <View style={s.art}><Court width={120} height={200} /></View>
+          <T v="eyebrow" tone="heroEyebrow" style={{ marginBottom: 12 }}>{parent ? 'Hits · For parents' : 'Good people. Great tennis.'}</T>
+          <T v="display" tone="heroText" style={{ fontSize: 34, lineHeight: 37 }}>{parent ? <>Signing in{'\n'}<T v="display" tone="heroEm" italic style={{ fontSize: 34, lineHeight: 37 }}>for your kid.</T></> : <>Find your{'\n'}<T v="display" tone="heroEm" italic style={{ fontSize: 34, lineHeight: 37 }}>kind of tennis.</T></>}</T>
+          <T v="meta" tone="heroCopy" style={{ marginTop: 12, maxWidth: 230 }}>{parent ? 'Use the number their approval text came to.' : 'Players at your level, on courts near you, this week.'}</T>
         </View>
-        <Sheet style={{ gap: space.lg }}>
+        <Card style={{ gap: space.lg, marginTop: space.lg }}>
           <Field label={parent ? 'Your number' : 'Your number is the login'} value={phone} onChangeText={setPhone} placeholder="(650) 555-0137" keyboardType="phone-pad" inputMode="tel" textContentType="telephoneNumber" autoFocus onSubmitEditing={go} accessibilityLabel="Phone number" />
           {parent ? null : showCode ? (
             <View>
               <Field label="Team or invite code" value={code} onChangeText={checkCode} placeholder="PALY26" autoCapitalize="characters" autoCorrect={false} maxLength={12} />
-              {found?.valid && <T v="smallM" tone="court" style={{ marginTop: space.sm }}>{found.kind === 'invite' ? `✓ ${found.label} invited you` : `✓ Joining ${found.label}`}</T>}
-              {found && !found.valid && <T v="small" tone="ink3" style={{ marginTop: space.sm }}>{found.kind === 'invite' ? `${found.label}'s invite has already been used. You can join without one.` : `${found.label} is full. You can join without a code.`}</T>}
-              {!found && code.trim().length >= 5 && <T v="small" tone="ink3" style={{ marginTop: space.sm }}>Don't know that code. You can join without one.</T>}
+              {found?.valid && <T v="smallM" tone="green" style={{ marginTop: space.sm }}>{found.kind === 'invite' ? `✓ ${found.label} invited you` : `✓ Joining ${found.label}`}</T>}
+              {found && !found.valid && <T v="small" tone="muted" style={{ marginTop: space.sm }}>{found.kind === 'invite' ? `${found.label}'s invite has already been used. You can join without one.` : `${found.label} is full. You can join without a code.`}</T>}
+              {!found && code.trim().length >= 5 && <T v="small" tone="muted" style={{ marginTop: space.sm }}>Don't know that code. You can join without one.</T>}
             </View>
           ) : (
-            <Tap onPress={() => setShowCode(true)} style={{ minHeight: 44, justifyContent: 'center' }} tick accessibilityRole="button"><T v="smallM" tone="court">Got a code from a friend or coach? →</T></Tap>
+            <Tap onPress={() => setShowCode(true)} style={{ minHeight: 44, justifyContent: 'center' }} tick accessibilityRole="button"><T v="smallM" tone="green">Got a code from a friend or coach?</T></Tap>
           )}
           {err && <T v="small" tone="danger">{err}</T>}
-          {api.mode === 'demo' && <T v="small" tone="ink3">Demo mode. Any number works. The code is 000000.</T>}
-        </Sheet>
+          {api.mode === 'demo' && <T v="small" tone="muted">Demo mode. Any number works. The code is 000000.</T>}
+        </Card>
         <Tap onPress={() => setParent(p => !p)} style={{ minHeight: 44, justifyContent: 'center', marginTop: space.sm }} tick accessibilityRole="button">
-          <T v="smallM" tone="onCourt">{parent ? "I'm the player →" : 'Signing in for your kid? →'}</T>
+          <T v="smallM" tone="green">{parent ? "I'm the player" : 'Signing in for your kid?'}</T>
         </Tap>
-        <T v="small" tone="onCourt" style={{ marginTop: space.sm, opacity: 0.9 }}>Other players never see your number. Ever.</T>
+        <T v="meta" tone="muted" style={{ marginTop: space.xs }}>Other players never see your number. Ever.</T>
       </Centered>
     </Screen>
   );
 }
+const s = StyleSheet.create({
+  welcome: { backgroundColor: fixed.hero, borderRadius: 16, paddingVertical: 24, paddingHorizontal: 22, minHeight: 180, overflow: 'hidden' },
+  inset: { position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, borderWidth: 1, borderColor: fixed.heroInset },
+  art: { position: 'absolute', right: -34, top: 0 },
+});

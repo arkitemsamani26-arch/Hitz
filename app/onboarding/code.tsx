@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Screen, Centered } from '@/ui/Screen';
+import { Screen, Centered, Card } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
@@ -32,16 +32,17 @@ export default function Code() {
     finally { setBusy(false); }
   };
   return (
-    <Screen sky={250} bottom={<Centered><Button title="Let's go" kind="ball" onPress={() => go()} loading={busy} disabled={code.length < 6} /></Centered>}>
+    <Screen bottom={<Centered><Button title="Let's go" arrow onPress={() => go()} loading={busy} disabled={code.length < 6} /></Centered>}>
       <Centered>
         <Header />
-        <T v="display" style={{ marginTop: space.xl }}>Check your texts.</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.xl }}>Six digits, sent to {draft.phone}.</T>
-        <Field
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.md }}>One text</T>
+        <T v="display" style={{ marginTop: 12 }}>Check your texts.</T>
+        <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.xl, lineHeight: 21 }}>Six digits, sent to {draft.phone}.</T>
+        <Card><Field
           big value={code} onChangeText={t => { const c = t.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) void go(c); }}
           placeholder="••••••" keyboardType="number-pad" inputMode="numeric" textContentType="oneTimeCode" autoFocus maxLength={6}
           accessibilityLabel="Verification code"
-        />
+        /></Card>
         {err && <T v="small" tone="danger" style={{ marginTop: space.md }}>{err}</T>}
       </Centered>
     </Screen>

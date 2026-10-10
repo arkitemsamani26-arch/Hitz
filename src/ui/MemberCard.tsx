@@ -1,47 +1,44 @@
-// The membership card. Joining a club, not filling a form.
+// The player card: deep green in both appearances, light lettering, the court drawn
+// faintly behind. The Hits wordmark top left, PLAYER CARD top right, a deliberate gap,
+// then the name at 34px. Under a thin rule: area and a line on the left, the rating on the
+// right. Nothing else: no number, no hologram, no tilt.
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { T } from './Text';
+import { Wordmark } from './Wordmark';
 import { Score } from './Score';
-import { Avatar } from './Avatar';
-import Animated, { FlipInYRight } from 'react-native-reanimated';
-import { color, space } from '@/theme/tokens';
+import { Court } from './CourtArt';
+import { fixed } from '@/theme/tokens';
 import { shadow } from '@/lib/shadow';
+import type { LevelSource } from '@/data/types';
 
-export function MemberCard({ name, level, verified, court, roster, minor, number = '0142', typing, photo, flip }:
-  { name: string; level: number | null; verified?: boolean; court: string | null; roster?: string | null; minor?: boolean; number?: string; typing?: 'name' | 'level' | 'court' | null; photo?: string | null; flip?: boolean }) {
-  const Line = ({ k, v, blink }: { k: string; v: string; blink?: boolean }) => (
-    <View style={{ marginBottom: space.sm }}>
-      <T v="micro" tone="ink3">{k}</T>
-      <View style={s.val}><T v="h2" tone={v ? 'ink' : 'ink3'} numberOfLines={1} style={{ flexShrink: 1 }}>{v || '—'}</T>{blink && <View style={s.cursor} />}</View>
-    </View>
-  );
+export function MemberCard({ name, level, source, verified, area = 'Palo Alto', line = 'Here for a good hit.', style, typing, eyebrow = 'Player card' }:
+  { name: string; level: number | null; source?: LevelSource | null; verified?: boolean; area?: string; line?: string; style?: StyleProp<ViewStyle>;
+    // The onboarding name step types into the card; an empty name shows the placeholder.
+    typing?: boolean; eyebrow?: string;
+    // Old props, accepted and ignored.
+    court?: string | null; roster?: string | null; minor?: boolean; number?: string; photo?: string | null; flip?: boolean }) {
   return (
-    <Animated.View style={s.card} entering={flip ? FlipInYRight.springify().damping(14) : undefined}>
-      <View style={s.head}>
-        <T v="micro" tone="court">Hits · Palo Alto</T>
-        <T v="micro" tone="ink3">No. {number}{minor ? ' · U18' : ''}</T>
+    <View style={[s.card, style]} accessible accessibilityLabel={`Player card. ${name || 'No name yet'}. ${area}. ${level != null ? `Rating ${level.toFixed(1)}` : 'No rating yet'}.`}>
+      <View style={s.art} pointerEvents="none"><Court width={142} height={265} color={fixed.art} /></View>
+      <View style={s.top}>
+        <Wordmark size={30} tone="light" />
+        <T v="micro" tone="memberMeta" style={{ letterSpacing: 1.8 }}>{eyebrow}</T>
       </View>
-      <View style={{ flexDirection: 'row', gap: space.lg, alignItems: 'flex-start' }}>
-        <Avatar name={name || '?'} photo={photo} size={56} ring />
-        <View style={{ flex: 1 }}>
-          <Line k="Member" v={name} blink={typing === 'name'} />
-          <Line k="Home court" v={court ?? ''} blink={typing === 'court'} />
-          {roster ? <Line k="Team" v={roster} /> : null}
+      <T v="score" tone={name ? 'memberText' : 'memberMeta'} style={{ fontSize: 34, lineHeight: 39 }} numberOfLines={2}>{name || (typing ? 'Your name' : '—')}</T>
+      <View style={s.bottom}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <T v="micro" tone="memberMeta" style={{ letterSpacing: 1.8 }}>{area}</T>
+          <T v="meta" tone="memberMeta">{line}</T>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <T v="micro" tone="ink3">Level</T>
-          <Score value={level} size="score" verified={verified} tone="court" animate />
-        </View>
+        <Score value={level} size="score" source={source} verified={verified} tone="memberText" labelTone="memberMeta" />
       </View>
-      <View style={s.stripe} />
-    </Animated.View>
+    </View>
   );
 }
 const s = StyleSheet.create({
-  card: { backgroundColor: color.paper, borderRadius: 18, padding: space.lg, marginBottom: space.md, overflow: 'hidden', ...shadow({ y: 12, blur: 24, color: '#0A2A12', opacity: 0.3 }) },
-  head: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: space.md },
-  val: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1.5, borderBottomColor: color.paper3, paddingBottom: 2, minHeight: 28 },
-  cursor: { width: 2, height: 20, backgroundColor: color.ink, marginLeft: 3 },
-  stripe: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6, backgroundColor: color.court },
+  card: { backgroundColor: fixed.member, borderRadius: 16, padding: 23, borderWidth: 1, borderColor: fixed.memberLine, overflow: 'hidden', ...shadow({ y: 11, blur: 24, color: '#10221A', opacity: 0.07 }) },
+  art: { position: 'absolute', right: -3, top: 34, opacity: 0.65 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 45 },
+  bottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, borderTopWidth: 1, borderTopColor: fixed.memberRule, paddingTop: 15, marginTop: 19 },
 });

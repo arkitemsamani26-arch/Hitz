@@ -71,3 +71,35 @@ export function relTime(iso: string): string {
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+export function dayLong(d: Date): string { return DAYS_LONG[d.getDay()]; }
+export function monthShort(d: Date): string { return MONTHS[d.getMonth()].toUpperCase(); }
+
+// "Monday, October 12"
+export function dateLong(d: Date): string { return `${DAYS_LONG[d.getDay()]}, ${MONTHS_LONG[d.getMonth()]} ${d.getDate()}`; }
+
+// "6–7:30 pm". One suffix when both ends share it, with the space the reference uses.
+export function rangeText(start: Date, end: Date): string {
+  const a = timeShort(start), b = timeShort(end);
+  const sa = a.slice(-2), sb = b.slice(-2);
+  const sp = (x: string) => `${x.slice(0, -2)} ${x.slice(-2)}`;
+  return sa === sb ? `${a.slice(0, -2)}–${sp(b)}` : `${sp(a)}–${sp(b)}`;
+}
+
+// The device's zone, in words where the words are common knowledge.
+export function tzName(): string {
+  let z = '';
+  try { z = Intl.DateTimeFormat().resolvedOptions().timeZone ?? ''; } catch { /* no Intl */ }
+  const known: Record<string, string> = {
+    'America/Los_Angeles': 'Pacific time', 'America/Vancouver': 'Pacific time', 'America/Denver': 'Mountain time', 'America/Phoenix': 'Arizona time',
+    'America/Chicago': 'Central time', 'America/New_York': 'Eastern time', 'America/Toronto': 'Eastern time', 'Europe/London': 'UK time',
+  };
+  if (known[z]) return known[z];
+  try {
+    const part = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date()).find(p => p.type === 'timeZoneName');
+    return part?.value ?? '';
+  } catch { return ''; }
+}

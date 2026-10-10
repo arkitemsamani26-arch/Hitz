@@ -2,14 +2,15 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
-import { Pop } from '@/ui/Pop';
-import { Rally } from '@/ui/Rally';
+import { Icon } from '@/ui/Icon';
+import { Loading } from '@/ui/Loading';
 import { useToast } from '@/ui/Toast';
-import { color, hit, space, radius } from '@/theme/tokens';
+import { hit, space, radius } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { api } from '@/data';
 import { useDraft } from '@/store/onboarding';
 import { useAsync } from '@/store/useAsync';
@@ -18,6 +19,8 @@ import { nearMe } from '@/lib/location';
 export default function CourtPick() {
   const router = useRouter();
   const toast = useToast();
+  const t = useTheme();
+  const s = useS();
   const { draft, patch } = useDraft();
   const [id, setId] = useState<string | null>(draft.homeCourtId);
   const [near, setNear] = useState<string[] | null>(null);
@@ -44,43 +47,39 @@ export default function CourtPick() {
   const go = () => { if (!id) return; patch({ homeCourtId: id }); router.push('/onboarding/name'); };
 
   return (
-    <Screen scroll={false} sky={150} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!id} /></Centered>}>
+    <Screen scroll={false} bottom={<Centered><Button title="Next" arrow onPress={go} disabled={!id} /></Centered>}>
       <Centered>
         <View style={{ marginTop: space.lg, marginBottom: space.lg }}>
-          <T v="display">Where do you play?</T>
-          <T v="body" tone="ink2" style={{ marginTop: 4 }}>Pick your home court. We never ask for your address.</T>
+          <T v="eyebrow" tone="muted">Your area</T>
+          <T v="display" style={{ marginTop: 12 }}>Where do you{'\n'}<T v="display" italic>play?</T></T>
+          <T v="small" tone="muted" style={{ marginTop: space.md, lineHeight: 21 }}>Pick your home court. We never ask for your address, and other players only ever see a rough distance.</T>
         </View>
 
         {!near && (
-          <Sheet style={s.locate}>
+          <Card style={st.locate}>
             <View style={{ flex: 1 }}>
-              <T v="bodyM">Find the closest ones</T>
-              <T v="small" tone="ink2">Your spot stays private. Players only see a rough distance.</T>
+              <T v="smallM">Find the closest ones</T>
+              <T v="meta" tone="muted">Your position is rounded before it is saved. Or just pick from the list.</T>
             </View>
-            <Button title="Use location" kind="court" small onPress={locate} loading={locating} />
-          </Sheet>
+            <Button title="Use location" kind="line" small onPress={locate} loading={locating} />
+          </Card>
         )}
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingBottom: space.xl }}>
-          {!list ? <Rally /> : list.map((c, i) => {
+          {!list ? <Loading label="Loading courts" /> : list.map((c, i) => {
             const on = c.id === id;
             return (
-              <Pop key={c.id} on={on}>
-                <Tap onPress={() => setId(c.id)} tick style={[s.row, on && s.on]}
-                  accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
-                  {/* A little court, kept clear of the text so nothing reads through it. */}
-                  <View style={[s.glyph, on && s.glyphOn]}>
-                    <View style={[s.glyphLine, on && s.glyphLineOn]} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <T v="bodyM" tone="ink" numberOfLines={1}>{c.name}</T>
-                    <T v="small" tone="ink2" numberOfLines={1}>
-                      {[near ? (i === 0 ? 'Closest to you' : null) : null, c.indoor ? 'Indoor' : 'Outdoor', c.access === 'club' ? 'Club' : 'Public'].filter(Boolean).join(' · ')}
-                    </T>
-                  </View>
-                  {on && <View style={s.check}><T v="micro" tone="onBall">HOME</T></View>}
-                </Tap>
-              </Pop>
+              <Tap key={c.id} onPress={() => setId(c.id)} tick style={[s.row, on && s.on]}
+                accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on}>
+                <Icon name="map-pin" size={16} color={on ? t.greenText : t.muted} />
+                <View style={{ flex: 1 }}>
+                  <T v="smallM" tone={on ? 'greenText' : 'ink'} numberOfLines={1}>{c.name}</T>
+                  <T v="meta" tone={on ? 'greenText' : 'muted'} numberOfLines={1}>
+                    {[near ? (i === 0 ? 'Closest to you' : null) : null, c.indoor ? 'Indoor' : 'Outdoor', c.access === 'club' ? 'Club' : 'Public'].filter(Boolean).join(' · ')}
+                  </T>
+                </View>
+                {on && <Icon name="check" size={18} color={t.greenText} strokeWidth={2} />}
+              </Tap>
             );
           })}
         </ScrollView>
@@ -89,13 +88,10 @@ export default function CourtPick() {
   );
 }
 
-const s = StyleSheet.create({
+const st = StyleSheet.create({
   locate: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: hit.row, padding: space.md, gap: space.md, backgroundColor: color.paper, borderRadius: radius.md },
-  on: { backgroundColor: color.ball },
-  glyph: { width: 24, height: 34, borderRadius: 4, backgroundColor: color.court, alignItems: 'center', justifyContent: 'center' },
-  glyphOn: { backgroundColor: color.ink },
-  glyphLine: { width: '128%', height: 2.5, backgroundColor: color.paper, borderRadius: 2 },
-  glyphLineOn: { backgroundColor: color.ball },
-  check: { backgroundColor: color.ink, paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill },
 });
+const useS = makeStyles(c => ({
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: hit.row, paddingVertical: 12, paddingHorizontal: 14, gap: space.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg },
+  on: { backgroundColor: c.green, borderColor: c.green },
+}));

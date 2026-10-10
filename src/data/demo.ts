@@ -20,7 +20,7 @@ const GUARDIAN = 'guardian-me';
 type SeedPlayer = {
   id: string; name: string; initial: string; band: 'minor' | 'adult'; level: number;
   miles: number; activeHoursAgo: number; response: number | null; accept: number | null;
-  looking: boolean; court: string; avail: number; hits: number; verified?: boolean;
+  looking: boolean; court: string; avail: number; hits: number; verified?: boolean; prefers?: string;
 };
 
 const COURTS: Court[] = [
@@ -36,7 +36,7 @@ const COURTS: Court[] = [
 ];
 
 const SEED: SeedPlayer[] = [
-  { id: 'p-maya', name: 'Maya', initial: 'R', band: 'minor', level: 8.6, miles: 2.1, activeHoursAgo: 0.5, response: 0.94, accept: 0.7, looking: true, court: 'c-stanford', avail: 8 | 16 | 4, hits: 14 },
+  { id: 'p-maya', name: 'Maya', initial: 'R', band: 'minor', level: 8.6, miles: 2.1, activeHoursAgo: 0.5, response: 0.94, accept: 0.7, looking: true, court: 'c-stanford', avail: 8 | 16 | 4, hits: 14, prefers: 'Practice sets' },
   { id: 'p-theo', name: 'Theo', initial: 'K', band: 'minor', level: 8.9, miles: 3.8, activeHoursAgo: 5, response: 0.8, accept: 0.6, looking: true, court: 'c-mitchell', avail: 8 | 4, hits: 9 },
   { id: 'p-priya', name: 'Priya', initial: 'S', band: 'minor', level: 8.1, miles: 1.4, activeHoursAgo: 20, response: 1.0, accept: 0.9, looking: false, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 22, verified: true },
   { id: 'p-jonah', name: 'Jonah', initial: 'L', band: 'minor', level: 9.4, miles: 6.2, activeHoursAgo: 30, response: 0.55, accept: 0.4, looking: false, court: 'c-cuesta', avail: 4 | 32, hits: 5 },
@@ -45,7 +45,7 @@ const SEED: SeedPlayer[] = [
   { id: 'p-lucas', name: 'Lucas', initial: 'P', band: 'minor', level: 9.8, miles: 5.5, activeHoursAgo: 12, response: 0.7, accept: 0.5, looking: true, court: 'c-losaltos', avail: 2 | 4 | 16, hits: 17 },
   { id: 'p-ava', name: 'Ava', initial: 'C', band: 'minor', level: 7.2, miles: 3.1, activeHoursAgo: 48, response: 0.6, accept: 0.7, looking: false, court: 'c-nealon', avail: 8 | 16, hits: 3 },
   { id: 'p-nico', name: 'Nico', initial: 'B', band: 'minor', level: 8.5, miles: 11.3, activeHoursAgo: 1, response: 0.9, accept: 0.85, looking: true, court: 'c-cuesta', avail: 4 | 8 | 32, hits: 8 },
-  { id: 'p-ruby', name: 'Ruby', initial: 'A', band: 'minor', level: 8.4, miles: 0.9, activeHoursAgo: 0.3, response: 0.96, accept: 0.8, looking: true, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 18, verified: true },
+  { id: 'p-ruby', name: 'Ruby', initial: 'A', band: 'minor', level: 8.4, miles: 0.9, activeHoursAgo: 0.3, response: 0.96, accept: 0.8, looking: true, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 18, verified: true, prefers: 'Drills, then sets' },
   { id: 'p-dev', name: 'Dev', initial: 'N', band: 'minor', level: 8.7, miles: 1.8, activeHoursAgo: 1.5, response: 0.82, accept: 0.65, looking: true, court: 'c-mitchell', avail: 4 | 8, hits: 12 },
   { id: 'p-clara', name: 'Clara', initial: 'V', band: 'minor', level: 7.6, miles: 2.4, activeHoursAgo: 4, response: 0.9, accept: 0.85, looking: true, court: 'c-burgess', avail: 1 | 8 | 16, hits: 7 },
   { id: 'p-mateo', name: 'Mateo', initial: 'R', band: 'minor', level: 9.1, miles: 3.2, activeHoursAgo: 8, response: 0.74, accept: 0.55, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 21, verified: true },
@@ -57,15 +57,16 @@ const SEED: SeedPlayer[] = [
   { id: 'p-owen', name: 'Owen', initial: 'S', band: 'minor', level: 8.6, miles: 6.7, activeHoursAgo: 40, response: 0.5, accept: 0.5, looking: false, court: 'c-sunnyvale', avail: 4 | 8, hits: 4 },
   { id: 'p-leila', name: 'Leila', initial: 'M', band: 'minor', level: 7.8, miles: 3.6, activeHoursAgo: 6, response: 0.85, accept: 0.75, looking: true, court: 'c-burgess', avail: 8 | 16, hits: 9 },
   { id: 'p-hugo', name: 'Hugo', initial: 'T', band: 'minor', level: 9.7, miles: 8.2, activeHoursAgo: 14, response: 0.72, accept: 0.4, looking: true, court: 'c-losaltos', avail: 2 | 4, hits: 29, verified: true },
-  { id: 'p-tess', name: 'Tess', initial: 'D', band: 'minor', level: 8.5, miles: 0.6, activeHoursAgo: 0.2, response: 0.98, accept: 0.88, looking: true, court: 'c-rinconada', avail: 1 | 8 | 16 | 32, hits: 20 },
+  { id: 'p-tess', name: 'Tess', initial: 'D', band: 'minor', level: 8.5, miles: 0.6, activeHoursAgo: 0.2, response: 0.98, accept: 0.88, looking: true, court: 'c-rinconada', avail: 1 | 8 | 16 | 32, hits: 20, prefers: 'Rally & drills' },
   { id: 'p-caleb', name: 'Caleb', initial: 'J', band: 'minor', level: 7.1, miles: 4.1, activeHoursAgo: 52, response: 0.55, accept: 0.65, looking: false, court: 'c-nealon', avail: 16, hits: 2 },
   { id: 'p-anya', name: 'Anya', initial: 'F', band: 'minor', level: 9.0, miles: 2.2, activeHoursAgo: 9, response: 0.8, accept: 0.6, looking: true, court: 'c-stanford', avail: 4 | 8 | 16, hits: 15 },
   { id: 'p-rafi', name: 'Rafi', initial: 'C', band: 'minor', level: 8.3, miles: 7.9, activeHoursAgo: 28, response: 0.62, accept: 0.55, looking: false, court: 'c-sunnyvale', avail: 8 | 32, hits: 8 },
-  { id: 'p-juno', name: 'Juno', initial: 'W', band: 'minor', level: 10.2, miles: 5.1, activeHoursAgo: 1.2, response: 0.91, accept: 0.35, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 33, verified: true },
+  { id: 'p-juno', name: 'Juno', initial: 'W', band: 'minor', level: 10.2, miles: 5.1, activeHoursAgo: 1.2, response: 0.91, accept: 0.35, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 33, verified: true, prefers: 'Match play' },
 
-  { id: 'p-dan', name: 'Dan', initial: 'W', band: 'adult', level: 8.7, miles: 2.8, activeHoursAgo: 3, response: 0.9, accept: 0.7, looking: true, court: 'c-stanford', avail: 4 | 8, hits: 31, verified: true },
+  { id: 'p-dan', name: 'Dan', initial: 'W', band: 'adult', level: 8.7, miles: 2.8, activeHoursAgo: 3, response: 0.9, accept: 0.7, looking: true, court: 'c-stanford', avail: 4 | 8, hits: 31, verified: true, prefers: 'Sets' },
   { id: 'p-marisol', name: 'Marisol', initial: 'G', band: 'adult', level: 8.2, miles: 5.1, activeHoursAgo: 26, response: 0.75, accept: 0.6, looking: false, court: 'c-cuesta', avail: 1 | 8 | 16, hits: 12 },
-  { id: 'p-kenji', name: 'Kenji', initial: 'O', band: 'adult', level: 9.6, miles: 3.3, activeHoursAgo: 0.2, response: 0.97, accept: 0.8, looking: true, court: 'c-rinconada', avail: 4 | 32, hits: 40 },
+  { id: 'p-elena-r', name: 'Elena', initial: 'R', band: 'adult', level: 10.3, miles: 1.2, activeHoursAgo: 1.5, response: 0.9, accept: 0.75, looking: true, court: 'c-rinconada', avail: 4 | 32, hits: 27, prefers: 'Practice sets' },
+  { id: 'p-kenji', name: 'Kenji', initial: 'O', band: 'adult', level: 9.6, miles: 3.3, activeHoursAgo: 0.2, response: 0.97, accept: 0.8, looking: true, court: 'c-rinconada', avail: 4 | 32, hits: 40, prefers: 'Rally & drills' },
   { id: 'p-rachel', name: 'Rachel', initial: 'F', band: 'adult', level: 7.8, miles: 7.4, activeHoursAgo: 9, response: 0.65, accept: 0.5, looking: true, court: 'c-burgess', avail: 8 | 16, hits: 6 },
   { id: 'p-omar', name: 'Omar', initial: 'H', band: 'adult', level: 8.9, miles: 12.6, activeHoursAgo: 100, response: 0.4, accept: 0.3, looking: false, court: 'c-sunnyvale', avail: 4, hits: 2 },
   { id: 'p-grace', name: 'Grace', initial: 'T', band: 'adult', level: 8.4, miles: 1.9, activeHoursAgo: 15, response: 0.85, accept: 0.75, looking: true, court: 'c-rinconada', avail: 1 | 2 | 8, hits: 19 },
@@ -111,7 +112,7 @@ type State = {
     levelSource: Profile['levelSource']; homeCourtId: string; availabilityMask: number;
     lookingToHitUntil: string | null; lastActiveAt: string;
     guardianEmail: string | null; guardianPhone?: string | null; guardianVerified: boolean;
-    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null;
+    guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null; prefers?: string | null;
   };
   rosters: Roster[];
   invites: Invite[];
@@ -265,6 +266,7 @@ export class DemoApi implements HitsApi {
       responseRate: mine.length ? responded.length / mine.length : null,
       acceptRate: responded.length ? accepted.length / responded.length : null,
       hitsConfirmed: this.s.requests.filter(r => r.state === 'completed').length,
+      prefers: p.prefers ?? null,
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
@@ -337,7 +339,7 @@ export class DemoApi implements HitsApi {
       distanceBucket: bucket(p.miles), homeCourtId: p.court,
       homeCourtName: COURTS.find(c => c.id === p.court)?.name ?? null,
       availabilityMask: p.avail, lookingToHit: p.looking, lastActiveAt: hoursAgo(p.activeHoursAgo),
-      responseRate: p.response, acceptRate: p.accept, hitsConfirmed: p.hits,
+      responseRate: p.response, acceptRate: p.accept, hitsConfirmed: p.hits, prefers: p.prefers ?? null,
     };
   }
   async discover(f: DiscoverFilters) {
@@ -386,7 +388,7 @@ export class DemoApi implements HitsApi {
       levelDelta: 0, distanceBucket: null, homeCourtId: m.homeCourtId,
       homeCourtName: COURTS.find(c => c.id === m.homeCourtId)?.name ?? null,
       availabilityMask: m.availabilityMask, lookingToHit: !!m.lookingToHitUntil,
-      lastActiveAt: m.lastActiveAt, responseRate: m.responseRate, acceptRate: m.acceptRate, hitsConfirmed: m.hitsConfirmed,
+      lastActiveAt: m.lastActiveAt, responseRate: m.responseRate, acceptRate: m.acceptRate, hitsConfirmed: m.hitsConfirmed, prefers: m.prefers,
     };
   }
   private find(id: string) { const r = this.s.requests.find(x => x.id === id); if (!r) throw new ApiError('Not found'); return r; }

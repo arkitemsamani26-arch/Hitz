@@ -1,20 +1,18 @@
 // When you play. Rough is fine: exact times get picked per hit.
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
-import { Pop } from '@/ui/Pop';
-import { color, radius, space } from '@/theme/tokens';
+import { Pill } from '@/ui/Pill';
+import { hit, space } from '@/theme/tokens';
 import { api } from '@/data';
 import { useDraft, isMinor } from '@/store/onboarding';
 import { useSession } from '@/store/session';
 import { AvailabilityGrid, ALL_SLOTS as ALL } from '@/ui/Availability';
 import { flushLocation } from '@/lib/location';
-
-
 
 export default function Availability() {
   const router = useRouter();
@@ -52,42 +50,27 @@ export default function Availability() {
   };
 
   return (
-    <Screen sky={150} bottom={
+    <Screen bottom={
       <Centered>
-        <Button title="Next" kind="ball" onPress={() => finish(mask)} loading={busy} disabled={mask === 0} />
+        <Button title="Next" arrow onPress={() => finish(mask)} loading={busy} disabled={mask === 0} />
         {/* Skipping is fine. Everything open beats a blank week. */}
-        <Tap onPress={() => finish(ALL)} style={s.skip} tick accessibilityRole="button">
-          <T v="smallM" tone="onCourt">Skip for now</T>
+        <Tap onPress={() => finish(ALL)} style={{ minHeight: hit.min, alignItems: 'center', justifyContent: 'center', marginTop: space.xs }} tick accessibilityRole="button">
+          <T v="smallM" tone="muted">Skip for now</T>
         </Tap>
       </Centered>
     }>
       <Centered>
         <View style={{ marginTop: space.lg, marginBottom: space.lg }}>
-          <T v="display">When do you hit?</T>
-          <T v="body" tone="ink2" style={{ marginTop: 4 }}>Rough is right. You pick exact times per hit.</T>
+          <T v="eyebrow" tone="muted">Your week</T>
+          <T v="display" style={{ marginTop: 12 }}>When do you{'\n'}<T v="display" italic>usually play?</T></T>
+          <T v="small" tone="muted" style={{ marginTop: space.md, lineHeight: 21 }}>Rough is right. You pick the exact time for each hit.</T>
         </View>
-
-        <Pop on={flexible}>
-          <Tap onPress={() => setMask(flexible ? 0 : ALL)} tick style={[s.flex, flexible && s.flexOn]}
-            accessibilityRole="checkbox" accessibilityState={{ checked: flexible }} aria-checked={flexible}>
-            <View style={{ flex: 1 }}>
-              <T v="h2" tone="ink">I'm flexible</T>
-              <T v="small" tone={flexible ? 'ink' : 'ink2'} style={flexible ? { opacity: 0.75 } : undefined}>Anytime works. Just ask me.</T>
-            </View>
-          </Tap>
-        </Pop>
-
-        <T v="micro" tone="onCourt" style={{ marginTop: space.xl, marginBottom: space.sm }}>Or pick your usual</T>
-        <Sheet><AvailabilityGrid mask={mask} onToggle={toggle} /></Sheet>
-        {err && <Sheet style={{ marginTop: space.md }}><T v="small" tone="danger">{err}</T></Sheet>}
+        <Card><AvailabilityGrid mask={mask} onToggle={toggle} /></Card>
+        <View style={{ marginTop: space.md }}>
+          <Pill label="I'm flexible. Any time works." on={flexible} onPress={() => setMask(flexible ? 0 : ALL)} style={{ alignSelf: 'flex-start' }} />
+        </View>
+        {err && <Card style={{ marginTop: space.md }}><T v="small" tone="danger">{err}</T></Card>}
       </Centered>
     </Screen>
   );
 }
-const s = StyleSheet.create({
-  flex: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.paper, minHeight: 76, justifyContent: 'center' },
-  flexOn: { backgroundColor: color.ball },
-  tile: { flex: 1, minHeight: 64, borderRadius: radius.md, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center' },
-  on: { backgroundColor: color.ball },
-  skip: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: space.sm },
-});

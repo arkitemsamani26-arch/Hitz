@@ -4,7 +4,7 @@ import { Screen, Centered } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
-import { Sheet } from '@/ui/Screen';
+import { Card } from '@/ui/Screen';
 import { space } from '@/theme/tokens';
 import { useDraft, isMinor } from '@/store/onboarding';
 
@@ -30,18 +30,19 @@ export default function Birthday() {
   };
   const go = () => { if (!dob || tooYoung) return; patch({ dateOfBirth: dob }); router.push('/onboarding/level'); };
   return (
-    <Screen sky={250} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!dob || tooYoung} /></Centered>}>
+    <Screen bottom={<Centered><Button title="Next" arrow onPress={go} disabled={!dob || tooYoung} /></Centered>}>
       <Centered>
-        <T v="display" style={{ marginTop: space.xl }}>When's your{'\n'}birthday?</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Nobody sees this. We match you by level, not age.</T>
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.xl }}>Private</T>
+        <T v="display" style={{ marginTop: 12 }}>When's your{'\n'}<T v="display" italic>birthday?</T></T>
+        <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.lg, lineHeight: 21 }}>Nobody sees this. We match you by level, not age. Under 18, a parent approves each meetup.</T>
         <Field big value={v} onChangeText={onChange} placeholder="MM / DD / YYYY" keyboardType="number-pad" inputMode="numeric" autoFocus accessibilityLabel="Birthday, month day year" onSubmitEditing={go} />
-        {tooYoung && <T v="body" tone="onCourt" style={{ marginTop: space.lg }}>Hits is for 13 and up. Come back on your birthday.</T>}
+        {tooYoung && <T v="body" tone="danger" style={{ marginTop: space.lg }}>Hits is for 13 and up. Come back on your birthday.</T>}
         {dob && !tooYoung && (
-          <Sheet style={{ marginTop: space.lg }}>
+          <Card style={{ marginTop: space.lg }}>
             {minor
-              ? <><T v="bodyM">Under 18: you find the hit, a parent approves the meetup.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>That's the only difference. Browsing, requesting and chatting are all yours.</T></>
-              : <><T v="bodyM">18+: you're set.</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>You'll see adult players, and they'll see you.</T></>}
-          </Sheet>
+              ? <><T v="bodyM">Under 18: you find the hit, a parent approves the meetup.</T><T v="meta" tone="muted" style={{ marginTop: 4 }}>That's the only difference. Browsing, inviting and chatting are all yours.</T></>
+              : <><T v="bodyM">18 and over: you're set.</T><T v="meta" tone="muted" style={{ marginTop: 4 }}>You'll see adult players, and they'll see you.</T></>}
+          </Card>
         )}
       </Centered>
     </Screen>

@@ -20,7 +20,7 @@ export interface HitsApi {
   // me
   me(): Promise<Profile | null>;
   createProfile(input: ProfileInput): Promise<Profile>;
-  updateProfile(patch: Partial<Pick<Profile, 'availabilityMask' | 'homeCourtId' | 'displayName' | 'levelValue' | 'levelSource'>>): Promise<Profile>;
+  updateProfile(patch: Partial<Pick<Profile, 'availabilityMask' | 'homeCourtId' | 'displayName' | 'levelValue' | 'levelSource' | 'prefers'>>): Promise<Profile>;
   setLooking(days: number | null): Promise<Profile>;
   setLocation(lat: number, lon: number): Promise<void>;
   touch(): Promise<void>;

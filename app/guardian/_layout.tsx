@@ -1,6 +1,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { color } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 export default function GuardianLayout() {
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }} />;
+  const t = useTheme();
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.paper } }} />;
 }

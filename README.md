@@ -46,7 +46,8 @@ The app (Expo), schema, RLS policies and the safety test suite are in. The docs,
 
 | [`docs/06-seeding-strategy.md`](docs/06-seeding-strategy.md) | Resolving the strict-separation vs. seed-network contradiction |
 | [`docs/07-build-notes.md`](docs/07-build-notes.md) | First build: decisions, compromises |
-| [`docs/08-center-court-pass.md`](docs/08-center-court-pass.md) | Redesign to Center Court, Palo Alto, and the open items |
+| [`docs/08-center-court-pass.md`](docs/08-center-court-pass.md) | The earlier Center Court pass (superseded by 15) |
+| [`docs/15-clubhouse.md`](docs/15-clubhouse.md) | The Clubhouse, refined design: tokens, screens, deviations, checks |
 | [`docs/09-supabase-setup.md`](docs/09-supabase-setup.md) | Standing up a live project |
 
 Read `01` and `04` first — they constrain everything else.
@@ -116,7 +117,7 @@ construct."
 | 7. Confirmation, ghost-suppression signals | done |
 | 8. Block/report + moderation queue | block/report in app, guardian-side block; reviewer surface pending |
 | 9. Roster codes | done |
-| 10. Match-found animation | done (Center Court) |
+| 10. Match-found moment | done (a one-time fade on the confirmed summary; see docs/15) |
 | Push notifications | outbox + edge function deployed + app registration; unverified on device |
 | Phone sharing | per confirmed hit, opt-in, revocable |
 | Photos | onboarding step + change in You; a minor's photo is parent-approved |

@@ -7,17 +7,17 @@
 import React, { useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card as Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
 import { Header } from '@/ui/Header';
 import { Score } from '@/ui/Score';
-import { Rally } from '@/ui/Rally';
+import { Loading as Rally } from '@/ui/Loading';
 import { useToast } from '@/ui/Toast';
-import { color, hit, radius, space } from '@/theme/tokens';
+import { hit, radius, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
@@ -28,6 +28,7 @@ export default function VerifyUtr() {
   const router = useRouter();
   const toast = useToast();
   const { profile, refresh, tick } = useSession();
+  const sx = useS();
   const claim = useAsync(() => api.myUtrClaim(), [tick]);
   const [rating, setRating] = useState(profile?.levelValue ? String(profile.levelValue) : '');
   const [url, setUrl] = useState('');
@@ -57,60 +58,62 @@ export default function VerifyUtr() {
   const c = claim.data;
 
   return (
-    <Screen sky={150} bottom={!c || c.state === 'rejected' ? (
-      <Centered><Button title="Send it in" kind="ball" onPress={send} loading={busy} disabled={!ready} /></Centered>
+    <Screen bottom={!c || c.state === 'rejected' ? (
+      <Centered><Button title="Send it in" arrow onPress={send} loading={busy} disabled={!ready} /></Centered>
     ) : undefined}>
       <Centered>
-        <Header kicker="Your level" title="Get verified." />
+        <Header />
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.md }}>Your rating</T>
+        <T v="display" style={{ marginTop: 12, marginBottom: 18 }}>Get it{'\n'}<T v="display" italic>verified.</T></T>
 
         {claim.loading && !claim.data ? <Rally /> : c?.state === 'pending' ? (
-          <Animated.View entering={FadeInDown.springify().damping(16)}>
-            <Sheet accent style={{ gap: space.sm }}>
+          <View>
+            <Sheet stripe style={{ gap: space.sm }}>
               <View style={s.top}>
                 <View style={{ flex: 1 }}>
                   <T v="h2">We're checking it.</T>
-                  <T v="small" tone="ink2">Sent {relTime(c.createdAt)} ago. A person opens your UTR page and confirms it is you. Usually within a day.</T>
+                  <T v="small" tone="muted">Sent {relTime(c.createdAt)} ago. A person opens your UTR page and confirms it is you. Usually within a day.</T>
                 </View>
-                <Score value={c.claimedRating} size="h1" tone="court" />
+                <Score value={c.claimedRating} source="utr_self" />
               </View>
-              <View style={s.rule} />
-              <T v="micro" tone="ink3">What we're checking</T>
+              <View style={sx.rule} />
+              <T v="micro" tone="muted">What we're checking</T>
               <T v="small">{c.fullName}</T>
               <Tap onPress={() => void Linking.openURL(c.profileUrl).catch(() => {})} accessibilityRole="link" style={{ minHeight: hit.min, justifyContent: 'center' }}>
-                <T v="small" tone="court" numberOfLines={1}>{c.profileUrl}</T>
+                <T v="small" tone="green" numberOfLines={1}>{c.profileUrl}</T>
               </Tap>
-              <Button title="Withdraw" kind="ghost" small onPress={withdraw} />
+              <Button title="Withdraw" kind="ghost" small onPress={withdraw} style={{ alignSelf: 'flex-start' }} />
             </Sheet>
-            <T v="small" tone="onCourt" style={{ marginTop: space.md, opacity: 0.9 }}>
+            <T v="meta" tone="muted" style={{ marginTop: space.md, lineHeight: 18 }}>
               Until then your number is on your profile as self-reported. Nothing is blocked.
             </T>
-          </Animated.View>
+          </View>
         ) : c?.state === 'approved' ? (
-          <Animated.View entering={FadeInDown.springify().damping(16)}>
-            <Sheet accent style={{ gap: space.sm }}>
+          <View>
+            <Sheet stripe style={{ gap: space.sm }}>
               <View style={s.top}>
                 <View style={{ flex: 1 }}>
                   <T v="h2">Verified.</T>
-                  <T v="small" tone="ink2">Checked against your UTR profile{c.decidedAt ? ` ${relTime(c.decidedAt)} ago` : ''}. Your level carries the badge.</T>
+                  <T v="small" tone="muted">Checked against your UTR profile{c.decidedAt ? ` ${relTime(c.decidedAt)} ago` : ''}. Your rating carries the label.</T>
                 </View>
-                <Score value={c.decidedRating ?? c.claimedRating} size="score" verified tone="court" />
+                <Score value={c.decidedRating ?? c.claimedRating} size="score" verified />
               </View>
             </Sheet>
             <Button title="Back" kind="line" onPress={() => router.back()} style={{ marginTop: space.md }} />
-          </Animated.View>
+          </View>
         ) : (
           <>
             {c?.state === 'rejected' && (
-              <Sheet style={{ marginBottom: space.md, borderWidth: 2, borderColor: color.danger }}>
+              <Sheet style={{ marginBottom: space.md }}>
                 <T v="bodyM" tone="danger">We couldn't verify that one.</T>
-                <T v="small" tone="ink2">{c.reviewerNote ?? 'Check the link and the name on your UTR profile, then send it again.'}</T>
+                <T v="small" tone="muted">{c.reviewerNote ?? 'Check the link and the name on your UTR profile, then send it again.'}</T>
               </Sheet>
             )}
 
             <Sheet style={{ gap: space.lg }}>
               <View>
                 <T v="h2">Three things</T>
-                <T v="small" tone="ink2">A person checks them against utrsports.net. No UTR password, ever.</T>
+                <T v="small" tone="muted">A person checks them against utrsports.net. No UTR password, ever.</T>
               </View>
               <Field label="Your UTR" value={rating} onChangeText={setRating} placeholder="8.5" keyboardType="decimal-pad" inputMode="decimal" maxLength={5} accessibilityLabel="Your UTR rating" />
               <Field label="Link to your UTR profile" value={url} onChangeText={setUrl} placeholder="https://app.utrsports.net/profiles/..." autoCapitalize="none" autoCorrect={false} inputMode="url" accessibilityLabel="Link to your UTR profile" />
@@ -118,12 +121,12 @@ export default function VerifyUtr() {
             </Sheet>
 
             <Tap onPress={() => void Linking.openURL('https://app.utrsports.net/').catch(() => {})} style={s.help} accessibilityRole="link">
-              <T v="smallM" tone="onCourt">Find your profile link →</T>
+              <T v="smallM" tone="green">Find your profile link</T>
             </Tap>
 
             <Sheet style={{ marginTop: space.md, gap: 6 }}>
-              <T v="micro" tone="ink3">Why bother</T>
-              <T v="small" tone="ink2">A verified level is the one other players trust. It gets you better matches, and it is the difference between "says they're 8.5" and "is 8.5".</T>
+              <T v="micro" tone="muted">Why bother</T>
+              <T v="small" tone="muted">A verified rating is the one other players trust. It gets you better matches, and it is the difference between "says they're 8.5" and "is 8.5".</T>
             </Sheet>
           </>
         )}
@@ -134,6 +137,6 @@ export default function VerifyUtr() {
 
 const s = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  rule: { height: 2, backgroundColor: color.paper3, marginVertical: space.sm, borderRadius: 1 },
   help: { minHeight: hit.min, justifyContent: 'center', alignItems: 'center', marginTop: space.md, borderRadius: radius.md },
 });
+const useS = makeStyles(c => ({ rule: { height: 1, backgroundColor: c.line, marginVertical: space.sm } }));

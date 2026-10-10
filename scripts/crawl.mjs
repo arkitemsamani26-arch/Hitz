@@ -63,8 +63,10 @@ const seeded = () => ({
 });
 
 const SCREENS = [
-  ['hits', '/(tabs)'],
+  ['discover', '/(tabs)'],
+  ['my hits', '/(tabs)/hits'],
   ['you', '/(tabs)/you'],
+  ['preview', '/preview'],
   ['filters', '/filters'],
   ['player', '/player/p-maya'],
   ['request', '/request/p-maya'],
@@ -234,7 +236,9 @@ const main = async () => {
       if (errors.length) flags.push(...errors);
       // Covered is the finding that matters: the button is there, it is on screen, and
       // something else is taking the press. That is what "the buttons aren't working" was.
-      if (spot.covered) flags.push(`COVERED by "${spot.coveredBy}" -- the press never reaches it`);
+      // A disabled control lets the press through to its parent on web; that is the
+      // platform, not a bug, so only a live control can be covered.
+      if (spot.covered && !it.disabled) flags.push(`COVERED by "${spot.coveredBy}" -- the press never reaches it`);
       else if (spot.offscreen) flags.push('could not be scrolled into view');
       else if (!moved && !changed && !it.disabled) flags.push('nothing happened');
       if (!it.label) flags.push('no accessible label');

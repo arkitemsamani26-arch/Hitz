@@ -1,69 +1,69 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
-import { color, hit, radius, space } from '@/theme/tokens';
-import { shadow } from '@/lib/shadow';
+import { Icon, type IconName } from '@/ui/Icon';
+import { font } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { useSession } from '@/store/session';
+import { useAsync } from '@/store/useAsync';
+import { api } from '@/data';
 
-const LABELS: Record<string, string> = { index: 'Hits', you: 'You' };
+const TABS: { name: string; label: string; icon: IconName }[] = [
+  { name: 'index', label: 'Discover', icon: 'compass' },
+  { name: 'hits', label: 'My hits', icon: 'calendar-days' },
+  { name: 'you', label: 'Club card', icon: 'id-card' },
+];
 
-// How much of the screen the floating bar covers, above the safe area. Screens add this
-// to their scroll padding -- without it the last row of any list sits underneath the bar,
-// where it cannot be read and, worse, cannot be tapped: the bar swallows the press.
-export const TAB_BAR_H = space.sm + 5 + hit.min + 5 + space.sm;
+// The bar sits in the layout under the content, not over it, so screens need no padding
+// for it. Kept so old call sites still compile.
+export const TAB_BAR_H = 0;
 type BarProps = { state: { index: number; routes: { key: string; name: string }[] }; navigation: { navigate: (name: string) => void } };
 
-// Two tabs, and the whole loop lives on the first. A ball-yellow pill slides under the
-// active one; the ball rides on top of it.
+// Three equal destinations on the card surface, a hairline above, the chosen one on the
+// soft green. A small dot on My hits when an invitation is waiting on you.
 function Bar({ state, navigation }: BarProps) {
+  const t = useTheme();
+  const s = useS();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const n = state.routes.length;
-  const barW = Math.min(width, 520) - space.lg * 2;
-  const slot = barW / n;
-  const x = useSharedValue(0), hop = useSharedValue(0), spin = useSharedValue(0);
-  useEffect(() => {
-    x.value = withSpring(state.index * slot, { damping: 15, stiffness: 180 });
-    hop.value = withSequence(withTiming(-6, { duration: 110 }), withSpring(0, { damping: 8, stiffness: 320 }));
-    spin.value = withSpring(state.index * 360, { damping: 16, stiffness: 120 });
-  }, [state.index, slot, x, hop, spin]);
-  const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
-  const ball = useAnimatedStyle(() => ({ transform: [{ translateX: x.value + slot / 2 - 7 }, { translateY: hop.value }, { rotate: `${spin.value}deg` }] }));
-
+  const { profile, tick } = useSession();
+  const reqs = useAsync(() => api.requests(), [tick]);
+  const waiting = (reqs.data ?? []).filter(r => (r.state === 'pending' || r.state === 'countered') && r.awaitingId === profile?.id).length;
   return (
-    <View style={[s.wrap, { paddingBottom: insets.bottom + space.sm }]}>
-      <View style={[s.bar, { width: barW }]} accessibilityRole="tablist">
-        <Animated.View style={[s.pill, { width: slot }, pill]} pointerEvents="none" />
-        <Animated.View style={[s.roller, ball]} pointerEvents="none"><View style={s.seam} /></Animated.View>
-        {state.routes.map((route, i) => {
-          const on = state.index === i;
-          return (
-            <Tap key={route.key} onPress={() => navigation.navigate(route.name)} tick style={s.tab}
-              accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={LABELS[route.name]}>
-              <T v="bodyM" tone={on ? 'ink' : 'ink3'}>{LABELS[route.name]}</T>
-            </Tap>
-          );
-        })}
-      </View>
+    <View style={[s.bar, { paddingBottom: insets.bottom + 11 }]} accessibilityRole="tablist">
+      {state.routes.map((route, i) => {
+        const tab = TABS.find(x => x.name === route.name); if (!tab) return null;
+        const on = state.index === i;
+        const dot = tab.name === 'hits' && waiting > 0;
+        return (
+          <Tap key={route.key} onPress={() => navigation.navigate(route.name)} style={[s.tab, on && s.tabOn]}
+            accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={dot ? `${tab.label}, ${waiting} waiting on you` : tab.label}>
+            <View>
+              <Icon name={tab.icon} size={18} color={on ? t.ink : t.muted} />
+              {dot && <View style={s.dot} />}
+            </View>
+            <Text style={[s.label, { color: on ? t.ink : t.muted }]} maxFontSizeMultiplier={1.3}>{tab.label}</Text>
+          </Tap>
+        );
+      })}
     </View>
   );
 }
 export default function TabsLayout() {
+  const t = useTheme();
   return (
-    <Tabs tabBar={(p: any) => <Bar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: color.ground } }}>
+    <Tabs tabBar={(p: any) => <Bar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: t.paper } }}>
       <Tabs.Screen name="index" />
+      <Tabs.Screen name="hits" />
       <Tabs.Screen name="you" />
     </Tabs>
   );
 }
-const s = StyleSheet.create({
-  wrap: { alignItems: 'center', paddingTop: space.sm, backgroundColor: 'transparent' },
-  bar: { flexDirection: 'row', backgroundColor: color.paper, borderRadius: radius.pill, padding: 5, ...shadow({ y: 4, blur: 14, opacity: 0.18 }) },
-  pill: { position: 'absolute', left: 5, top: 5, bottom: 5, backgroundColor: color.ball, borderRadius: radius.pill },
-  tab: { flex: 1, minHeight: hit.min, alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
-  roller: { position: 'absolute', top: 9, left: 5, width: 14, height: 14, borderRadius: 7, backgroundColor: color.paper, borderWidth: 1.5, borderColor: color.ink, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  seam: { width: 9, height: 5, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(14,27,51,0.45)', backgroundColor: 'transparent' },
-});
+const useS = makeStyles(c => ({
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', gap: 5, paddingTop: 8, paddingHorizontal: 9, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.line },
+  tab: { flex: 1, maxWidth: 160, minHeight: 49, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 11, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  tabOn: { backgroundColor: c.soft },
+  label: { fontFamily: font.medium, fontSize: 11, lineHeight: 14 },
+  dot: { position: 'absolute', top: -2, right: -5, width: 7, height: 7, borderRadius: 4, backgroundColor: c.green, borderWidth: 1, borderColor: c.card },
+}));

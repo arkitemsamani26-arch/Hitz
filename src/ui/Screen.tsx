@@ -1,64 +1,27 @@
-// Every screen is sky, then court. Content sits on white sheets. The sky is real light:
-// it changes with the time of day, there is a sun in it, and the ground has grain.
+// Every screen is paper. Content sits in bordered cards, or straight on the page.
 import React from 'react';
-import { Image, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { color, space } from '@/theme/tokens';
+import { fixed, radius, space } from '@/theme/tokens';
+import { makeStyles, useScheme, useTheme } from '@/theme/theme';
 import { shadow } from '@/lib/shadow';
 
-const grain = require('../../assets/tex/grain.png');
+export const GUTTER = 20;
 
-// Time-of-day palettes. Morning is the default look; evening goes gold; a night
-// session is floodlit -- dark sky, the court glowing.
-export function skyFor(d = new Date()) {
-  const h = d.getHours() + d.getMinutes() / 60;
-  if (h < 6 || h >= 20) return { stops: ['#3E5A8C', '#6F8FC2', '#A9C4E8'] as const, sun: { x: 0.62, y: 0.08, c: '#F4F1E0' }, night: true };
-  if (h < 9) return { stops: ['#9FCBFF', '#FFD9A8', '#FFF1D6'] as const, sun: { x: 0.58, y: 0.1, c: '#FFE07A' }, night: false };
-  if (h < 16) return { stops: ['#8EC5FF', '#BFE3FF', '#EAF6FF'] as const, sun: { x: 0.62, y: 0.06, c: '#FFF3B0' }, night: false };
-  return { stops: ['#5E8FD6', '#F2B27A', '#FFE6C2'] as const, sun: { x: 0.6, y: 0.12, c: '#FFC85C' }, night: false };
-}
-
-// Shadows fall away from the sun: morning sun on the left throws them right, and so on.
-export function sunShadow(len = 14, warm = false) {
-  const k = skyFor();
-  let x = 0, y = len;
-  if (k.sun) {
-    const dx = 0.5 - k.sun.x, dy = 1 - k.sun.y;         // vector from sun toward the ground
-    const n = Math.hypot(dx, dy) || 1;
-    x = Math.round((dx / n) * len * 0.9);
-    y = Math.round(Math.max(0.5, dy / n) * len);
-  }
-  return shadow({ x, y, blur: len * 1.7, color: warm ? '#1E3B12' : '#071A0C', opacity: warm ? 0.22 : 0.3 });
-}
-
-export function Sky({ height = 190 }: { height?: number }) {
-  const k = skyFor();
-  return (
-    <View style={[s.sky, { height }]} pointerEvents="none">
-      <LinearGradient colors={[...k.stops]} style={StyleSheet.absoluteFill} />
-      {k.sun && (
-        <>
-          <View style={[s.sun, { left: `${k.sun.x * 100}%`, top: `${k.sun.y * 100}%`, backgroundColor: k.sun.c, opacity: 0.35, transform: [{ scale: 2.6 }] }]} />
-          <View style={[s.sun, { left: `${k.sun.x * 100}%`, top: `${k.sun.y * 100}%`, backgroundColor: k.sun.c, opacity: 0.6, transform: [{ scale: 1.5 }] }]} />
-          <View style={[s.sun, { left: `${k.sun.x * 100}%`, top: `${k.sun.y * 100}%`, backgroundColor: '#FFFDF2' }]} />
-        </>
-      )}
-      {k.night && <View style={[s.floodlight, { top: height * 0.55 }]} />}
-      {/* The horizon lives in the bottom fifth; nothing readable is placed there. */}
-      <LinearGradient colors={['transparent', 'rgba(125,181,125,0.55)', color.ground]} locations={[0.72, 0.9, 1]} style={StyleSheet.absoluteFill} />
-      <Image source={grain} resizeMode="repeat" alt="" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { opacity: 0.35 }]} />
-    </View>
-  );
-}
-
-export function Screen({ children, scroll = true, pad = true, style, bottom, sky = 190, ground = color.ground, onRefresh, extraBottom = 0 }:
-  { children: React.ReactNode; scroll?: boolean; pad?: boolean; style?: StyleProp<ViewStyle>; bottom?: React.ReactNode; sky?: number; ground?: string;
+export function Screen({ children, scroll = true, pad = true, style, bottom, onRefresh, extraBottom = 0, flush }:
+  { children: React.ReactNode; scroll?: boolean; pad?: boolean; style?: StyleProp<ViewStyle>; bottom?: React.ReactNode;
     // Pull to refresh. Passing this is what turns it on.
     onRefresh?: () => Promise<unknown> | void;
-    // Room to leave under the content for anything floating over it -- the tab bar.
-    extraBottom?: number }) {
+    // Extra room under the content.
+    extraBottom?: number;
+    // Discover: the header and hero run to the edges, so the screen adds no top padding.
+    flush?: boolean;
+    // Accepted and ignored, so old call sites still compile.
+    sky?: number; ground?: string }) {
+  const t = useTheme();
+  const scheme = useScheme();
+  const s = useS();
   const [refreshing, setRefreshing] = React.useState(false);
   const pull = React.useCallback(async () => {
     if (!onRefresh) return;
@@ -66,51 +29,48 @@ export function Screen({ children, scroll = true, pad = true, style, bottom, sky
     try { await onRefresh(); } finally { setRefreshing(false); }
   }, [onRefresh]);
   const insets = useSafeAreaInsets();
-  const inner = [pad && s.pad, { paddingTop: insets.top + space.md, paddingBottom: (bottom ? space.md : insets.bottom + space.xl) + extraBottom }, style];
+  const inner = [pad && s.pad, { paddingTop: flush ? insets.top : insets.top + 9, paddingBottom: (bottom ? space.md : insets.bottom + space.xl) + extraBottom }, style];
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[s.root, { backgroundColor: ground }]}>
-      <StatusBar style="dark" />
-      <LinearGradient colors={[color.ground, '#256A3A']} style={StyleSheet.absoluteFill} />
-      <Image source={grain} resizeMode="repeat" alt="" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { opacity: 0.25, pointerEvents: "none" } as any]} />
-      {sky > 0 && <Sky height={sky + insets.top} />}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[s.root]}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {scroll
         ? <ScrollView contentContainerStyle={[s.grow, inner]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-            refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={color.paper} colors={[color.court]} progressBackgroundColor={color.paper} /> : undefined}>{children}</ScrollView>
+            refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={t.muted} colors={[t.green]} progressBackgroundColor={t.card} /> : undefined}>{children}</ScrollView>
         : <View style={[s.fill, inner]}>{children}</View>}
-      {bottom && <View style={[s.bottom, { paddingBottom: insets.bottom + space.lg }]}>{bottom}</View>}
+      {bottom && <View style={[s.bottom, { paddingBottom: insets.bottom + space.md }]}>{bottom}</View>}
     </KeyboardAvoidingView>
   );
 }
 
-// A white sheet on the court, lit from the top-left: a highlight along the top edge and a
-// warm, long shadow underneath.
-export function Sheet({ children, style, accent, loud }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; accent?: boolean; loud?: boolean }) {
+// A panel: card surface, one hairline, 13px corners, 17px inside. `stripe` adds the sage
+// line along the top that marks the featured thing on a screen.
+export function Card({ children, style, stripe, soft, accent, loud }:
+  { children: React.ReactNode; style?: StyleProp<ViewStyle>; stripe?: boolean; soft?: boolean; accent?: boolean; loud?: boolean }) {
+  const s = useS();
   return (
-    <View style={[s.sheet, sunShadow(loud ? 10 : 14, loud), accent && s.accent, loud && s.loud, style]}>
-      <View style={s.edge} pointerEvents="none" />
+    <View style={[s.card, (soft || loud) && s.soft, (stripe || accent) && s.striped, style]}>
+      {(stripe || accent) && <View style={s.stripe} pointerEvents="none" />}
       {children}
     </View>
   );
 }
+export const Sheet = Card;
 
 export const MAX_W = 520;
 export function Centered({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', flex: 1 }, style]}>{children}</View>;
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1 },
-  sky: { position: 'absolute', left: 0, right: 0, top: 0, overflow: 'hidden' },
-  sun: { position: 'absolute', width: 54, height: 54, borderRadius: 27, marginLeft: -27, marginTop: -27 },
-  floodlight: { position: 'absolute', left: '10%', right: '10%', height: 260, borderRadius: 200, backgroundColor: 'rgba(229,255,61,0.10)', transform: [{ scaleX: 1.8 }] },
+const useS = makeStyles(c => ({
+  root: { flex: 1, backgroundColor: c.paper },
   grow: { flexGrow: 1 },
   // A non-scrolling screen must not grow past the viewport, or an inner list pushes the
   // bottom button off the bottom of the phone. minHeight 0 lets that list shrink instead.
   fill: { flex: 1, minHeight: 0 },
-  pad: { paddingHorizontal: space.lg },
-  bottom: { paddingHorizontal: space.lg, paddingTop: space.md },
-  sheet: { backgroundColor: color.paper, borderRadius: 24, padding: space.lg, overflow: 'hidden' },
-  edge: { position: 'absolute', top: 0, left: 24, right: 24, height: 2, backgroundColor: 'rgba(14,27,51,0.06)', borderRadius: 1 },
-  accent: { borderWidth: 3, borderColor: color.ball },
-  loud: { backgroundColor: color.ball },
-});
+  pad: { paddingHorizontal: GUTTER },
+  bottom: { paddingHorizontal: GUTTER, paddingTop: space.md, backgroundColor: c.paper, borderTopWidth: 1, borderTopColor: c.line },
+  card: { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 17, ...shadow({ y: 7, blur: 14, color: c.shadow, opacity: 0.035 }) },
+  soft: { backgroundColor: c.soft },
+  striped: { overflow: 'hidden', paddingTop: 17 + 4 },
+  stripe: { position: 'absolute', left: 0, right: 0, top: 0, height: 4, backgroundColor: fixed.stripe },
+}));

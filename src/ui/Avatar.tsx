@@ -1,23 +1,36 @@
-// A face. The photo when there is one; initials in a colour from the name when not.
+// A monogram. The arch is the featured treatment: 46 wide, 53 tall, round on top and
+// nearly square at the bottom. A photo, when a player has given one, is cropped the same.
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { T } from './Text';
-import { color } from '@/theme/tokens';
-import { shadow } from '@/lib/shadow';
+import { makeStyles } from '@/theme/theme';
 
-const PALETTE = ['#2E6FCB', '#1F5A34', '#D97A2B', '#7A3FB5', '#C7326B', '#0E8A8A'];
-export function Avatar({ name, photo, size = 40, ring }: { name: string; photo?: string | null; size?: number; ring?: boolean }) {
-  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
-  const bg = PALETTE[Math.abs(h) % PALETTE.length];
+export function initialsOf(name: string, lastInitial?: string | null) {
+  const first = name.trim().slice(0, 1).toUpperCase();
+  const last = (lastInitial ?? name.trim().split(/\s+/)[1] ?? '').slice(0, 1).toUpperCase();
+  return (first + last) || '?';
+}
+
+export function Avatar({ name, lastInitial, photo, size = 46, shape = 'arch', ring }:
+  { name: string; lastInitial?: string | null; photo?: string | null; size?: number; shape?: 'arch' | 'round'; ring?: boolean }) {
+  const s = useS();
+  const arch = shape === 'arch';
+  const w = size, h = arch ? Math.round(size * 53 / 46) : size;
+  const r = arch ? { borderTopLeftRadius: w / 2, borderTopRightRadius: w / 2, borderBottomLeftRadius: Math.round(w * 7 / 46), borderBottomRightRadius: Math.round(w * 7 / 46) } : { borderRadius: w / 2 };
+  const text = initialsOf(name, lastInitial);
   return (
-    <View style={[s.a, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }, ring && s.ring]}>
+    <View style={[s.base, arch ? s.arch : s.round, { width: w, height: h }, r, ring && s.ring]}
+      accessible={!!photo} accessibilityRole={photo ? 'image' : undefined} accessibilityLabel={photo ? `${name}'s photo` : undefined}
+      importantForAccessibility={photo ? 'yes' : 'no-hide-descendants'}>
       {photo
-        ? <Image source={{ uri: photo }} style={{ width: '100%', height: '100%', borderRadius: size / 2 }} accessibilityRole="image" accessibilityLabel={`${name}'s photo`} />
-        : <T v="bodyM" tone="onCourt" style={{ fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: size * 0.42, lineHeight: size * 0.5 }}>{name.slice(0, 1).toUpperCase()}</T>}
+        ? <Image source={{ uri: photo }} style={[{ width: '100%', height: '100%' }, r]} />
+        : <T v="h1" style={{ fontSize: Math.round(size * (arch ? 19 : 13) / (arch ? 46 : 36)), lineHeight: Math.round(size * (arch ? 24 : 16) / (arch ? 46 : 36)) }}>{text}</T>}
     </View>
   );
 }
-const s = StyleSheet.create({
-  a: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...shadow({ y: 3, blur: 8, opacity: 0.25, color: '#000000' }) },
-  ring: { borderWidth: 3, borderColor: color.paper },
-});
+const useS = makeStyles(c => ({
+  base: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  arch: { backgroundColor: c.avatar, borderWidth: 1, borderColor: c.avatarLine },
+  round: { backgroundColor: c.soft },
+  ring: { borderWidth: 1, borderColor: c.line },
+}));

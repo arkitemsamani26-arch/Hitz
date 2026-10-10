@@ -1,24 +1,39 @@
 import React from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { T } from './Text';
 import { Tap } from './Tap';
-import { Pop } from './Pop';
-import { color, hit, radius, space } from '@/theme/tokens';
+import { Icon, type IconName } from './Icon';
+import { hit, radius } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
-type Tone = 'ball' | 'line' | 'court' | 'faint' | 'white';
+type Tone = 'line' | 'soft' | 'green' | 'ball' | 'court' | 'faint' | 'white';
 
-export function Pill({ label, tone = 'line', style, on, onPress }: { label: string; tone?: Tone; style?: StyleProp<ViewStyle>; on?: boolean; onPress?: () => void }) {
-  const t: Tone = on ? 'ball' : tone;
-  const textTone = t === 'ball' ? 'onBall' : t === 'court' ? 'onCourt' : t === 'white' ? 'court' : t === 'faint' ? 'ink2' : 'ink';
-  const inner = <View style={[s.pill, s[t], style]}><T v="micro" tone={textTone}>{label}</T></View>;
-  if (!onPress) return inner;
-  return <Tap onPress={onPress} tick accessibilityRole={on === undefined ? 'button' : 'checkbox'} accessibilityState={on === undefined ? undefined : { checked: !!on }} aria-checked={on === undefined ? undefined : !!on} style={{ minHeight: hit.min, justifyContent: 'center' }}><Pop on={!!on}>{inner}</Pop></Tap>;
+// Two things, one component. With onPress it is a choice chip: bordered, 44 tall, green
+// when chosen. Without, it is a status label on the soft surface.
+export function Pill({ label, tone = 'line', style, on, onPress, icon }:
+  { label: string; tone?: Tone; style?: StyleProp<ViewStyle>; on?: boolean; onPress?: () => void; icon?: IconName }) {
+  const t = useTheme();
+  const s = useS();
+  const chosen = on || tone === 'green' || tone === 'ball' || tone === 'court';
+  const fg = chosen ? t.greenText : t.ink;
+  if (!onPress) {
+    return (
+      <View style={[s.status, chosen && s.on, style]}>
+        {icon && <Icon name={icon} size={13} color={fg} />}
+        <T v="meta" style={{ color: fg }}>{label}</T>
+      </View>
+    );
+  }
+  return (
+    <Tap onPress={onPress} tick accessibilityRole={on === undefined ? 'button' : 'checkbox'} accessibilityState={on === undefined ? undefined : { checked: !!on }} aria-checked={on === undefined ? undefined : !!on}
+      style={[s.chip, chosen && s.on, style]}>
+      {icon && <Icon name={icon} size={14} color={fg} />}
+      <T v="small" style={{ color: fg }}>{label}</T>
+    </Tap>
+  );
 }
-const s = StyleSheet.create({
-  pill: { paddingHorizontal: space.md, paddingVertical: 7, borderRadius: radius.pill, alignSelf: 'flex-start', minHeight: 30, justifyContent: 'center' },
-  ball: { backgroundColor: color.ball },
-  line: { borderWidth: 1.5, borderColor: color.hair2, backgroundColor: color.paper },
-  court: { backgroundColor: color.court },
-  white: { backgroundColor: color.paper },
-  faint: { backgroundColor: color.paper2 },
-});
+const useS = makeStyles(c => ({
+  chip: { minHeight: hit.min, paddingVertical: 9, paddingHorizontal: 13, borderRadius: radius.sm, borderWidth: 1, borderColor: c.line, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 7, justifyContent: 'center' },
+  status: { paddingVertical: 7, paddingHorizontal: 10, borderRadius: radius.xs, backgroundColor: c.soft, flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start' },
+  on: { backgroundColor: c.green, borderColor: c.green },
+}));

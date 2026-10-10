@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
-import { Platform, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 import { T } from './Text';
-import { color, font, radius, space } from '@/theme/tokens';
+import { font, radius, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export function Field({ label, big, style, onFocus, onBlur, ...rest }: TextInputProps & { label?: string; big?: boolean }) {
+  const t = useTheme();
+  const s = useS();
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: space.sm }}>
-      {label && <T v="micro" tone="ink3">{label}</T>}
-      <TextInput placeholderTextColor={color.ink3} selectionColor={color.court} cursorColor={color.court} {...rest}
+      {label && <T v="micro" tone="muted">{label}</T>}
+      <TextInput placeholderTextColor={t.muted} selectionColor={t.green} cursorColor={t.green} {...rest}
         onFocus={e => { setFocused(true); onFocus?.(e); }} onBlur={e => { setFocused(false); onBlur?.(e); }}
         style={[s.input, big && s.big, focused && s.focused, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any), style]} />
     </View>
   );
 }
-const s = StyleSheet.create({
-  input: { backgroundColor: color.paper, borderWidth: 2, borderColor: color.hair2, borderRadius: radius.md, color: color.ink, paddingHorizontal: space.lg, minHeight: 56, fontSize: 18, fontFamily: font.medium },
-  big: { fontSize: 32, fontFamily: font.display, letterSpacing: -1, minHeight: 72, textAlign: 'center' },
-  focused: { borderColor: color.court },
-});
+const useS = makeStyles(c => ({
+  input: { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, color: c.ink, paddingHorizontal: 14, paddingVertical: 12, minHeight: 50, fontSize: 16, fontFamily: font.regular },
+  big: { fontSize: 30, fontFamily: font.serif, letterSpacing: -0.6, minHeight: 64, textAlign: 'center' },
+  focused: { borderColor: c.green, borderWidth: 1.5 },
+}));

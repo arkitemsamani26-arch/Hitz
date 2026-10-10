@@ -1,69 +1,109 @@
+// Players, three ways: the featured card, the compact row, and the profile header.
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { T } from './Text';
 import { Tap } from './Tap';
 import { Pill } from './Pill';
 import { Score } from './Score';
-import { Sheet } from './Screen';
+import { Card } from './Screen';
 import { Avatar } from './Avatar';
-import { color, hit, space } from '@/theme/tokens';
-import { activeShort, activeText, pct } from '@/lib/format';
-import { slotsOf, type Player } from '@/data/types';
+import { Icon } from './Icon';
+import { fixed, hit, radius, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { activeText } from '@/lib/format';
+import { gapLine, gapShort, metaLine, overlapLine, tagLine } from '@/lib/match';
+import { slotsOf, slotsSummary, type Player, type Profile } from '@/data/types';
+import type { Window } from '@/store/window';
+import { shadow } from '@/lib/shadow';
 
-export function name(p: Player) { return p.lastInitial ? `${p.displayName} ${p.lastInitial}.` : p.displayName; }
+export function name(p: Pick<Player, 'displayName' | 'lastInitial'>) { return p.lastInitial ? `${p.displayName} ${p.lastInitial}.` : p.displayName; }
 
-export function PlayerCard({ p, anonymous, tall }: { p: Player; anonymous?: boolean; tall?: boolean }) {
-  const reply = pct(p.responseRate);
-  const free = slotsOf(p.availabilityMask);
+// The featured card: sage stripe, arched monogram, serif name, the rating at the right,
+// one honest line about when you are both free, and the green strip that invites.
+export function FeaturedCard({ p, me, win, onInvite, onOpen, locked, lockedLabel }:
+  { p: Player; me: Profile; win: Window; onInvite: () => void; onOpen: () => void; locked?: boolean; lockedLabel?: string }) {
+  const t = useTheme();
+  const s = useS();
+  const when = overlapLine(me, p, win);
   return (
-    <Sheet style={[tall && { minHeight: 320 }]} accent={p.lookingToHit}>
-      <View style={s.top}>
-        <Avatar name={anonymous ? '?' : p.displayName} photo={anonymous ? null : p.photoUrl} size={52} ring />
-        <View style={{ flex: 1 }}>
-          <T v="h1" numberOfLines={1}>{anonymous ? 'Player' : name(p)}</T>
-          <T v="small" tone="ink2" style={{ marginTop: 2 }}>{[p.distanceBucket, p.homeCourtName].filter(Boolean).join(' · ')}</T>
+    <View style={s.card}>
+      <View style={s.stripe} />
+      <View style={s.main}>
+        <T v="micro" tone="muted" style={{ marginBottom: 14, letterSpacing: 1.25 }}>{tagLine(me, p)}</T>
+        <Tap onPress={onOpen} style={s.top} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${metaLine(p)}. Open profile.`}>
+          <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={46} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T v="h1" style={{ lineHeight: 28 }}>{name(p)}</T>
+            {!!metaLine(p) && <T v="meta" tone="muted" style={{ marginTop: 5 }}>{metaLine(p)}</T>}
+          </View>
+          <Score value={p.levelValue} size="rating" source={p.levelSource} verified={p.levelVerified} />
+        </Tap>
+        <View style={s.compat}>
+          <Icon name={when.known ? 'calendar-check-2' : 'calendar'} size={16} color={t.ink} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1 }}>
+            <T v="smallM">{when.text}</T>
+            <T v="meta" tone="muted" style={{ marginTop: 3 }}>{gapLine(me, p)}</T>
+          </View>
         </View>
-        <Score value={p.levelValue} size="score" verified={p.levelVerified} tone="court" animate />
       </View>
-      <View style={s.rule} />
-      <View style={s.pills}>
-        {p.lookingToHit && <Pill label="Looking to hit this week" tone="ball" />}
-        <Pill label={activeText(p.lastActiveAt)} tone="faint" />
-        {reply && <Pill label={`Replies ${reply}`} tone="faint" />}
-        {p.hitsConfirmed > 0 && <Pill label={`${p.hitsConfirmed} hits`} tone="faint" />}
-      </View>
-      {tall && <View style={{ marginTop: 'auto', paddingTop: space.lg }}><T v="micro" tone="ink3">Usually free</T><T v="small" tone="ink2" style={{ marginTop: 4 }}>{free.length ? free.join(' · ') : 'Not set yet'}</T></View>}
-    </Sheet>
-  );
-}
-
-// One tap to request. The row is the product.
-export function PlayerRow({ p, onPress, onHit, disabled }: { p: Player; onPress: () => void; onHit: () => void; disabled?: boolean }) {
-  return (
-    <View style={s.row}>
-      <Tap onPress={onPress} style={s.rowMain} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={[`${name(p)}, level ${p.levelValue}`, p.distanceBucket, activeText(p.lastActiveAt), pct(p.responseRate) && `replies ${pct(p.responseRate)}`].filter(Boolean).join(', ')}>
-      <Avatar name={p.displayName} photo={p.photoUrl} size={38} />
-      <View style={{ flex: 1, marginLeft: space.md, marginRight: space.sm }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-          <T v="bodyM" numberOfLines={1}>{name(p)}</T>
-          {p.lookingToHit && <View style={s.dot} accessibilityLabel="Looking to hit this week" />}
-        </View>
-        <T v="small" tone="ink2" numberOfLines={1}>{[p.distanceBucket, activeShort(p.lastActiveAt), pct(p.responseRate)].filter(Boolean).join(' · ')}</T>
-      </View>
-      <Score value={p.levelValue} size="h1" verified={p.levelVerified} tone="court" />
-      </Tap>
-      <Tap onPress={onHit} disabled={disabled} style={[s.hitBtn, disabled && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel={`Request a hit with ${p.displayName}`} tick>
-        <T v="smallM" tone="onCourt">Hit</T>
+      <Tap onPress={onInvite} disabled={locked} style={[s.invite, locked && { opacity: 0.55 }]} accessibilityRole="button" accessibilityState={{ disabled: !!locked }} accessibilityLabel={locked ? lockedLabel ?? 'Inviting is locked' : `Invite ${p.displayName} to hit`}>
+        <T v="smallM" tone="greenText">{locked ? lockedLabel ?? 'Inviting is locked' : 'Invite to hit'}</T>
+        <Icon name="arrow-up-right" size={17} color={t.greenText} />
       </Tap>
     </View>
   );
 }
-const s = StyleSheet.create({
-  top: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  rule: { height: 2, backgroundColor: color.paper3, marginVertical: space.md },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: hit.row + 4, borderBottomWidth: 1, borderBottomColor: color.hair },
-  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: space.md, minHeight: hit.row + 4 },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: color.ball, borderWidth: 1.5, borderColor: color.ink },
-  hitBtn: { backgroundColor: color.court, minHeight: 44, minWidth: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md, marginLeft: space.md },
+
+// The quieter row: round monogram, sans name, a line of meta, the rating in the sans.
+export function CompactRow({ p, onPress, first }: { p: Player; onPress: () => void; first?: boolean }) {
+  const s = useS();
+  const line = p.prefers ? [p.prefers, slotsOf(p.availabilityMask)[0]].filter(Boolean).join(' · ') : [p.homeCourtName ?? p.distanceBucket, slotsOf(p.availabilityMask)[0]].filter(Boolean).join(' · ');
+  return (
+    <Tap onPress={onPress} style={[s.row, !first && s.rowRule]} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${line}. Open profile.`}>
+      <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={36} shape="round" />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T v="smallM" numberOfLines={1}>{name(p)}</T>
+        <T v="meta" tone="muted" numberOfLines={1}>{line || activeText(p.lastActiveAt)}</T>
+      </View>
+      <Score value={p.levelValue} source={p.levelSource} verified={p.levelVerified} sans />
+    </Tap>
+  );
+}
+
+// The profile header. The same identity row as the featured card, on a plain panel.
+export function PlayerCard({ p, anonymous, me }: { p: Player; anonymous?: boolean; me?: Profile | null; tall?: boolean }) {
+  const free = slotsOf(p.availabilityMask);
+  return (
+    <Card>
+      <View style={st.top}>
+        <Avatar name={anonymous ? '?' : p.displayName} lastInitial={anonymous ? null : p.lastInitial} photo={anonymous ? null : p.photoUrl} size={46} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T v="h1" style={{ lineHeight: 28 }}>{anonymous ? 'A player' : name(p)}</T>
+          <T v="meta" tone="muted" style={{ marginTop: 5 }}>{metaLine(p) || activeText(p.lastActiveAt)}</T>
+        </View>
+        <Score value={p.levelValue} size="rating" source={p.levelSource} verified={p.levelVerified} />
+      </View>
+      <View style={st.tags}>
+        {p.lookingToHit && <Pill label="Looking to hit this week" icon="calendar-check-2" />}
+        <Pill label={activeText(p.lastActiveAt)} />
+        {me && gapShort(me, p) && <Pill label={gapShort(me, p)!} />}
+      </View>
+      {free.length > 0 && <T v="meta" tone="muted" style={{ marginTop: space.md }}>Usually free: {slotsSummary(p.availabilityMask).toLowerCase()}</T>}
+    </Card>
+  );
+}
+
+const st = StyleSheet.create({
+  top: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: space.lg },
 });
+const useS = makeStyles(c => ({
+  card: { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.xl, overflow: 'hidden', ...shadow({ y: 7, blur: 14, color: c.shadow, opacity: 0.035 }) },
+  stripe: { height: 4, backgroundColor: fixed.stripe },
+  main: { paddingTop: 17, paddingHorizontal: 17, paddingBottom: 16 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  compat: { flexDirection: 'row', gap: 13, alignItems: 'flex-start', marginTop: 17, paddingTop: 15, borderTopWidth: 1, borderTopColor: c.line },
+  invite: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 48, paddingVertical: 13, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.green },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 13, paddingHorizontal: 2, minHeight: hit.row },
+  rowRule: { borderTopWidth: 1, borderTopColor: c.line },
+}));

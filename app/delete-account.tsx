@@ -12,13 +12,14 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGoBack } from '@/lib/nav';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card as Sheet } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
 import { Header } from '@/ui/Header';
 import { useToast } from '@/ui/Toast';
-import { color, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { api, demo } from '@/data';
 import { useSession } from '@/store/session';
 import { haptic } from '@/lib/haptics';
@@ -52,24 +53,26 @@ export default function DeleteAccount() {
   };
 
   return (
-    <Screen sky={150} extraBottom={space.xl} bottom={
+    <Screen extraBottom={space.xl} bottom={
       <Centered>
         <Button title="Delete my account" kind="danger" onPress={go} loading={busy} disabled={!ready} />
       </Centered>
     }>
       <Centered>
-        <Header kicker="Your account" title="Delete your account." />
+        <Header />
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.md }}>Your account</T>
+        <T v="display" style={{ marginTop: 12, marginBottom: 18 }}>Delete your{'\n'}<T v="display" italic>account.</T></T>
 
         <Sheet style={{ gap: space.md, marginBottom: space.md }}>
           <T v="h2">This cannot be undone.</T>
-          <T v="small" tone="ink2">
+          <T v="small" tone="muted">
             There is no way to get it back and no one to email about it. If you just want a
             break, turn off “Usually free” on your profile instead and nobody will see you.
           </T>
         </Sheet>
 
         <Sheet style={{ gap: space.sm, marginBottom: space.md }}>
-          <T v="micro" tone="ink3">What goes, immediately</T>
+          <T v="micro" tone="muted">What goes, immediately</T>
           <Line text="Your name, photo, level and home court" />
           <Line text="Your phone number, and the rounded area used to find courts near you" />
           <Line text="Every message you have sent, and every hit in your history" />
@@ -77,22 +80,22 @@ export default function DeleteAccount() {
           {profile?.band === 'minor' && <Line text="The link to your parent, and their view of your account" />}
         </Sheet>
 
-        <Sheet style={{ gap: space.sm, marginBottom: space.md, borderWidth: 2, borderColor: color.hair2 }}>
-          <T v="micro" tone="ink3">What stays, and why</T>
-          <T v="small" tone="ink2">
+        <Sheet style={{ gap: space.sm, marginBottom: space.md }}>
+          <T v="micro" tone="muted">What stays, and why</T>
+          <T v="small" tone="muted">
             If someone has reported you, that report stays. It no longer carries your name,
             your photo or anything you wrote — only the fact that it was made and who it was
             about. Deleting your account is not a way to clear a safety report, because if it
             were, that is exactly what it would be used for.
           </T>
-          <T v="small" tone="ink2">
+          <T v="small" tone="muted">
             We also keep a record that an account existed here and was deleted. It holds no
             personal information about you.
           </T>
         </Sheet>
 
         <Sheet style={{ gap: space.md }}>
-          <T v="micro" tone="ink3">Type {WORD} to confirm</T>
+          <T v="micro" tone="muted">Type {WORD} to confirm</T>
           <Field
             value={typed}
             onChangeText={setTyped}
@@ -106,7 +109,7 @@ export default function DeleteAccount() {
         </Sheet>
 
         {demo && (
-          <T v="small" tone="onCourt" style={{ marginTop: space.md }}>
+          <T v="meta" tone="muted" style={{ marginTop: space.md, lineHeight: 18 }}>
             This is the demo, so there is nothing on a server to delete. Pressing the button
             clears everything stored on this device and starts you over.
           </T>
@@ -117,9 +120,10 @@ export default function DeleteAccount() {
 }
 
 function Line({ text }: { text: string }) {
+  const t = useTheme();
   return (
     <View style={s.line}>
-      <View style={s.dot} />
+      <View style={[s.dot, { backgroundColor: t.danger }]} />
       <T v="small" tone="ink" style={{ flex: 1 }}>{text}</T>
     </View>
   );
@@ -127,5 +131,6 @@ function Line({ text }: { text: string }) {
 
 const s = StyleSheet.create({
   line: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
-  dot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: color.danger, marginTop: 8 },
+  dot: { width: 6, height: 6, borderRadius: radius.pill, marginTop: 8 },
 });
+void makeStyles;

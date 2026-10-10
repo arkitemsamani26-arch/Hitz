@@ -6,39 +6,43 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
-// Only the weights the type scale uses.
-import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
-import { BricolageGrotesque_600SemiBold } from '@expo-google-fonts/bricolage-grotesque/600SemiBold';
-import { InstrumentSans_400Regular } from '@expo-google-fonts/instrument-sans/400Regular';
-import { InstrumentSans_500Medium } from '@expo-google-fonts/instrument-sans/500Medium';
-import { InstrumentSans_600SemiBold } from '@expo-google-fonts/instrument-sans/600SemiBold';
+// Only the faces the type scale uses: the serif in roman and true italic, the sans in
+// three weights.
+import { DMSerifDisplay_400Regular } from '@expo-google-fonts/dm-serif-display/400Regular';
+import { DMSerifDisplay_400Regular_Italic } from '@expo-google-fonts/dm-serif-display/400Regular_Italic';
+import { DMSans_400Regular } from '@expo-google-fonts/dm-sans/400Regular';
+import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
+import { DMSans_600SemiBold } from '@expo-google-fonts/dm-sans/600SemiBold';
 import { configureForeground } from '@/lib/push';
-import { loadSoundPref } from '@/lib/sound';
 import { SessionProvider } from '@/store/session';
 import { OnboardingProvider } from '@/store/onboarding';
 import { FiltersProvider } from '@/store/filters';
+import { WindowProvider } from '@/store/window';
 import { ToastProvider } from '@/ui/Toast';
-import { color } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Root() {
-  const [loaded] = useFonts({ BricolageGrotesque_800ExtraBold, BricolageGrotesque_600SemiBold, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold });
-  useEffect(() => { configureForeground(); void loadSoundPref(); }, []);
+  const t = useTheme();
+  const [loaded] = useFonts({ DMSerifDisplay_400Regular, DMSerifDisplay_400Regular_Italic, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold });
+  useEffect(() => { configureForeground(); }, []);
   useEffect(() => { if (loaded) void SplashScreen.hideAsync().catch(() => {}); }, [loaded]);
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: color.ground }} />;
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: t.paper }} />;
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.ground }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.paper }}>
       <SafeAreaProvider>
           <SessionProvider>
             <OnboardingProvider>
               <FiltersProvider>
+                <WindowProvider>
                 <ToastProvider>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground }, animation: Platform.OS === 'web' ? 'none' : 'default' }}>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.paper }, animation: Platform.OS === 'web' ? 'none' : 'default' }}>
                     <Stack.Screen name="index" />
                     <Stack.Screen name="filters" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
                   </Stack>
                 </ToastProvider>
+                </WindowProvider>
               </FiltersProvider>
             </OnboardingProvider>
           </SessionProvider>

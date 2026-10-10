@@ -80,7 +80,7 @@ export class SupabaseApi implements HitsApi {
       lastActiveAt: r.last_active_at, lookingToHitUntil: r.looking_to_hit_until,
       responseRate: r.requests_received ? r.requests_responded / r.requests_received : null,
       acceptRate: r.requests_responded ? r.requests_accepted / r.requests_responded : null,
-      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, ...extras,
+      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, prefers: null, ...extras,
     };
   }
   async me() {
@@ -114,6 +114,9 @@ export class SupabaseApi implements HitsApi {
     if (patch.displayName != null) row.display_name = patch.displayName;
     if (patch.levelValue != null) row.level_value = patch.levelValue;
     if (patch.levelSource != null) row.level_source = patch.levelSource;
+    // The live schema has no column for a playing preference yet. Saying so beats a
+    // control that looks saved and is not.
+    if (patch.prefers !== undefined) throw new ApiError('Playing preferences are not on the live service yet.', 'unsupported');
     const { error } = await this.sb.from('profiles').update(row).eq('id', this.uid!);
     if (error) this.fail(error);
     return (await this.me())!;
@@ -176,6 +179,7 @@ export class SupabaseApi implements HitsApi {
       responseRate: r.response_rate != null ? Number(r.response_rate) : (r.requests_received ? r.requests_responded / r.requests_received : null),
       acceptRate: r.accept_rate != null ? Number(r.accept_rate) : (r.requests_responded ? r.requests_accepted / r.requests_responded : null),
       hitsConfirmed: r.hits_confirmed ?? 0,
+      prefers: null,
     };
   }
   private async courtMap() { return new Map((await this.courts()).map(c => [c.id, c.name])); }
@@ -216,7 +220,7 @@ export class SupabaseApi implements HitsApi {
       levelValue: null, levelSource: null, levelVerified: false, levelDelta: null,
       distanceBucket: null, homeCourtId: null, homeCourtName: null,
       availabilityMask: 0, lookingToHit: false, lastActiveAt: new Date(0).toISOString(),
-      responseRate: null, acceptRate: null, hitsConfirmed: 0,
+      responseRate: null, acceptRate: null, hitsConfirmed: 0, prefers: null,
     };
   }
 

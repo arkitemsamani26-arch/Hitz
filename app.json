@@ -9,12 +9,12 @@
     "scheme": "hits",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B1220",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F5F1E8",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B1220"
+      "backgroundColor": "#F5F1E8"
     },
     "ios": {
       "supportsTablet": false,
@@ -39,7 +39,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#0B1220",
+        "backgroundColor": "#F5F1E8",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

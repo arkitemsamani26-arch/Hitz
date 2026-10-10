@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card } from '@/ui/Screen';
 import { MemberCard } from '@/ui/MemberCard';
 import { T } from '@/ui/Text';
 import { Field } from '@/ui/Field';
@@ -17,15 +17,16 @@ export default function Name() {
   const ok = first.trim().length >= 2 && /^[A-Za-z]$/.test(last);
   const go = () => { patch({ displayName: first.trim(), lastInitial: last.toUpperCase() }); router.push('/onboarding/photo'); };
   return (
-    <Screen sky={250} bottom={<Centered><Button title="Next" kind="ball" onPress={go} disabled={!ok} /></Centered>}>
+    <Screen bottom={<Centered><Button title="Next" arrow onPress={go} disabled={!ok} /></Centered>}>
       <Centered>
-        <T v="display" style={{ marginTop: space.xl }}>Your member{'\n'}card.</T>
-        <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Players see "{first || 'Maya'} {last ? last.toUpperCase() : 'R'}." until a hit is confirmed.</T>
-        <MemberCard name={first ? `${first}${last ? ` ${last.toUpperCase()}.` : ''}` : ''} level={null} court={null} typing="name" />
-        <Sheet><View style={{ flexDirection: 'row', gap: space.md }}>
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.xl }}>The clubhouse</T>
+        <T v="display" style={{ marginTop: 12 }}>Your player{'\n'}<T v="display" italic>card.</T></T>
+        <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.lg, lineHeight: 21 }}>Players see "{first || 'Maya'} {last ? last.toUpperCase() : 'R'}." until a hit is confirmed.</T>
+        <MemberCard name={first ? `${first}${last ? ` ${last.toUpperCase()}.` : ''}` : ''} level={null} typing style={{ marginBottom: space.lg }} />
+        <Card><View style={{ flexDirection: 'row', gap: space.md }}>
           <View style={{ flex: 3 }}><Field label="First name" value={first} onChangeText={setFirst} placeholder="Maya" autoFocus autoCapitalize="words" textContentType="givenName" /></View>
           <View style={{ flex: 1 }}><Field label="Last initial" value={last} onChangeText={t => setLast(t.slice(-1))} placeholder="R" autoCapitalize="characters" maxLength={1} onSubmitEditing={() => ok && go()} /></View>
-        </View></Sheet>
+        </View></Card>
       </Centered>
     </Screen>
   );

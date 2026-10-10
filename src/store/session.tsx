@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api, demo } from '@/data';
+import { api } from '@/data';
 import type { Profile, Session } from '@/data/types';
 
 type Ctx = {
@@ -10,20 +9,15 @@ type Ctx = {
   refresh: () => Promise<void>;
   setSession: (s: Session | null) => void;
   setProfile: (p: Profile | null) => void;
-  // Persisted list/court preference.
-  listMode: boolean;
-  setListMode: (v: boolean) => void;
   tick: number;   // bumps when the backend reports a change
 };
 
 const SessionCtx = createContext<Ctx | null>(null);
-const LIST_KEY = 'hits.pref.list';
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [listPref, setListPref] = useState<boolean | null>(null);
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -38,10 +32,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      try {
-        const v = await AsyncStorage.getItem(LIST_KEY);
-        if (v != null && alive) setListPref(v === '1');
-      } catch { /* the default is fine */ }
       try {
         await refresh();
       } catch {
@@ -76,17 +66,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; };
   }, [tick, session]);
 
-  // The court is the default. It is the thing that makes this app look like tennis
-  // rather than a table of names, and behind a toggle almost nobody found it.
-  const listMode = listPref ?? false;
-  const setListMode = useCallback((v: boolean) => {
-    setListPref(v);
-    void AsyncStorage.setItem(LIST_KEY, v ? '1' : '0').catch(() => {});
-    demo?.setListMode(v);
-  }, []);
-
-  const value = useMemo(() => ({ ready, session, profile, refresh, setSession, setProfile, listMode, setListMode, tick }),
-    [ready, session, profile, refresh, listMode, setListMode, tick]);
+  const value = useMemo(() => ({ ready, session, profile, refresh, setSession, setProfile, tick }),
+    [ready, session, profile, refresh, tick]);
   return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>;
 }
 

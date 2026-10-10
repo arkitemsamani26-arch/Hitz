@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
-import { Screen, Centered, Sheet } from '@/ui/Screen';
+import { Screen, Centered, Card } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Button } from '@/ui/Button';
 import { Avatar } from '@/ui/Avatar';
@@ -24,21 +23,18 @@ export default function Photo() {
     catch (e: any) { toast(e.message ?? "Couldn't get a photo."); } finally { setBusy(false); }
   };
   return (
-    <Screen sky={260} bottom={<Centered><Button title={draft.photoUri ? 'Looks good' : 'Skip for now'} kind={draft.photoUri ? 'ball' : 'line'} onPress={() => router.push('/onboarding/birthday')} /></Centered>}>
+    <Screen bottom={<Centered><Button title={draft.photoUri ? 'Looks good' : 'Skip for now'} arrow kind={draft.photoUri ? 'primary' : 'line'} onPress={() => router.push('/onboarding/birthday')} /></Centered>}>
       <Centered>
-        <Animated.View entering={FadeInUp.springify().damping(14)}>
-          <T v="display" style={{ marginTop: space.xl }}>Put a face{'\n'}on it.</T>
-          <T v="body" tone="ink2" style={{ marginTop: space.md, marginBottom: space.lg }}>Players say yes to people, not numbers. Only players at your level see it.</T>
-        </Animated.View>
-        <Sheet style={{ alignItems: 'center', gap: space.lg, paddingVertical: space.xl }}>
-          <Animated.View key={draft.photoUri ?? 'none'} entering={ZoomIn.springify().damping(9).stiffness(300)}>
-            <Avatar name={draft.displayName || '?'} photo={draft.photoUri} size={140} ring />
-          </Animated.View>
-          <View style={{ flexDirection: 'row', gap: space.md }}>
-            <Button title="Take one" kind="court" small onPress={() => pick('camera')} loading={busy} />
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.xl }}>Optional</T>
+        <T v="display" style={{ marginTop: 12 }}>Put a face{'\n'}<T v="display" italic>on it.</T></T>
+        <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.lg, lineHeight: 21 }}>Players say yes to people, not numbers. Only players at your level see it. A monogram is fine too.</T>
+        <Card style={{ alignItems: 'center', gap: space.lg, paddingVertical: space.xl }}>
+          <Avatar name={draft.displayName || '?'} lastInitial={draft.lastInitial} photo={draft.photoUri} size={92} />
+          <View style={{ flexDirection: 'row', gap: space.sm }}>
+            <Button title="Take one" small onPress={() => pick('camera')} loading={busy} />
             <Button title="Choose one" kind="line" small onPress={() => pick('library')} disabled={busy} />
           </View>
-        </Sheet>
+        </Card>
       </Centered>
     </Screen>
   );

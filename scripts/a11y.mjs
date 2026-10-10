@@ -64,8 +64,10 @@ const seeded = () => ({
 
 const SCREENS = [
   ['sign in', '/'],
-  ['hits', '/(tabs)'],
+  ['discover', '/(tabs)'],
+  ['my hits', '/(tabs)/hits'],
   ['you', '/(tabs)/you'],
+  ['preview', '/preview'],
   ['filters', '/filters'],
   ['player', '/player/p-maya'],
   ['request', '/request/p-maya'],

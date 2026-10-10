@@ -26,6 +26,9 @@ export interface Profile {
   guardianOpenedAt: string | null;  // the parent tapped the link
   rosterName: string | null;
   photoPendingUrl?: string | null;  // a minor's photo awaiting the parent
+  // What kind of hit they are after, in their words: "Practice sets", "Rally & drills".
+  // Null until the live schema carries it; the demo seeds it.
+  prefers: string | null;
 }
 
 // Planned together while the parents decide. Small, one-tap choices both sides see.
@@ -85,6 +88,7 @@ export interface Player {
   responseRate: number | null;
   acceptRate: number | null;
   hitsConfirmed: number;
+  prefers: string | null;
 }
 
 export interface Court {
@@ -224,4 +228,19 @@ export const SLOTS = [
 
 export function slotsOf(mask: number): string[] {
   return SLOTS.filter(s => mask & s.bit).map(s => `${s.label} ${s.part.toLowerCase()}s`);
+}
+
+// The same, in one short line: "Evenings, any day", "Weekday evenings, weekend mornings".
+export function slotsSummary(mask: number): string {
+  if (!mask) return 'Not set';
+  const all = SLOTS.reduce((m, s) => m | s.bit, 0);
+  if (mask === all) return 'Any time';
+  const wk = mask & 7, we = (mask >> 3) & 7;
+  const parts = (m: number) => ['mornings', 'afternoons', 'evenings'].filter((_, i) => m & (1 << i));
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  if (wk === we) return `${cap(parts(wk).join(', '))}, any day`;
+  const out: string[] = [];
+  if (wk) out.push(`weekday ${parts(wk).join(' and ')}`);
+  if (we) out.push(`weekend ${parts(we).join(' and ')}`);
+  return cap(out.join(', '));
 }
