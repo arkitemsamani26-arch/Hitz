@@ -24,15 +24,15 @@ type SeedPlayer = {
 };
 
 const COURTS: Court[] = [
-  { id: 'c-rinconada', name: 'Rinconada Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: 'under 1 mi' },
-  { id: 'c-mitchell', name: 'Mitchell Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~2 mi' },
-  { id: 'c-cubberley', name: 'Cubberley Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~3 mi' },
-  { id: 'c-burgess', name: 'Burgess Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~3 mi' },
-  { id: 'c-nealon', name: 'Nealon Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~4 mi' },
-  { id: 'c-stanford', name: 'Stanford Taube Courts', access: 'club', indoor: false, surface: 'hard', distanceBucket: '~2 mi' },
-  { id: 'c-cuesta', name: 'Cuesta Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~6 mi' },
-  { id: 'c-sunnyvale', name: 'Sunnyvale Tennis Center', access: 'club', indoor: false, surface: 'hard', distanceBucket: '~9 mi' },
-  { id: 'c-losaltos', name: 'Los Altos Hills Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~7 mi' },
+  { id: 'c-rinconada', name: 'Rinconada Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: 'under 1 mi', address: 'Rinconada Park, Palo Alto, CA' },
+  { id: 'c-mitchell', name: 'Mitchell Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~2 mi', address: 'Mitchell Park, Palo Alto, CA' },
+  { id: 'c-cubberley', name: 'Cubberley Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~3 mi', address: 'Cubberley Community Center, Palo Alto, CA' },
+  { id: 'c-burgess', name: 'Burgess Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~3 mi', address: 'Burgess Park, Menlo Park, CA' },
+  { id: 'c-nealon', name: 'Nealon Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~4 mi', address: 'Nealon Park, Menlo Park, CA' },
+  { id: 'c-stanford', name: 'Stanford Taube Courts', access: 'club', indoor: false, surface: 'hard', distanceBucket: '~2 mi', address: 'Taube Family Tennis Center, Stanford, CA' },
+  { id: 'c-cuesta', name: 'Cuesta Park', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~6 mi', address: 'Cuesta Park, Mountain View, CA' },
+  { id: 'c-sunnyvale', name: 'Sunnyvale Tennis Center', access: 'club', indoor: false, surface: 'hard', distanceBucket: '~9 mi', address: 'Sunnyvale Tennis Center, Sunnyvale, CA' },
+  { id: 'c-losaltos', name: 'Los Altos Hills Courts', access: 'public', indoor: false, surface: 'hard', distanceBucket: '~7 mi', address: 'Los Altos Hills, CA' },
 ];
 
 const SEED: SeedPlayer[] = [
@@ -291,8 +291,11 @@ export class DemoApi implements HitsApi {
     this.later(6000, () => {
       if (this.s.requests.some(r => r.fromId === first.id)) return;
       const start = nextSlot(first.avail & input.availabilityMask || first.avail, 1);
-      this.s.requests.push(row(first.id, ME, first.court, start, 'Saw you just joined. Up for a hit?', ME));
-      void notifyLocal(`${first.name} wants to hit`, 'Saturday morning at ' + (COURTS.find(c => c.id === first.court)?.name ?? 'the courts'));
+      const r0 = row(first.id, ME, first.court, start, 'Saw you just joined. Up for a hit?', ME);
+      this.s.requests.push(r0);
+      // Said the way the server says it: the real day and time, not a guess.
+      const when = start.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: start.getMinutes() ? '2-digit' : undefined });
+      void notifyLocal(`${first.name} wants to hit`, `${when} · ${COURTS.find(c => c.id === first.court)?.name ?? 'the courts'}`, { hit: r0.id });
     });
     this.save();
     return this.meProfile()!;
@@ -427,7 +430,7 @@ export class DemoApi implements HitsApi {
     if (r.state === 'accepted' && r.approvals.every(a => a.decision === true)) {
       r.state = 'confirmed'; r.confirmedAt = iso(new Date());
       const other = SEED.find(p => p.id === (r.fromId === ME ? r.toId : r.fromId));
-      void notifyLocal("It's on.", `${other?.name ?? 'Your hit'} · ${COURTS.find(c => c.id === r.courtId)?.name ?? ''}`);
+      void notifyLocal("It's on.", `${other?.name ?? 'Your hit'} · ${COURTS.find(c => c.id === r.courtId)?.name ?? ''}`, { hit: r.id });
     }
   }
 
@@ -443,7 +446,7 @@ export class DemoApi implements HitsApi {
     this.later(4000 + Math.random() * 4000, () => {
       if (r.state !== 'pending') return;
       if (declines) { r.state = 'declined'; r.declineReason = DECLINE_COPY.not_this_week; r.awaitingId = null; }
-      else { this.onAccepted(r); const st: string = r.state; void notifyLocal(`${seed.name}'s in`, st === 'confirmed' ? "It's on." : 'Waiting on a parent to lock it in.'); }
+      else { this.onAccepted(r); const st: string = r.state; void notifyLocal(`${seed.name}'s in`, st === 'confirmed' ? "It's on." : 'Waiting on a parent to lock it in.', { hit: r.id }); }
     });
     this.save();
     return this.toRequest(r);
@@ -557,8 +560,13 @@ export class DemoApi implements HitsApi {
   async counter(id: string, courtId: string, start: Date, end: Date) {
     await this.load(); await this.wait();
     const r = this.find(id);
+    // The same rules the database enforces: a past hit cannot move, and moving a hit is
+    // always a new proposal the other player has to accept.
+    if (new Date(r.windowEnd) < new Date()) throw new ApiError('This hit has already happened.');
+    if (start < new Date()) throw new ApiError('Pick a time that has not passed.');
     r.courtId = courtId; r.windowStart = iso(start); r.windowEnd = iso(end);
-    r.state = 'countered'; r.approvals = [];
+    r.state = 'countered'; r.approvals = []; r.confirmedAt = null;
+    r.expiresAt = iso(new Date(Math.min(start.getTime(), Date.now() + 72 * 3600000)));
     r.awaitingId = r.fromId === ME ? r.toId : r.fromId;
     this.later(3500 + Math.random() * 3000, () => { if (r.state === 'countered') this.onAccepted(r); });
     this.save(); return this.toRequest(r);

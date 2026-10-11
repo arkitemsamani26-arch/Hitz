@@ -20,7 +20,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.hits.mobile",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored."
+        "NSLocationWhenInUseUsageDescription": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored.",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "When you tap Add to calendar, Hits adds that hit to your calendar. It does not read your other events.",
+        "NSLocationDefaultAccuracyReduced": true
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -30,16 +32,16 @@
       "package": "app.hits.mobile",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#F5F1E8",
+        "backgroundColor": "#173D2B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -58,7 +60,7 @@
       [
         "expo-notifications",
         {
-          "color": "#2E6FCB",
+          "color": "#173D2B",
           "defaultChannel": "hits"
         }
       ],
@@ -70,22 +72,25 @@
         }
       ],
       [
-        "expo-audio",
-        {
-          "microphonePermission": false
-        }
-      ],
-      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored.",
           "locationWhenInUsePermission": "Hits uses your approximate location to find players near you. Your position is rounded to about two kilometres before it is saved, and the precise one is never stored.",
           "isAndroidBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "When you tap Add to calendar, Hits adds that hit to your calendar. It does not read your other events.",
+          "remindersPermission": false
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "description": "Find tennis partners at your level, on courts near you. Invite, agree a time, and play. Under 18, a parent approves every meetup.",
+    "primaryColor": "#173D2B"
   }
 }

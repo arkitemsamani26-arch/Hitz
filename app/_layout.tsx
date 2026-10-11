@@ -18,6 +18,7 @@ import { SessionProvider } from '@/store/session';
 import { OnboardingProvider } from '@/store/onboarding';
 import { FiltersProvider } from '@/store/filters';
 import { WindowProvider } from '@/store/window';
+import { PushRouter } from '@/lib/pushRoute';
 import { ToastProvider } from '@/ui/Toast';
 import { useTheme } from '@/theme/theme';
 
@@ -37,6 +38,7 @@ export default function Root() {
               <FiltersProvider>
                 <WindowProvider>
                 <ToastProvider>
+                  <PushRouter />
                   <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.paper }, animation: Platform.OS === 'web' ? 'none' : 'default' }}>
                     <Stack.Screen name="index" />
                     <Stack.Screen name="filters" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />

@@ -30,7 +30,8 @@ export default function DeleteAccount() {
   const router = useRouter();
   const goBack = useGoBack();
   const toast = useToast();
-  const { profile, setSession, setProfile } = useSession();
+  const { profile, session, setSession, setProfile } = useSession();
+  const isParent = !!session?.isGuardian;
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -66,25 +67,30 @@ export default function DeleteAccount() {
         <Sheet style={{ gap: space.md, marginBottom: space.md }}>
           <T v="h2">This cannot be undone.</T>
           <T v="small" tone="muted">
-            There is no way to get it back and no one to email about it. If you just want a
-            break, turn off “Usually free” on your profile instead and nobody will see you.
+            There is no way to get it back and no one to email about it.{isParent ? '' : ' If you just want a break, turn off "Looking to hit this week" on your club card and stop replying for a while.'}
           </T>
         </Sheet>
 
         <Sheet style={{ gap: space.sm, marginBottom: space.md }}>
           <T v="micro" tone="muted">What goes, immediately</T>
-          <Line text="Your name, photo, level and home court" />
-          <Line text="Your phone number, and the rounded area used to find courts near you" />
-          <Line text="Every message you have sent, and every hit in your history" />
-          <Line text="Any hit that has not happened yet — the other player is told it is off" />
-          {profile?.band === 'minor' && <Line text="The link to your parent, and their view of your account" />}
+          {isParent ? (<>
+            <Line text="Your phone number and email, and your sign-in" />
+            <Line text="Your link to each child, and your view of their account" />
+            <Line text="Any hit of theirs that has not happened yet is cancelled, because it no longer has a parent's approval. They are told why." />
+          </>) : (<>
+            <Line text="Your name, photo, level and home court" />
+            <Line text="Your phone number, and the rounded area used to find courts near you" />
+            <Line text="Every message you have sent, and every hit in your history" />
+            <Line text="Any hit that has not happened yet. The other player is told it is off." />
+            {profile?.band === 'minor' && <Line text="The link to your parent, and their view of your account" />}
+          </>)}
         </Sheet>
 
         <Sheet style={{ gap: space.sm, marginBottom: space.md }}>
           <T v="micro" tone="muted">What stays, and why</T>
           <T v="small" tone="muted">
             If someone has reported you, that report stays. It no longer carries your name,
-            your photo or anything you wrote — only the fact that it was made and who it was
+            your photo or anything you wrote, only the fact that it was made and who it was
             about. Deleting your account is not a way to clear a safety report, because if it
             were, that is exactly what it would be used for.
           </T>

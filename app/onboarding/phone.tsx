@@ -11,6 +11,7 @@ import { fixed, space } from '@/theme/tokens';
 import { StyleSheet } from 'react-native';
 import { Court } from '@/ui/CourtArt';
 import { api } from '@/data';
+import { formatTyping, toE164 } from '@/lib/phone';
 import { useDraft } from '@/store/onboarding';
 
 export default function Phone() {
@@ -43,7 +44,7 @@ export default function Phone() {
     finally { setBusy(false); }
   };
   return (
-    <Screen bottom={<Centered><Button title="Text me a code" arrow onPress={go} loading={busy} disabled={phone.replace(/\D/g, '').length < 10} /></Centered>}>
+    <Screen bottom={<Centered><Button title="Text me a code" arrow onPress={go} loading={busy} disabled={!toE164(phone)} /></Centered>}>
       <Centered>
         <View style={{ marginTop: space.lg, marginBottom: space.lg }}><Wordmark /></View>
         {/* A compact version of the hero: green, serif, one court. Not repeated on later steps. */}
@@ -55,7 +56,7 @@ export default function Phone() {
           <T v="meta" tone="heroCopy" style={{ marginTop: 12, maxWidth: 230 }}>{parent ? 'Use the number their approval text came to.' : 'Players at your level, on courts near you, this week.'}</T>
         </View>
         <Card style={{ gap: space.lg, marginTop: space.lg }}>
-          <Field label={parent ? 'Your number' : 'Your number is the login'} value={phone} onChangeText={setPhone} placeholder="(650) 555-0137" keyboardType="phone-pad" inputMode="tel" textContentType="telephoneNumber" autoFocus onSubmitEditing={go} accessibilityLabel="Phone number" />
+          <Field label={parent ? 'Your number' : 'Your number is the login'} value={phone} onChangeText={t => setPhone(formatTyping(t))} placeholder="(650) 555-0137" autoComplete="tel" keyboardType="phone-pad" inputMode="tel" textContentType="telephoneNumber" autoFocus onSubmitEditing={go} accessibilityLabel="Phone number" />
           {parent ? null : showCode ? (
             <View>
               <Field label="Team or invite code" value={code} onChangeText={checkCode} placeholder="PALY26" autoCapitalize="characters" autoCorrect={false} maxLength={12} />

@@ -59,6 +59,12 @@ const seeded = () => ({
     state: 'pending', awaitingId: 'me', expiresAt: iso(day(3, 9)), createdAt: iso(day(0, 8)),
     confirmedAt: null, declineReason: null, approvals: [], confirmations: {},
     plan: { ballsById: null, format: null, meetAt: null, lateById: null },
+  }, {
+    id: 'r2', fromId: 'me', toId: 'p-ruby', courtId: 'c-rinconada',
+    windowStart: iso(day(4, 17)), windowEnd: iso(day(4, 18)), note: null,
+    state: 'confirmed', awaitingId: null, expiresAt: iso(day(3, 9)), createdAt: iso(day(-1, 8)),
+    confirmedAt: iso(day(-1, 9)), declineReason: null, approvals: [], confirmations: {},
+    plan: { ballsById: null, format: null, meetAt: null, lateById: null },
   }],
 });
 
@@ -71,6 +77,7 @@ const SCREENS = [
   ['player', '/player/p-maya'],
   ['request', '/request/p-maya'],
   ['hit', '/hit/r1'],
+  ['confirmed hit', '/hit/r2'],
   ['verify utr', '/verify-utr'],
   ['delete account', '/delete-account'],
   ['guardian link', '/guardian/link'],
@@ -145,7 +152,9 @@ const main = async () => {
   })()`;
   const inventory = () => page.evaluate(TAG);
 
-  for (const [screen, path] of SCREENS) {
+  // CRAWL_ONLY="confirmed hit" runs one screen, for chasing a single finding.
+  const only = process.env.CRAWL_ONLY;
+  for (const [screen, path] of SCREENS.filter(([n]) => !only || n === only)) {
     await land(path);
     const items = await inventory();
     console.log(`\n=== ${screen}  (${items.length} pressables)`);
@@ -185,7 +194,7 @@ const main = async () => {
       }, it.key);
       if (!spot) { console.log(`  gone  ${name}`); continue; }
 
-      const before = await page.evaluate(() => ({ url: location.pathname + location.search, text: document.body.innerText.length, checks: checkState() }));
+      const before = await page.evaluate(() => ({ url: location.pathname + location.search, text: document.body.innerText.length, body: document.body.innerText, checks: checkState() }));
       errors = [];
       let popped = false;
       const onPopup = () => { popped = true; };
@@ -210,18 +219,30 @@ const main = async () => {
         await page.mouse.up();
         await page.waitForTimeout(900);
       };
-      const reading = async () => page.evaluate(() => ({ url: location.pathname + location.search, text: document.body.innerText.length, checks: checkState() }));
+      const reading = async () => page.evaluate(() => ({ url: location.pathname + location.search, text: document.body.innerText.length, body: document.body.innerText, checks: checkState() }));
+      // Length alone missed a button that swaps one sentence for another of the same size
+      // ("Share my number" to "Hide my number"). Any change to the words counts.
+      const differs = (a, b) => Math.abs(a.text - b.text) > 12 || a.body !== b.body;
 
+      // Something asynchronous (a save, the clipboard, a share sheet) can take a second or
+      // two to show its result. Keep looking for up to 2.5 seconds before calling it dead.
+      const settle = async () => {
+        let r = await reading();
+        for (let t = 0; t < 2500 && r.url === before.url && !differs(r, before) && r.checks === before.checks && !popped; t += 150) {
+          await page.waitForTimeout(150); r = await reading();
+        }
+        return r;
+      };
       await press(true);
-      let after = await reading();
+      let after = await settle();
       let heldOnly = false;
-      if (after.url === before.url && Math.abs(after.text - before.text) <= 12
+      if (after.url === before.url && !differs(after, before)
           && after.checks === before.checks && !popped) {
         await land(path);
         await page.evaluate(TAG);
         await press(false);
-        const second = await reading();
-        if (second.url !== before.url || Math.abs(second.text - before.text) > 12
+        const second = await settle();
+        if (second.url !== before.url || differs(second, before)
             || second.checks !== before.checks || popped) { after = second; heldOnly = true; }
       }
 
@@ -230,7 +251,7 @@ const main = async () => {
       const moved = after.url !== before.url;
       // Three ways a press can be doing its job: it navigated, it changed what is on the
       // screen, it flipped a toggle, or it opened something outside the app.
-      const changed = Math.abs(after.text - before.text) > 12
+      const changed = differs(after, before)
         || after.checks !== before.checks || popped;
       const flags = [];
       if (errors.length) flags.push(...errors);

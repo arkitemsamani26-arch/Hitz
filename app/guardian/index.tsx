@@ -19,12 +19,14 @@ import { api, demo } from '@/data';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
 import { dateLong, rangeText, levelBig } from '@/lib/format';
+import { legal } from '@/lib/links';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function GuardianHome() {
   const router = useRouter();
   const t = useTheme();
   const s = useS();
-  const { tick, refresh } = useSession();
+  const { tick, refresh, setSession, setProfile } = useSession();
   const toast = useToast();
   const { data: kids, loading } = useAsync(() => api.guardianChildren(), [tick]);
   const links = useAsync(() => api.guardianLinks(), [tick]);
@@ -94,11 +96,41 @@ export default function GuardianHome() {
           { label: 'Keep it', onPress: () => {} },
         ]} />
         <T v="meta" tone="muted" style={{ lineHeight: 18 }}>You see every invitation and every message on {kids?.[0]?.profile.displayName ?? 'your kid'}'s account, in full. No adult can find or contact an under-18 here. The database enforces it.</T>
-        {demo && (() => { const d = demo; return (
-          <View style={{ marginTop: space.xl }}>
+
+        {/* The parent's own account. They signed in with a phone number too, and need the
+            same way out, the same help and the same policies as anyone else. */}
+        <T v="micro" tone="muted" style={[st.k, { marginTop: space.xl }]}>Your account</T>
+        <Card style={{ paddingVertical: 2 }}>
+          <Tap onPress={() => router.push('/guardian/link')} style={st.row} accessibilityRole="button">
+            <View style={{ flex: 1 }}><T v="smallM">How this works</T><T v="meta" tone="muted">What you control and what you see.</T></View>
+            <Icon name="chevron-right" size={15} color={t.muted} />
+          </Tap>
+          {legal && (() => { const L = legal; return (
+            <>
+              <Tap onPress={() => void WebBrowser.openBrowserAsync(L.support)} style={[st.row, s.rule]} accessibilityRole="link">
+                <View style={{ flex: 1 }}><T v="smallM">Help</T><T v="meta" tone="muted">Reach a person. Safety reports same day.</T></View>
+                <Icon name="arrow-up-right" size={15} color={t.muted} />
+              </Tap>
+              <Tap onPress={() => void WebBrowser.openBrowserAsync(L.privacy)} style={[st.row, s.rule]} accessibilityRole="link">
+                <View style={{ flex: 1 }}><T v="smallM">Privacy policy</T><T v="meta" tone="muted">Including what we keep about you as a parent.</T></View>
+                <Icon name="arrow-up-right" size={15} color={t.muted} />
+              </Tap>
+              <Tap onPress={() => void WebBrowser.openBrowserAsync(L.terms)} style={[st.row, s.rule]} accessibilityRole="link">
+                <View style={{ flex: 1 }}><T v="smallM">Terms of use</T><T v="meta" tone="muted">The rules for everyone on Hits.</T></View>
+                <Icon name="arrow-up-right" size={15} color={t.muted} />
+              </Tap>
+            </>
+          ); })()}
+        </Card>
+        <View style={{ gap: space.sm, marginTop: space.lg }}>
+          {demo && (() => { const d = demo; return (
             <Button title="Back to the player view (demo)" kind="line" onPress={async () => { d.switchToPlayer(); await refresh(); router.replace('/(tabs)'); }} />
-          </View>
-        ); })()}
+          ); })()}
+          <Button title="Sign out" kind="ghost" icon="log-out" small style={{ alignSelf: 'flex-start' }} onPress={async () => { await api.signOut(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} />
+          <Tap onPress={() => router.push('/delete-account')} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button">
+            <T v="small" tone="danger">Delete my account</T>
+          </Tap>
+        </View>
       </Centered>
     </Screen>
   );

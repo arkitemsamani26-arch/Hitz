@@ -11,7 +11,7 @@ export function Field({ label, big, style, onFocus, onBlur, ...rest }: TextInput
   return (
     <View style={{ gap: space.sm }}>
       {label && <T v="micro" tone="muted">{label}</T>}
-      <TextInput placeholderTextColor={t.muted} selectionColor={t.green} cursorColor={t.green} {...rest}
+      <TextInput placeholderTextColor={t.muted} selectionColor={t.green} cursorColor={t.green} accessibilityLabel={label} {...rest}
         onFocus={e => { setFocused(true); onFocus?.(e); }} onBlur={e => { setFocused(false); onBlur?.(e); }}
         style={[s.input, big && s.big, focused && s.focused, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any), style]} />
     </View>

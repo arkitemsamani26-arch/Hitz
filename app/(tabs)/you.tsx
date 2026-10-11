@@ -1,7 +1,8 @@
 // Club card. The card, then the handful of things about you that other players see, then
 // the account.
 import React, { useState } from 'react';
-import { Share, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { shareText } from '@/lib/share';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -69,10 +70,11 @@ export default function ClubCard() {
     try { const p = await fn(); if (p) setProfile(p); }
     catch (e: any) { haptic.warn(); toast(e?.message ?? "That didn't save. Try again."); }
   };
+  const said = (how: 'shared' | 'copied' | 'failed') => { if (how === 'copied') toast('Copied. Paste it to whoever you are inviting.'); else if (how === 'failed') toast("Couldn't share from here. The code is on this screen."); };
   const setLooking = (v: boolean) => guard(() => api.setLooking(v ? 7 : null));
   const toggleSlot = (bit: number) => guard(() => api.updateProfile({ availabilityMask: profile.availabilityMask ^ bit }));
   const shareInvite = (code: string) =>
-    void Share.share({ message: `Come hit with me on Hits. Use my code ${code} when you sign up. Players at your level, on courts near you.` }).catch(() => {});
+    void shareText(`Come hit with me on Hits. Use my code ${code} when you sign up. Players at your level, on courts near you.`).then(said);
   const invite = async () => {
     setInviting(true);
     try { const i = await api.issueInvite(); await invites.reload(); shareInvite(i.code); }
@@ -82,7 +84,7 @@ export default function ClubCard() {
   const createTeam = async () => {
     if (teamName.trim().length < 2) return;
     setCreating(true);
-    try { const r = await api.createRoster(teamName.trim(), 20); setTeamName(''); await rosters.reload(); void Share.share({ message: `Join ${r.name} on Hits. Code ${r.code}. Find hitting partners at your level in ${area}.` }).catch(() => {}); }
+    try { const r = await api.createRoster(teamName.trim(), 20); setTeamName(''); await rosters.reload(); void shareText(`Join ${r.name} on Hits. Code ${r.code}. Find hitting partners at your level in ${area}.`).then(said); }
     catch (e: any) { toast(e.message); } finally { setCreating(false); }
   };
   const availText = slotsSummary(profile.availabilityMask);
@@ -133,7 +135,7 @@ export default function ClubCard() {
         <Card style={{ gap: space.sm }}>
           <T v="small" tone="muted">Make a code for your team, academy group or club ladder. Everyone who joins with it counts toward opening the courts.</T>
           {(rosters.data ?? []).map(r => (
-            <Tap key={r.id} onPress={() => void Share.share({ message: `Join ${r.name} on Hits. Code ${r.code}.` }).catch(() => {})} style={s.line} accessibilityRole="button" accessibilityLabel={`Share the code for ${r.name}`}>
+            <Tap key={r.id} onPress={() => void shareText(`Join ${r.name} on Hits. Code ${r.code}.`).then(said)} style={s.line} accessibilityRole="button" accessibilityLabel={`Share the code for ${r.name}`}>
               <View style={{ flex: 1 }}><T v="smallM">{r.name}</T><T v="meta" tone="muted">{r.joined} of {r.cap} joined</T></View>
               <Pill label={r.code} />
             </Tap>

@@ -8,7 +8,7 @@ import { Score } from './Score';
 import { Card } from './Screen';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
-import { fixed, hit, radius, space } from '@/theme/tokens';
+import { fixed, font, hit, radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { activeText } from '@/lib/format';
 import { gapLine, gapShort, metaLine, overlapLine, tagLine } from '@/lib/match';
@@ -55,15 +55,16 @@ export function FeaturedCard({ p, me, win, onInvite, onOpen, locked, lockedLabel
 }
 
 // The quieter row: round monogram, sans name, a line of meta, the rating in the sans.
-export function CompactRow({ p, onPress, first }: { p: Player; onPress: () => void; first?: boolean }) {
+export function CompactRow({ p, onPress, first, note }: { p: Player; onPress: () => void; first?: boolean; note?: string }) {
   const s = useS();
   const line = p.prefers ? [p.prefers, slotsOf(p.availabilityMask)[0]].filter(Boolean).join(' · ') : [p.homeCourtName ?? p.distanceBucket, slotsOf(p.availabilityMask)[0]].filter(Boolean).join(' · ');
   return (
-    <Tap onPress={onPress} style={[s.row, !first && s.rowRule]} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${line}. Open profile.`}>
+    <Tap onPress={onPress} style={[s.row, !first && s.rowRule]} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${note ? `${note}. ` : ''}${line}. ${note ? 'Open the hit.' : 'Open profile.'}`}>
       <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={36} shape="round" />
       <View style={{ flex: 1, minWidth: 0 }}>
         <T v="smallM" numberOfLines={1}>{name(p)}</T>
-        <T v="meta" tone="muted" numberOfLines={1}>{line || activeText(p.lastActiveAt)}</T>
+        {note ? <T v="meta" tone="green" numberOfLines={1} style={{ fontFamily: font.medium }}>{note}</T>
+          : <T v="meta" tone="muted" numberOfLines={1}>{line || activeText(p.lastActiveAt)}</T>}
       </View>
       <Score value={p.levelValue} source={p.levelSource} verified={p.levelVerified} sans />
     </Tap>
@@ -87,6 +88,10 @@ export function PlayerCard({ p, anonymous, me }: { p: Player; anonymous?: boolea
         {p.lookingToHit && <Pill label="Looking to hit this week" icon="calendar-check-2" />}
         <Pill label={activeText(p.lastActiveAt)} />
         {me && gapShort(me, p) && <Pill label={gapShort(me, p)!} />}
+        {/* Track record, counted by the server from real hits and replies. Never shown
+            until there is something to count. */}
+        {!anonymous && p.hitsConfirmed > 0 && <Pill label={`${p.hitsConfirmed} ${p.hitsConfirmed === 1 ? 'hit' : 'hits'} played on Hits`} icon="check" />}
+        {!anonymous && p.responseRate != null && p.responseRate >= 0.8 && <Pill label="Usually replies" />}
       </View>
       {free.length > 0 && <T v="meta" tone="muted" style={{ marginTop: space.md }}>Usually free: {slotsSummary(p.availabilityMask).toLowerCase()}</T>}
     </Card>

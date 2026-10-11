@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import { Tap } from '@/ui/Tap';
+import { display } from '@/lib/phone';
 import { useRouter } from 'expo-router';
 import { Screen, Centered, Card } from '@/ui/Screen';
 import { T } from '@/ui/Text';
@@ -17,6 +20,15 @@ export default function Code() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Resend is offered after 30 seconds, which is about how long an SMS can take.
+  const [wait, setWait] = useState(30);
+  const [sent, setSent] = useState<string | null>(null);
+  useEffect(() => { if (wait <= 0) return; const t = setTimeout(() => setWait(w => w - 1), 1000); return () => clearTimeout(t); }, [wait]);
+  const resend = async () => {
+    setErr(null); setSent(null);
+    try { await api.sendCode(draft.phone); setWait(30); setSent('Sent a new code.'); }
+    catch (e: any) { setErr(e?.message ?? "Couldn't send another code."); }
+  };
   const go = async (c = code) => {
     if (c.length < 6) return;
     setBusy(true); setErr(null);
@@ -37,13 +49,22 @@ export default function Code() {
         <Header />
         <T v="eyebrow" tone="muted" style={{ marginTop: space.md }}>One text</T>
         <T v="display" style={{ marginTop: 12 }}>Check your texts.</T>
-        <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.xl, lineHeight: 21 }}>Six digits, sent to {draft.phone}.</T>
+        <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.xl, lineHeight: 21 }}>Six digits, sent to {display(draft.phone)}.</T>
         <Card><Field
           big value={code} onChangeText={t => { const c = t.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) void go(c); }}
           placeholder="••••••" keyboardType="number-pad" inputMode="numeric" textContentType="oneTimeCode" autoFocus maxLength={6}
           accessibilityLabel="Verification code"
         /></Card>
-        {err && <T v="small" tone="danger" style={{ marginTop: space.md }}>{err}</T>}
+        {err && <T v="small" tone="danger" style={{ marginTop: space.md }} accessibilityLiveRegion="polite">{err}</T>}
+        {sent && !err && <T v="small" tone="green" style={{ marginTop: space.md }} accessibilityLiveRegion="polite">{sent}</T>}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.lg, marginTop: space.md }}>
+          <Tap onPress={resend} disabled={wait > 0} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button" accessibilityState={{ disabled: wait > 0 }}>
+            <T v="smallM" tone={wait > 0 ? 'muted' : 'green'}>{wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}</T>
+          </Tap>
+          <Tap onPress={() => router.back()} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
+            <T v="smallM" tone="green">Wrong number?</T>
+          </Tap>
+        </View>
       </Centered>
     </Screen>
   );

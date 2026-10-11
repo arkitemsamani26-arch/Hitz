@@ -10,6 +10,7 @@ import { Field } from '@/ui/Field';
 import { Button } from '@/ui/Button';
 import { space } from '@/theme/tokens';
 import { api } from '@/data';
+import { formatTyping, toE164 } from '@/lib/phone';
 import { useDraft } from '@/store/onboarding';
 import { useSession } from '@/store/session';
 
@@ -22,7 +23,7 @@ export default function Guardian() {
   const [phone, setPhone] = useState(draft.guardianPhone);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const ok = /.+@.+\..+/.test(email) && phone.replace(/\D/g, '').length >= 10;
+  const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && !!toE164(phone);
   const go = async () => {
     setBusy(true); setErr(null);
     try { await api.inviteGuardian(email.trim(), phone); patch({ guardianEmail: email, guardianPhone: phone }); await refresh(); router.push('/onboarding/ready'); }
@@ -45,7 +46,7 @@ export default function Guardian() {
           <T v="small" style={{ marginTop: 6 }}>Your invitations and chats, and a yes or no before any hit is locked in. Not who you pass on. Not where you are.</T>
         </Card>
         <Card style={{ gap: space.lg }}>
-          <Field label="Parent's phone" value={phone} onChangeText={setPhone} placeholder="(650) 555-0100" keyboardType="phone-pad" inputMode="tel" autoFocus />
+          <Field label="Parent's phone" value={phone} onChangeText={t => setPhone(formatTyping(t))} placeholder="(650) 555-0100" keyboardType="phone-pad" inputMode="tel" autoFocus />
           <Field label="Parent's email" value={email} onChangeText={setEmail} placeholder="parent@example.com" keyboardType="email-address" inputMode="email" autoCapitalize="none" textContentType="emailAddress" />
           {err && <T v="small" tone="danger">{err}</T>}
         </Card>

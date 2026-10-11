@@ -7,6 +7,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from 'base64-arraybuffer';
 import { ApiError, type HitsApi } from './api';
+import { toE164 } from '@/lib/phone';
+import { registerCourts } from '@/lib/courts';
 import type {
   Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
   MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
@@ -50,11 +52,13 @@ export class SupabaseApi implements HitsApi {
     return { userId: u.id, phone: u.phone ?? '', isGuardian: isGuardian && !hasProfile };
   }
   async sendCode(phone: string) {
-    const { error } = await this.sb.auth.signInWithOtp({ phone });
+    const e164 = toE164(phone);
+    if (!e164) throw new ApiError('That number does not look complete. Include the area code.');
+    const { error } = await this.sb.auth.signInWithOtp({ phone: e164 });
     if (error) this.fail(error);
   }
   async verifyCode(phone: string, code: string): Promise<Session> {
-    const { data, error } = await this.sb.auth.verifyOtp({ phone, token: code, type: 'sms' });
+    const { data, error } = await this.sb.auth.verifyOtp({ phone: toE164(phone) ?? phone, token: code, type: 'sms' });
     if (error || !data.user) this.fail(error, "That's not it.");
     this.uid = data.user.id;
     return (await this.restore())!;
@@ -80,7 +84,7 @@ export class SupabaseApi implements HitsApi {
       lastActiveAt: r.last_active_at, lookingToHitUntil: r.looking_to_hit_until,
       responseRate: r.requests_received ? r.requests_responded / r.requests_received : null,
       acceptRate: r.requests_responded ? r.requests_accepted / r.requests_responded : null,
-      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, prefers: null, ...extras,
+      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, prefers: r.prefers ?? null, ...extras,
     };
   }
   async me() {
@@ -114,9 +118,7 @@ export class SupabaseApi implements HitsApi {
     if (patch.displayName != null) row.display_name = patch.displayName;
     if (patch.levelValue != null) row.level_value = patch.levelValue;
     if (patch.levelSource != null) row.level_source = patch.levelSource;
-    // The live schema has no column for a playing preference yet. Saying so beats a
-    // control that looks saved and is not.
-    if (patch.prefers !== undefined) throw new ApiError('Playing preferences are not on the live service yet.', 'unsupported');
+    if (patch.prefers !== undefined) row.prefers = patch.prefers?.trim() || null;
     const { error } = await this.sb.from('profiles').update(row).eq('id', this.uid!);
     if (error) this.fail(error);
     return (await this.me())!;
@@ -150,11 +152,13 @@ export class SupabaseApi implements HitsApi {
   async courts(): Promise<Court[]> {
     this.courtsOnce ??= (async () => {
       const { data, error } = await this.sb.from('courts')
-        .select('id, name, access, indoor, surface').eq('is_active', true).order('name');
+        .select('id, name, access, indoor, surface, address').eq('is_active', true).order('name');
       // Don't cache a failure: a court list that came back empty because the network was
       // down would otherwise stay empty for the whole session.
       if (error) { this.courtsOnce = null; this.fail(error); }
-      return (data ?? []).map(c => ({ id: c.id, name: c.name, access: c.access, indoor: c.indoor, surface: c.surface, distanceBucket: null }));
+      const list = (data ?? []).map(c => ({ id: c.id, name: c.name, access: c.access, indoor: c.indoor, surface: c.surface, distanceBucket: null, address: c.address ?? null }));
+      registerCourts(list);
+      return list;
     })();
     return this.courtsOnce;
   }
@@ -179,7 +183,7 @@ export class SupabaseApi implements HitsApi {
       responseRate: r.response_rate != null ? Number(r.response_rate) : (r.requests_received ? r.requests_responded / r.requests_received : null),
       acceptRate: r.accept_rate != null ? Number(r.accept_rate) : (r.requests_responded ? r.requests_accepted / r.requests_responded : null),
       hitsConfirmed: r.hits_confirmed ?? 0,
-      prefers: null,
+      prefers: r.prefers ?? null,
     };
   }
   private async courtMap() { return new Map((await this.courts()).map(c => [c.id, c.name])); }
@@ -461,7 +465,9 @@ export class SupabaseApi implements HitsApi {
 
   // ---- guardian ----------------------------------------------------------------
   async inviteGuardian(email: string, phone: string) {
-    const { error } = await this.sb.from('guardian_links').insert({ minor_profile_id: this.uid, guardian_email: email, guardian_phone: phone, relationship: 'parent' });
+    const e164 = toE164(phone);
+    if (!e164) throw new ApiError("Your parent's number does not look complete. Include the area code.");
+    const { error } = await this.sb.from('guardian_links').insert({ minor_profile_id: this.uid, guardian_email: email, guardian_phone: e164, relationship: 'parent' });
     if (error) this.fail(error);
   }
   async guardianChildren(): Promise<GuardianChild[]> {

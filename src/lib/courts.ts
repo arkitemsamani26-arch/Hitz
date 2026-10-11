@@ -1,5 +1,8 @@
 // Court coordinates, used client side to order the picker and to suggest a court that
 // sits between two players. The server holds the authoritative set.
+//
+// Keyed by the demo's ids, and filled in for the live directory's ids by name when the
+// court list loads (registerCourts), so the same lookups work against either backend.
 export const COURT_POINTS: Record<string, [number, number]> = {
   'c-rinconada': [37.4460, -122.1500],
   'c-mitchell': [37.4210, -122.1090],
@@ -12,6 +15,23 @@ export const COURT_POINTS: Record<string, [number, number]> = {
   'c-losaltos': [37.3790, -122.1370],
   'c-cupertino': [37.3120, -122.0560],
 };
+
+const BY_NAME: Record<string, [number, number]> = {
+  'Rinconada Park': [37.4460, -122.1500],
+  'Mitchell Park': [37.4210, -122.1090],
+  'Cubberley Courts': [37.4160, -122.1030],
+  'Burgess Park': [37.4520, -122.1830],
+  'Nealon Park': [37.4420, -122.1970],
+  'Stanford Taube Courts': [37.4340, -122.1600],
+  'Cuesta Park': [37.3800, -122.0790],
+  'Sunnyvale Tennis Center': [37.3650, -122.0270],
+  'Los Altos Hills Courts': [37.3790, -122.1370],
+  'Cupertino Tennis Center': [37.3120, -122.0560],
+};
+
+export function registerCourts(courts: { id: string; name: string }[]) {
+  for (const c of courts) if (!COURT_POINTS[c.id] && BY_NAME[c.name]) COURT_POINTS[c.id] = BY_NAME[c.name];
+}
 
 export function milesBetween(a: [number, number], b: [number, number]) {
   const toRad = (d: number) => (d * Math.PI) / 180;

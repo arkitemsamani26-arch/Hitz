@@ -17,7 +17,7 @@ import { makeStyles } from '@/theme/theme';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
-import { dateLong, rangeText, tzName } from '@/lib/format';
+import { dateLong, expiresText, rangeText, tzName } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { DECLINE_COPY, type DeclineReason, type HitRequest } from '@/data/types';
 
@@ -33,8 +33,8 @@ export function groupOf(r: HitRequest, me: string | undefined): Group {
 export function statusOf(r: HitRequest, me: string | undefined): { label: string; icon: 'clock-3' | 'check' | 'x' | 'calendar-check-2' | 'users'; live?: boolean } {
   const who = r.other.displayName;
   switch (r.state) {
-    case 'pending': return r.awaitingId === me ? { label: 'Your reply', icon: 'clock-3', live: true } : { label: `Awaiting ${who}'s reply`, icon: 'clock-3', live: true };
-    case 'countered': return r.awaitingId === me ? { label: `${who} suggested another time`, icon: 'clock-3', live: true } : { label: `Awaiting ${who}'s reply to your counter`, icon: 'clock-3', live: true };
+    case 'pending': return r.awaitingId === me ? { label: `Your reply · ${expiresText(r.expiresAt).toLowerCase()}`, icon: 'clock-3', live: true } : { label: `Awaiting ${who}'s reply`, icon: 'clock-3', live: true };
+    case 'countered': return r.awaitingId === me ? { label: `${who} suggested another time`, icon: 'clock-3', live: true } : { label: `Awaiting ${who}'s reply to your new time`, icon: 'clock-3', live: true };
     case 'accepted': return { label: 'Waiting on a parent', icon: 'users', live: true };
     case 'confirmed': return { label: "It's on", icon: 'calendar-check-2', live: true };
     case 'completed': return { label: 'Played', icon: 'check' };
@@ -85,6 +85,7 @@ export default function MyHits() {
           <PlanPanel groups={[
             { label: `With ${r.other.displayName} ${r.other.lastInitial ? r.other.lastInitial + '.' : ''}`, values: [dateLong(start), `${rangeText(start, end)} · ${tzName()}`] },
             { values: [r.courtName], note: r.state === 'confirmed' || r.state === 'completed' ? undefined : 'Suggested court. Booking not confirmed.' },
+            ...(r.note && groupOf(r, me) === 'you' ? [{ label: `${r.other.displayName} said`, values: [r.note] }] : []),
           ]}>
             <View style={{ marginTop: 14 }}><Pill label={st.label} icon={st.icon} /></View>
           </PlanPanel>
@@ -112,10 +113,12 @@ export default function MyHits() {
               <>
                 <T v="micro" tone="muted" style={s.k}>Waiting on you</T>
                 {groups.you.map(r => panel(r, (
-                  <View style={s.actions}>
-                    <Button title="Accept" small onPress={() => accept(r)} loading={busy === r.id} style={{ flex: 1 }} />
-                    <Button title="Suggest another time" kind="line" small onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} />
-                    <Button title="Decline" kind="ghost" small onPress={() => setPassing(r)} />
+                  <View style={{ gap: space.sm, marginTop: space.sm }}>
+                    <Button title="Accept" arrow onPress={() => accept(r)} loading={busy === r.id} />
+                    <View style={s.actions}>
+                      <Button title="Suggest another time" kind="line" small onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} style={{ flexGrow: 1 }} />
+                      <Button title="Decline" kind="ghost" small onPress={() => setPassing(r)} />
+                    </View>
                   </View>
                 )))}
               </>
@@ -165,7 +168,7 @@ const s = StyleSheet.create({
   h: { marginTop: 12, marginBottom: 12 },
   sub: { marginBottom: 24, lineHeight: 21 },
   k: { marginTop: 14, marginBottom: 12 },
-  actions: { flexDirection: 'row', gap: space.sm, marginTop: space.sm, flexWrap: 'wrap' },
+  actions: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   pastRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 12, minHeight: 56 },
 });
 const useS = makeStyles(c => ({ rule: { borderTopWidth: 1, borderTopColor: c.line } }));

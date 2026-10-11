@@ -15,6 +15,7 @@ import { PlanPanel } from '@/ui/Plan';
 import { OptionSheet } from '@/ui/Sheet';
 import { Court } from '@/ui/CourtArt';
 import { ShareCard, shareMoment } from '@/ui/ShareCard';
+import { addToCalendar, directionsTo, placeOf } from '@/lib/handoff';
 import { useToast } from '@/ui/Toast';
 import { fixed, font, hit, radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -36,6 +37,7 @@ export default function Hit() {
   const { profile, tick } = useSession();
   const { data, loading, reload } = useAsync(() => api.hit(id), [id, tick]);
   const shares = useAsync(() => api.sharedPhones(id), [id, tick]);
+  const courts = useAsync(() => api.courts(), []);
   const [passing, setPassing] = useState(false);
   const [more, setMore] = useState(false);
   const [text, setText] = useState('');
@@ -92,10 +94,12 @@ export default function Hit() {
       </Animated.View>
     );
     bottom = (
-      <Centered><View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
-        <Button title="Accept" onPress={() => act('accept', async () => { await api.accept(r.id); haptic.accepted(); })} loading={busy === 'accept'} style={{ flex: 1, minWidth: 120 }} />
-        <Button title="Suggest another time" kind="line" onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} />
-        <Button title="Decline" kind="ghost" onPress={() => setPassing(true)} />
+      <Centered><View style={{ gap: space.sm }}>
+        <Button title="Accept" arrow onPress={() => act('accept', async () => { await api.accept(r.id); haptic.accepted(); })} loading={busy === 'accept'} />
+        <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
+          <Button title="Suggest another time" kind="line" small onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} style={{ flexGrow: 1 }} />
+          <Button title="Decline" kind="ghost" small onPress={() => setPassing(true)} />
+        </View>
       </View></Centered>
     );
   } else if (theirMove) {
@@ -113,47 +117,65 @@ export default function Hit() {
     head = <WaitingOnParent r={r} me={profile} setPlan={setPlan} plan={plan} />;
   } else if (r.state === 'confirmed' || r.state === 'completed') {
     const mine = (shares.data ?? []).find(x => x.mine); const theirs = (shares.data ?? []).find(x => !x.mine);
+    // Once the window has passed, this is not a plan any more. It is a question, and then
+    // a memory, and the next step is the next hit.
+    const over = r.state === 'completed' || pastWindow;
+    const asking = r.state === 'confirmed' && pastWindow && r.myConfirmation == null;
+    const eyebrow = asking ? 'After the hit' : over ? (r.myConfirmation === false ? 'Did not happen' : 'Played') : 'Confirmed';
+    const title = asking ? 'How did it go?' : over ? (r.myConfirmation === false ? 'Next time.' : 'Good hit.') : "It's on.";
     head = (
       <View>
         <ShareCard ref={cardRef} req={r} me={profile} />
-        <T v="eyebrow" tone="muted">{r.state === 'completed' ? 'Played' : 'Confirmed'}</T>
-        <T v="display" style={st.h}>It's on.</T>
-        <Animated.View entering={fresh ? FadeIn.duration(240) : undefined} style={st.summary}>
+        <T v="eyebrow" tone="muted">{eyebrow}</T>
+        <T v="display" style={st.h}>{title}</T>
+        {asking && (
+          <Card style={{ gap: space.sm, marginBottom: space.md }}>
+            <T v="smallM">Did you hit with {r.other.displayName}?</T>
+            <T v="small" tone="muted">One tap. It is how "hits played" stays honest, for both of you.</T>
+            <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
+              <Button title="Didn't happen" kind="line" small onPress={() => act('played-no', () => api.confirmPlayed(r.id, false))} loading={busy === 'played-no'} />
+              <Button title="We hit" small onPress={() => act('played', async () => { await api.confirmPlayed(r.id, true); haptic.confirmed(); })} loading={busy === 'played'} style={{ flex: 1 }} />
+            </View>
+          </Card>
+        )}
+        <Animated.View entering={fresh ? FadeIn.duration(240) : undefined} style={[st.summary, over && { opacity: 0.92 }]}>
           <View style={st.summaryArt} pointerEvents="none"><Court width={120} height={200} /></View>
           <T v="micro" tone="memberMeta" style={{ letterSpacing: 1.8 }}>With {who}</T>
           <T v="h1" tone="memberText" style={{ marginTop: 10 }}>{dateLong(start)}</T>
           <T v="bodyM" tone="memberText">{rangeText(start, end)} · {tzName()}</T>
           <View style={st.summaryRule} />
           <T v="bodyM" tone="memberText">{r.courtName}</T>
-          <T v="meta" tone="memberMeta" style={{ marginTop: 4 }}>Court access and booking not checked. Confirm a free court on the day.</T>
+          {!over && <T v="meta" tone="memberMeta" style={{ marginTop: 4 }}>Court access and booking not checked. Confirm a free court on the day.</T>}
         </Animated.View>
-        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, flexWrap: 'wrap' }}>
-          <Button title="Share" kind="line" small icon="share" onPress={() => { void shareMoment(cardRef, r, profile); }} />
-          <Button title="Reschedule" kind="line" small onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } })} />
-        </View>
-        <Logistics r={r} me={profile} setPlan={setPlan} onTheDay />
-        {/* Numbers are never shown by default. Share yours for this hit if you'd rather text. */}
-        <T v="micro" tone="muted" style={st.k}>Rather text?</T>
-        <Card style={{ gap: space.sm }}>
-          {theirs
-            ? <View style={st.row}>
-                <View style={{ flex: 1 }}><T v="smallM">{r.other.displayName} shared a number</T><T v="meta" tone="muted">{theirs.phone}</T></View>
-                <Button title={`Text ${r.other.displayName}`} small onPress={() => void Linking.openURL(`sms:${theirs.phone.replace(/[^+\d]/g, '')}`)} />
-              </View>
-            : <T v="small" tone="muted">{r.other.displayName} hasn't shared a number for this hit.</T>}
-          <View style={[st.row, s.rule, { paddingTop: space.sm }]}>
-            <View style={{ flex: 1 }}><T v="smallM">{mine ? 'Your number is shared for this hit' : 'Share your number for this hit'}</T><T v="meta" tone="muted">{mine ? `${r.other.displayName} can text you. Just for this hit.` : `Only ${r.other.displayName}, only for this hit. Take it back any time.`}</T></View>
-            <Button title={mine ? 'Unshare' : 'Share'} kind={mine ? 'line' : 'primary'} small onPress={() => act('share', () => api.sharePhone(r.id, !mine))} loading={busy === 'share'} />
+        {!over ? (
+          <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, flexWrap: 'wrap' }}>
+            <Button title="Add to calendar" kind="line" small icon="calendar-days" onPress={async () => {
+              const res = await addToCalendar(r, courts.data?.find(c => c.id === r.courtId)?.address);
+              if (res === 'added') toast('Added to your calendar.');
+              else if (res === 'downloaded') toast('Calendar file downloaded. Open it to add the hit.');
+              else if (res === 'failed') toast("Couldn't open your calendar.");
+            }} />
+            <Button title="Directions" kind="line" small icon="map-pin" onPress={async () => { if (!(await directionsTo(placeOf(r, courts.data?.find(c => c.id === r.courtId)?.address)))) toast("Couldn't open maps."); }} />
+            <Button title="Share" kind="line" small icon="share" onPress={async () => { const how = await shareMoment(cardRef, r, profile); if (how === 'copied') toast('Copied. Paste it wherever you like.'); else if (how === 'failed') toast("Couldn't share from here."); }} />
           </View>
-        </Card>
-        {r.state === 'confirmed' && pastWindow && r.myConfirmation == null && (
+        ) : (
+          <Button title={`Hit with ${r.other.displayName} again`} arrow onPress={() => router.push(`/request/${r.other.id}`)} style={{ marginTop: space.md }} />
+        )}
+        {!over && <Logistics r={r} me={profile} setPlan={setPlan} onTheDay />}
+        {/* Numbers are never shown by default. Share yours for this hit if you'd rather text. */}
+        {!over && (
           <>
-            <T v="micro" tone="muted" style={st.k}>Did you hit?</T>
+            <T v="micro" tone="muted" style={st.k}>Rather text?</T>
             <Card style={{ gap: space.sm }}>
-              <T v="small" tone="muted">One tap. It's how "hits played" stays honest.</T>
-              <View style={{ flexDirection: 'row', gap: space.sm }}>
-                <Button title="Didn't happen" kind="line" small onPress={() => act('played', () => api.confirmPlayed(r.id, false))} />
-                <Button title="We hit" small onPress={() => act('played', () => api.confirmPlayed(r.id, true))} loading={busy === 'played'} style={{ flex: 1 }} />
+              {theirs
+                ? <View style={st.row}>
+                    <View style={{ flex: 1 }}><T v="smallM">{r.other.displayName} shared a number</T><T v="meta" tone="muted">{theirs.phone}</T></View>
+                    <Button title={`Text ${r.other.displayName}`} small icon="message-circle" onPress={() => void Linking.openURL(`sms:${theirs.phone.replace(/[^+\d]/g, '')}`)} />
+                  </View>
+                : <T v="small" tone="muted">{r.other.displayName} hasn't shared a number for this hit.</T>}
+              <View style={[st.row, s.rule, { paddingTop: space.sm }]}>
+                <View style={{ flex: 1 }}><T v="smallM">{mine ? 'Your number is shared for this hit' : 'Share your number for this hit'}</T><T v="meta" tone="muted">{mine ? `${r.other.displayName} can text you. Just for this hit.` : `Only ${r.other.displayName}, only for this hit. Take it back any time.`}</T></View>
+                <Button title={mine ? 'Hide my number' : 'Share my number'} kind={mine ? 'line' : 'primary'} small onPress={() => act('share', async () => { await api.sharePhone(r.id, !mine); await shares.reload(); toast(mine ? 'Your number is hidden again.' : `${r.other.displayName} can see your number for this hit.`); })} loading={busy === 'share'} />
               </View>
             </Card>
           </>
@@ -197,7 +219,7 @@ export default function Hit() {
               <T v="micro" tone="muted">Messages</T>
               {r.note && (myMove || theirMove) ? null : r.note && <Bubble mine={r.fromId === me} who={r.fromId === me ? 'You' : r.other.displayName} body={r.note} />}
               {(data?.messages ?? []).map(m => <Bubble key={m.id} mine={m.senderId === me} who={m.senderId === me ? 'You' : r.other.displayName} body={m.body} when={relTime(m.createdAt)} />)}
-              {(data?.messages.length ?? 0) === 0 && <T v="small" tone="muted">{myMove || theirMove ? 'Say hi. Sort out balls.' : 'Nothing yet. Say hi, sort out balls.'}</T>}
+              {(data?.messages.length ?? 0) === 0 && <T v="small" tone="muted">{pastWindow ? 'No messages on this one.' : 'Nothing yet. Say hi, sort out balls.'}</T>}
             </View>
           )}
         </ScrollView>
@@ -205,7 +227,8 @@ export default function Hit() {
           options={(Object.keys(DECLINE_COPY) as DeclineReason[]).map(k => ({ label: DECLINE_COPY[k], onPress: () => act('decline', () => api.decline(r.id, k)) }))} />
         <OptionSheet open={more} onClose={() => setMore(false)} options={[
           { label: `See ${r.other.displayName}'s profile`, onPress: () => router.push(`/player/${r.other.id}`) },
-          ...(['pending', 'countered', 'accepted', 'confirmed'].includes(r.state) ? [{ label: 'Cancel this hit', sub: `${r.other.displayName} is told.`, onPress: () => act('cancel', () => api.cancelRequest(r.id)), danger: true }] : []),
+          ...((r.state === 'confirmed' || r.state === 'accepted') && !pastWindow ? [{ label: 'Suggest another time', sub: `${r.other.displayName} has to agree again.`, onPress: () => router.push({ pathname: '/request/[id]', params: { id: r.other.id, counter: r.id } }) }] : []),
+          ...(['pending', 'countered', 'accepted', 'confirmed'].includes(r.state) && !pastWindow ? [{ label: 'Cancel this hit', sub: `${r.other.displayName} is told.`, onPress: () => act('cancel', () => api.cancelRequest(r.id)), danger: true }] : []),
           { label: 'Report', sub: 'Goes to a person, same day', onPress: () => router.push(`/player/${r.other.id}?report=1`), danger: true },
           { label: `Block ${r.other.displayName}`, onPress: () => act('block', async () => { await api.block(r.other.id); router.replace('/(tabs)'); }), danger: true },
         ]} />

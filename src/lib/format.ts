@@ -103,3 +103,13 @@ export function tzName(): string {
     return part?.value ?? '';
   } catch { return ''; }
 }
+
+// How long an invitation has left, in the words you would say it.
+export function expiresText(iso: string): string {
+  const h = (new Date(iso).getTime() - Date.now()) / 3600000;
+  if (h <= 0) return 'Expired';
+  if (h < 1) return 'Expires within the hour';
+  if (h < 24) return `Expires in ${Math.round(h)}h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'Expires tomorrow' : `Expires in ${d} days`;
+}

@@ -98,6 +98,8 @@ export interface Court {
   indoor: boolean;
   surface: string | null;
   distanceBucket: string | null;
+  // City-level, for directions. Never a pin we have not checked.
+  address?: string | null;
 }
 
 export interface HitRequest {
@@ -237,10 +239,11 @@ export function slotsSummary(mask: number): string {
   if (mask === all) return 'Any time';
   const wk = mask & 7, we = (mask >> 3) & 7;
   const parts = (m: number) => ['mornings', 'afternoons', 'evenings'].filter((_, i) => m & (1 << i));
+  const list = (xs: string[]) => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  if (wk === we) return `${cap(parts(wk).join(', '))}, any day`;
+  if (wk === we) return `${cap(list(parts(wk)))}, any day`;
   const out: string[] = [];
-  if (wk) out.push(`weekday ${parts(wk).join(' and ')}`);
-  if (we) out.push(`weekend ${parts(we).join(' and ')}`);
+  if (wk) out.push(`weekday ${list(parts(wk))}`);
+  if (we) out.push(`weekend ${list(parts(we))}`);
   return cap(out.join(', '));
 }

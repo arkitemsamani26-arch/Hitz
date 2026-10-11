@@ -26,13 +26,17 @@ export async function nearMe(courts: Court[]): Promise<string[] | null> {
   try {
     const perm = await Location.requestForegroundPermissionsAsync();
     if (!perm.granted) return null;
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    // Approximate is all this needs: the server rounds to about two kilometres anyway.
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
     const me: [number, number] = [pos.coords.latitude, pos.coords.longitude];
     pending = me;
     // If a profile already exists (changing your court later), this lands right away.
     void api.setLocation(me[0], me[1]).then(() => { pending = null; }, () => {});
-    return [...courts]
-      .filter(c => POINTS[c.id])
+    const known = courts.filter(c => POINTS[c.id]);
+    // No positions for these courts means no honest order. Say nothing rather than
+    // label an unsorted list "closest".
+    if (!known.length) return null;
+    return [...known]
       .sort((a, b) => miles(me, POINTS[a.id]) - miles(me, POINTS[b.id]))
       .map(c => c.id);
   } catch { return null; }

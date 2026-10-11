@@ -26,6 +26,19 @@ otherwise is how a submission gets rejected three times.
 Bundle identifiers were already registered in `app.json` as `app.hits.mobile` for both
 platforms.
 
+## Done (October 2026)
+
+The full walk-through is in `docs/16-launch-audit.md`. The items that were blocking:
+
+| | What it was | What it is now |
+|---|---|---|
+| **App icon** | Expo's template placeholder | A real icon set in the Clubhouse design, rendered by `scripts/icons.mjs` |
+| **Live sign-in** | Phone numbers sent as typed; Supabase needs `+1...` | Normalised in `src/lib/phone.ts` |
+| **Rescheduling** | A confirmed hit could be moved without the other player agreeing | Any change of time or court is a counterproposal, enforced on the server |
+| **Push** | Taps opened nothing; times in UTC; counters and cancellations silent | Taps route to the hit; times in the court's zone; every change that affects you is sent |
+| **Location** | Asked for precise location | Approximate only, on both platforms |
+| **Store listing** | None | `docs/store/`: copy, rating answers, review notes, six screenshots |
+
 ---
 
 ## Left to do — blocking
@@ -111,7 +124,7 @@ collects, so you can answer honestly rather than guessing:
 | Date of birth | Yes | Yes | No | Decides the under-18 / adult split |
 | Photos | Yes, optional | Yes | No | Profile picture, guardian-approved for minors |
 | Coarse location | Yes | Yes | No | Distance between players |
-| Precise location | Yes, server only | Yes | No | Never shown to a player or returned to an app |
+| Precise location | **No** | — | — | The app asks only for approximate location (Android coarse permission, iOS reduced accuracy by default), and the server rounds it again on arrival |
 | Messages | Yes | Yes | No | Arranging one specific hit |
 | Contact info of others | Yes | Yes | No | **A guardian's email and phone.** Easy to forget — a parent's email is personal data about someone who never installed the app. |
 | Push token | Yes | Yes | No | Notifications |

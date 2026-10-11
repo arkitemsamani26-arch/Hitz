@@ -22,6 +22,7 @@ import { useAsync } from '@/store/useAsync';
 import { dateLong, rangeText, tzName } from '@/lib/format';
 import { endOf, overlapLine } from '@/lib/match';
 import { haptic } from '@/lib/haptics';
+import { midpointCourt } from '@/lib/courts';
 
 const HITS = ['Warm up, then practice sets', 'Rally and drills', 'A match', 'Whatever works on the day'];
 
@@ -52,7 +53,10 @@ export default function Invitation() {
     setWin({ start, durMin: Math.max(30, Math.round((new Date(r.windowEnd).getTime() - start.getTime()) / 60000)) });
   }, [original]);
 
-  const chosenCourt = courtId ?? original?.request.courtId ?? player?.homeCourtId ?? profile?.homeCourtId ?? courts?.[0]?.id ?? null;
+  // Default to the court halfway between your two home courts, so neither of you drives
+  // the whole way; then theirs, then yours.
+  const middle = useMemo(() => (courts && profile && player ? midpointCourt(profile.homeCourtId, player.homeCourtId, courts.map(c => c.id)) : null), [courts, profile, player]);
+  const chosenCourt = courtId ?? original?.request.courtId ?? middle ?? player?.homeCourtId ?? profile?.homeCourtId ?? courts?.[0]?.id ?? null;
   const court = courts?.find(c => c.id === chosenCourt) ?? null;
   const theirs = original?.request ?? null;
   const unchanged = !!theirs && theirs.courtId === chosenCourt && new Date(theirs.windowStart).getTime() === win.start.getTime()
@@ -74,7 +78,8 @@ export default function Invitation() {
 
   if (!player || !courts || (isCounter && !original) || !profile) return <Screen><Centered><Header backLabel="Back to players" /><Loading /></Centered></Screen>;
 
-  const courtNote = court?.access === 'club' ? 'Club court. Membership or a guest pass may apply; booking not checked.' : 'Court access and booking availability not checked.';
+  const why = !courtId && !original && court ? (court.id === middle && court.id !== player.homeCourtId && court.id !== profile.homeCourtId ? 'About halfway between your home courts. ' : court.id === player.homeCourtId ? `${player.displayName}'s home court. ` : court.id === profile.homeCourtId ? 'Your home court. ' : '') : '';
+  const courtNote = why + (court?.access === 'club' ? 'Club court: membership or a guest pass may apply. Booking not checked.' : 'Court access and booking availability not checked.');
   return (
     <Screen bottom={
       <Centered>

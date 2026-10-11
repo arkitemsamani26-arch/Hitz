@@ -48,6 +48,8 @@ The app (Expo), schema, RLS policies and the safety test suite are in. The docs,
 | [`docs/07-build-notes.md`](docs/07-build-notes.md) | First build: decisions, compromises |
 | [`docs/08-center-court-pass.md`](docs/08-center-court-pass.md) | The earlier Center Court pass (superseded by 15) |
 | [`docs/15-clubhouse.md`](docs/15-clubhouse.md) | The Clubhouse, refined design: tokens, screens, deviations, checks |
+| [`docs/16-launch-audit.md`](docs/16-launch-audit.md) | The pre-launch checklist, every verdict, and what is left for you |
+| [`docs/store/listing.md`](docs/store/listing.md) | App Store and Play listing copy, rating answers, review notes, screenshots |
 | [`docs/09-supabase-setup.md`](docs/09-supabase-setup.md) | Standing up a live project |
 
 Read `01` and `04` first — they constrain everything else.

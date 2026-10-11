@@ -8,6 +8,7 @@ import { Court } from './CourtArt';
 import { fixed } from '@/theme/tokens';
 import { dateLong, rangeText } from '@/lib/format';
 import type { HitRequest, Profile } from '@/data/types';
+import { shareText } from '@/lib/share';
 
 export const ShareCard = forwardRef<View, { req: HitRequest; me: Profile }>(function ShareCard({ req, me }, ref) {
   const start = new Date(req.windowStart), end = new Date(req.windowEnd);
@@ -31,17 +32,24 @@ export const ShareCard = forwardRef<View, { req: HitRequest; me: Profile }>(func
   );
 });
 
-export async function shareMoment(node: React.RefObject<View | null>, req: HitRequest, me: Profile) {
+// What it shares: first names, the day, the time and the court. No phone number, no
+// surname, no level, nothing that was not already on the card both players agreed to.
+export async function shareMoment(node: React.RefObject<View | null>, req: HitRequest, me: Profile): Promise<'shared' | 'copied' | 'failed'> {
   const start = new Date(req.windowStart), end = new Date(req.windowEnd);
   const text = `It's on. ${me.displayName} and ${req.other.displayName} · ${dateLong(start)}, ${rangeText(start, end)} · ${req.courtName}`;
-  if (Platform.OS === 'web' || !node.current) { await Share.share({ message: text }).catch(() => {}); return; }
+  if (Platform.OS === 'web') {
+    // Desktop browsers mostly have no share sheet. Copying is the honest fallback.
+    return shareText(text);
+  }
+  if (!node.current) { try { await Share.share({ message: text }); return 'shared'; } catch { return 'failed'; } }
   try {
     const { captureRef } = require('react-native-view-shot');
     const Sharing = require('expo-sharing');
     const uri: string = await captureRef(node, { format: 'png', quality: 1, width: 1080, height: 1920 });
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: text });
     else await Share.share({ message: text, url: uri });
-  } catch { await Share.share({ message: text }).catch(() => {}); }
+    return 'shared';
+  } catch { try { await Share.share({ message: text }); return 'shared'; } catch { return 'failed'; } }
 }
 
 const s = StyleSheet.create({

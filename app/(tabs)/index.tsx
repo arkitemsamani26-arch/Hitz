@@ -18,7 +18,7 @@ import { radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
-import { useFilters } from '@/store/filters';
+import { useFilters, activeFilterCount } from '@/store/filters';
 import { useNextWindow, useWindow } from '@/store/window';
 import { useAsync } from '@/store/useAsync';
 import { bestMatch } from '@/lib/defaults';
@@ -45,18 +45,38 @@ export default function Discover() {
   const canInvite = !!profile && (profile.band === 'adult' || profile.guardianVerified);
   const list = players.data ?? [];
   const waiting = (reqs.data ?? []).filter(r => (r.state === 'pending' || r.state === 'countered') && r.awaitingId === me);
-  const top = useMemo(() => (profile ? bestMatch(profile, list) : null), [profile, list]);
+  // Anyone you already have something open with: an invitation either way, or a hit on
+  // the calendar. They are not who we suggest next, and their row says why.
+  const openWith = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of reqs.data ?? []) {
+      if (new Date(r.windowEnd) < new Date()) continue;
+      if (r.state === 'confirmed') m.set(r.other.id, 'Hit on the calendar');
+      else if (r.state === 'accepted') m.set(r.other.id, 'Waiting on a parent');
+      else if ((r.state === 'pending' || r.state === 'countered') && !m.has(r.other.id)) m.set(r.other.id, r.awaitingId === me ? 'Invited you' : 'Invite sent');
+    }
+    return m;
+  }, [reqs.data, me]);
+  const top = useMemo(() => (profile ? bestMatch(profile, list.filter(p => !openWith.has(p.id))) : null), [profile, list, openWith]);
   const rest = useMemo(() => list.filter(p => p.id !== top?.id), [list, top]);
   const my = profile?.levelValue;
   const range = filters.levelLo != null && filters.levelHi != null
     ? `UTR ${filters.levelLo.toFixed(1)}–${filters.levelHi.toFixed(1)}`
     : my != null ? `Around UTR ${my.toFixed(1)}` : 'Any level';
 
+  // One tap that actually finds people: drop whatever is narrowing the list and step the
+  // radius out, then say exactly what changed so nothing is loosened behind your back.
   const widen = useCallback(() => {
-    const next = RADII.find(r => r > filters.radiusMi);
-    if (next) { set({ ...filters, radiusMi: next }); toast(`Looking within ${next} miles now.`); }
-    else if (filters.levelLo != null) { set({ ...filters, levelLo: null, levelHi: null }); toast('Showing every level now.'); }
-    else router.push('/filters');
+    const changed: string[] = [];
+    const next = { ...filters };
+    const r = RADII.find(x => x > filters.radiusMi);
+    if (r) { next.radiusMi = r; changed.push(`${r} miles`); }
+    if (filters.levelLo != null || filters.levelHi != null) { next.levelLo = null; next.levelHi = null; changed.push('any level'); }
+    if (filters.availability) { next.availability = 0; changed.push('any time'); }
+    if (filters.onlyLooking) { next.onlyLooking = false; changed.push('not just people looking this week'); }
+    if (!changed.length) { router.push('/filters'); return; }
+    set(next);
+    toast(`Now showing ${changed.join(', ')}.`);
   }, [filters, set, toast, router]);
 
   const open = (id: string) => router.push(`/player/${id}`);
@@ -104,8 +124,8 @@ export default function Discover() {
             </Card>
           ) : !profile ? null : list.length === 0 ? (
             <Card style={{ gap: space.sm }}>
-              <T v="h2">No one in this radius yet.</T>
-              <T v="body" tone="muted">Try a few more miles, or a wider level band. You decide how far is too far.</T>
+              <T v="h2">No one matches yet.</T>
+              <T v="body" tone="muted">{activeFilterCount(filters) ? `Your filters: ${[`${filters.radiusMi} mi`, filters.levelLo != null ? 'a narrow level band' : null, filters.availability ? 'set times' : null, filters.onlyLooking ? 'looking this week only' : null].filter(Boolean).join(', ')}. Widen them and more players show up.` : 'Nobody near your level within this radius yet. Try a few more miles.'}</T>
               <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', marginTop: space.xs }}>
                 <Button title="Widen the search" small onPress={widen} />
                 <Button title="Filters" kind="line" small onPress={() => router.push('/filters')} />
@@ -115,7 +135,7 @@ export default function Discover() {
             <>
               {top && <FeaturedCard p={top} me={profile} win={win} onInvite={() => invite(top.id)} onOpen={() => open(top.id)} locked={!canInvite} lockedLabel="Unlocks when your parent says yes" />}
               <View style={{ paddingTop: 4 }}>
-                {rest.map((p, i) => <CompactRow key={p.id} p={p} first={i === 0} onPress={() => open(p.id)} />)}
+                {rest.map((p, i) => <CompactRow key={p.id} p={p} first={i === 0} note={openWith.get(p.id)} onPress={() => { const r = (reqs.data ?? []).find(x => x.other.id === p.id && new Date(x.windowEnd) > new Date() && ['pending', 'countered', 'accepted', 'confirmed'].includes(x.state)); if (r) router.push(`/hit/${r.id}`); else open(p.id); }} />)}
               </View>
               {rest.length > 0 && <T v="meta" tone="muted" style={{ marginTop: space.md }}>{list.length} players within {filters.radiusMi} miles. Tap a name to invite.</T>}
             </>
