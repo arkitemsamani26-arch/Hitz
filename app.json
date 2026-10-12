@@ -2,6 +2,7 @@
   "expo": {
     "name": "Hits",
     "slug": "hits",
+    "owner": "arkitemsamani08",
     "version": "0.1.0",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -91,6 +92,11 @@
       "typedRoutes": false
     },
     "description": "Find tennis partners at your level, on courts near you. Invite, agree a time, and play. Under 18, a parent approves every meetup.",
-    "primaryColor": "#173D2B"
+    "primaryColor": "#173D2B",
+    "extra": {
+      "eas": {
+        "projectId": "a9c6166c-cf57-47ab-84ce-e22e800ce91c"
+      }
+    }
   }
 }
