@@ -18,7 +18,6 @@ import { fixed, hit, space } from '@/theme/tokens';
 import { makeStyles } from '@/theme/theme';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
-import { useFilters } from '@/store/filters';
 import { useAsync } from '@/store/useAsync';
 import { directionsTo } from '@/lib/handoff';
 import { courtFacts, courtMiles, milesText, playersText } from '@/lib/courts';
@@ -31,11 +30,11 @@ export default function CourtScreen() {
   const toast = useToast();
   const s = useS();
   const { profile, setProfile, tick } = useSession();
-  const { filters } = useFilters();
   const courts = useAsync(() => api.courts(), []);
   const stats = useAsync(() => api.courtPlayers(), [tick]);
-  // Everyone in range, at any level: this list is about the place, not the filters.
-  const players = useAsync(() => api.discover({ radiusMi: 25, levelLo: null, levelHi: null, availability: 0, onlyLooking: false, ageGap: filters.ageGap }), [tick, filters.ageGap]);
+  // Everyone in range, at any level and age the rules allow: this list is about the place,
+  // not your filters, and it matches the count on the Courts tab.
+  const players = useAsync(() => api.discover({ radiusMi: 25, levelLo: null, levelHi: null, availability: 0, onlyLooking: false, ageGap: null, limit: 1000 }), [tick]);
   const c = courts.data?.find(x => x.id === id) ?? null;
   const here = useMemo(() => (players.data ?? []).filter(p => p.homeCourtId === id)
     .sort((a, b) => Number(b.lookingToHit) - Number(a.lookingToHit) || (a.levelDelta ?? 9) - (b.levelDelta ?? 9)), [players.data, id]);

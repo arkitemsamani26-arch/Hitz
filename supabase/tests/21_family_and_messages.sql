@@ -6,7 +6,7 @@
 -- player; court counts never name anyone.
 
 begin;
-select plan(33);
+select plan(36);
 set search_path = app, public;
 
 \set junior_a '00000000-0000-0000-0000-0000000000a1'
@@ -149,6 +149,15 @@ select set_config('request.jwt.claim.sub', :'junior_a', true);
 set local role authenticated;
 select throws_ok($$select app.mark_hit_read('00000000-0000-0000-0000-00000000f301')$$,
   'P0001', 'not your hit', 'nobody else can touch the read marker on a hit');
+
+-- Discovery's radius snaps to the distances the app offers, so it cannot be stepped a
+-- metre at a time to measure how far away someone's cell is.
+select is((select count(*)::int from app.discover(p_radius_m => 1)), (select count(*)::int from app.discover(p_radius_m => 8047)),
+  'a one-metre radius is treated as five miles');
+select is((select count(*)::int from app.discover(p_radius_m => 9000)), (select count(*)::int from app.discover(p_radius_m => 16093)),
+  'and anything between steps rounds up to the next one');
+select is((select count(*)::int from app.discover(p_limit => 100000)), (select count(*)::int from app.discover(p_limit => 1000)),
+  'and a page is at most a thousand players');
 
 -- 6. Courts -------------------------------------------------------------------------------
 select is((select players from app.court_players() where court_id = :'court'::uuid), 1,

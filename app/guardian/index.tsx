@@ -60,6 +60,11 @@ export default function Family() {
     } catch (e: any) { toast(e?.message ?? "That didn't save."); }
     finally { setSaving(false); }
   };
+  const decidePhoto = async (approve: boolean) => {
+    if (!k) return;
+    try { await api.guardianApprovePhoto(k.profile.id, approve); toast(approve ? 'Photo approved.' : 'Photo removed.'); await refresh(); await kids.reload(); }
+    catch (e: any) { toast(e?.message ?? "That didn't go through. Try again."); }
+  };
   const shareSteps = async () => {
     const mine = session?.phone ? phoneDisplay(session.phone) : 'my number';
     const how = await shareText(`Get Hits for tennis partners your age. When it asks for a parent, enter ${mine}. I'll get a text and can approve it.`);
@@ -122,8 +127,8 @@ export default function Family() {
                     <Avatar name={k.profile.displayName} photo={k.profile.photoPendingUrl} size={52} />
                     <View style={{ flex: 1 }}><T v="smallM">{k.profile.displayName} added a photo</T><T v="meta" tone="muted">Nobody sees it until you say so.</T></View>
                     <View style={{ gap: space.xs }}>
-                      <Button title="Approve" small onPress={async () => { await api.guardianApprovePhoto(k.profile.id, true); toast('Photo approved.'); await refresh(); await kids.reload(); }} />
-                      <Button title="Remove" kind="line" small onPress={async () => { await api.guardianApprovePhoto(k.profile.id, false); toast('Photo removed.'); await refresh(); await kids.reload(); }} />
+                      <Button title="Approve" small onPress={() => void decidePhoto(true)} />
+                      <Button title="Remove" kind="line" small onPress={() => void decidePhoto(false)} />
                     </View>
                   </Card>
                 )}
@@ -203,7 +208,7 @@ export default function Family() {
             same way out, the same help and the same policies as anyone else. */}
         <T v="micro" tone="muted" style={[st.k, { marginTop: space.xl }]}>Your account</T>
         <Card style={{ paddingVertical: 2 }}>
-          <Tap onPress={() => router.push('/guardian/link')} style={st.row} accessibilityRole="button">
+          <Tap onPress={() => router.push('/guardian/link?preview=1')} style={st.row} accessibilityRole="button">
             <View style={{ flex: 1 }}><T v="smallM">How this works</T><T v="meta" tone="muted">What you control and what you see.</T></View>
             <Icon name="chevron-right" size={15} color={t.muted} />
           </Tap>

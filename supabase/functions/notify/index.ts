@@ -95,9 +95,21 @@ Deno.serve(async () => {
     }
   }
 
-  if (settled.length) {
-    const { error } = await sb.from('notifications')
-      .update({ sent_at: new Date().toISOString() }).in('id', settled);
+  // A message push can be rewritten while it is in flight: a second line in the same thread
+  // updates the waiting row's body and created_at rather than stacking a new one. Settle
+  // those only if they are still the version that was sent; a rewritten one stays in the
+  // outbox and goes out with the newer line on the next run.
+  const byId = new Map(rows.map(r => [r.id, r]));
+  const plain = settled.filter(id => byId.get(id)?.kind !== 'message');
+  const merged = settled.filter(id => byId.get(id)?.kind === 'message');
+  const now = new Date().toISOString();
+  if (plain.length) {
+    const { error } = await sb.from('notifications').update({ sent_at: now }).in('id', plain);
+    if (error) return fail([...problems, `settle outbox: ${error.message}`]);
+  }
+  for (const id of merged) {
+    const { error } = await sb.from('notifications').update({ sent_at: now })
+      .eq('id', id).eq('created_at', byId.get(id)!.created_at).is('sent_at', null);
     if (error) return fail([...problems, `settle outbox: ${error.message}`]);
   }
   return done(problems, settled.length);

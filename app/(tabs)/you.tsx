@@ -135,7 +135,7 @@ export default function ClubCard() {
           <>
             <T v="micro" tone="muted" style={st.k}>Family</T>
             <Row icon="shield" k="Parent" v={profile.guardianVerified ? 'Linked' : profile.guardianOpenedAt ? 'Opened the link' : profile.guardianPending ? 'Sent' : 'Not linked'}
-              onPress={!profile.guardianVerified && !profile.guardianPending ? () => router.push('/onboarding/guardian') : () => router.push('/guardian/link')} />
+              onPress={!profile.guardianVerified && !profile.guardianPending ? () => router.push('/onboarding/guardian') : () => router.push('/guardian/link?preview=1')} />
             <Row icon="users" k="Who you can hit with" v={profile.maxPartnerAgeGap ? `Within ${profile.maxPartnerAgeGap} ${profile.maxPartnerAgeGap === 1 ? 'year' : 'years'} of you` : 'Any player under 18'} />
             <T v="meta" tone="muted" style={{ marginTop: 8, lineHeight: 18 }}>
               {profile.maxPartnerAgeGap ? 'Your parent set this. ' : ''}You only ever see other players under 18. Discover starts with players around your age; widen it in Filters.
@@ -180,7 +180,7 @@ export default function ClubCard() {
 
         <T v="micro" tone="muted" style={st.k}>Account</T>
         <Card style={{ paddingVertical: 2 }}>
-          <Link k="What a parent sees" v="The page they get when you add them." onPress={() => router.push('/guardian/link')} first />
+          <Link k="What a parent sees" v="The page they get when you add them." onPress={() => router.push('/guardian/link?preview=1')} first />
           {legal && (() => { const L = legal; return (
             <>
               <Link k="Help" v="Reach a person. Safety reports same day." onPress={() => void WebBrowser.openBrowserAsync(L.support)} link />

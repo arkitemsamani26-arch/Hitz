@@ -220,7 +220,7 @@ export class SupabaseApi implements HitsApi {
   async discover(f: DiscoverFilters) {
     const { data, error } = await this.sb.rpc('discover', {
       p_radius_m: Math.round(f.radiusMi * MI), p_level_lo: f.levelLo, p_level_hi: f.levelHi,
-      p_availability: f.availability, p_only_looking: f.onlyLooking, p_age_gap: f.ageGap ?? null,
+      p_availability: f.availability, p_only_looking: f.onlyLooking, p_age_gap: f.ageGap ?? null, p_limit: f.limit ?? 50,
     });
     if (error) this.fail(error);
     const courts = await this.courtMap();

@@ -24,7 +24,7 @@ export default function Search() {
   const { tick } = useSession();
   const [q, setQ] = useState('');
   const [focus, setFocus] = useState(false);
-  const players = useAsync(() => api.discover({ radiusMi: 25, levelLo: null, levelHi: null, availability: 0, onlyLooking: false, ageGap: null }), [tick]);
+  const players = useAsync(() => api.discover({ radiusMi: 25, levelLo: null, levelHi: null, availability: 0, onlyLooking: false, ageGap: null, limit: 1000 }), [tick]);
   const courts = useAsync(() => api.courts(), []);
   const needle = q.trim().toLowerCase();
   const found = useMemo(() => {

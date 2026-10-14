@@ -20,6 +20,7 @@ import { addToCalendar, directionsTo, placeOf } from '@/lib/handoff';
 import { useToast } from '@/ui/Toast';
 import { fixed, font, hit, radius, space } from '@/theme/tokens';
 import { chatTime } from '@/lib/format';
+import { useBus } from '@/store/bus';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { api, demo } from '@/data';
 import { useSession } from '@/store/session';
@@ -39,7 +40,8 @@ export default function Hit() {
   const { profile, tick } = useSession();
   const { data, loading, reload } = useAsync(() => api.hit(id), [id, tick]);
   const courts = useAsync(() => api.courts(), []);
-  const inbox = useAsync(() => api.inbox(), [id, tick]);
+  const read = useBus('inbox');
+  const inbox = useAsync(() => api.inbox(), [id, tick, read]);
   const [passing, setPassing] = useState(false);
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);

@@ -22,13 +22,16 @@ function Row({ k, v }: { k: string; v: string }) {
 export default function GuardianLink() {
   const router = useRouter();
   const toast = useToast();
-  const { link, token_hash } = useLocalSearchParams<{ link?: string; token_hash?: string }>();
+  // `preview` is a player looking at what their parent will see: nothing is marked opened
+  // and there is nothing to accept.
+  const { link, token_hash, preview: peek } = useLocalSearchParams<{ link?: string; token_hash?: string; preview?: string }>();
+  const previewing = peek === '1';
   const { profile, refresh } = useSession();
   const [busy, setBusy] = useState(false);
   const linkId = link ?? 'link-demo';
   const { data: preview } = useAsync(() => api.guardianLinkPreview(linkId), [linkId]);
   const kid = preview?.childName ?? profile?.displayName ?? 'your kid';
-  useEffect(() => { void api.guardianLinkOpened(linkId); }, [linkId]);
+  useEffect(() => { if (!previewing) void api.guardianLinkOpened(linkId); }, [linkId, previewing]);
   useEffect(() => {
     // Arrived from the email/SMS: complete the magic-link sign-in first.
     if (token_hash && 'signInWithMagicToken' in api) void (api as any).signInWithMagicToken(token_hash).catch((e: any) => toast(e.message));
@@ -39,7 +42,7 @@ export default function GuardianLink() {
     catch (e: any) { toast(e.message); } finally { setBusy(false); }
   };
   return (
-    <Screen bottom={<Centered><Button title={preview?.verified ? 'Open your dashboard' : `Yes, I'm ${kid}'s parent`} arrow onPress={preview?.verified ? () => router.replace('/guardian') : yes} loading={busy} /></Centered>}>
+    <Screen bottom={previewing ? undefined : <Centered><Button title={preview?.verified ? 'Open your dashboard' : `Yes, I'm ${kid}'s parent`} arrow onPress={preview?.verified ? () => router.replace('/guardian') : yes} loading={busy} /></Centered>}>
       <Centered>
         <Header />
         <View style={{ marginTop: space.sm, marginBottom: space.lg }}><Wordmark /></View>

@@ -146,7 +146,8 @@ function bucket(mi: number): string {
 }
 
 function ageOf(dob: string): number {
-  const d = new Date(dob), now = new Date();
+  // Local noon, not UTC midnight: west of Greenwich the latter is the day before.
+  const d = new Date(`${dob.slice(0, 10)}T12:00:00`), now = new Date();
   let a = now.getFullYear() - d.getFullYear();
   if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a -= 1;
   return a;

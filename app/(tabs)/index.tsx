@@ -70,8 +70,10 @@ export default function Discover() {
     : my != null ? `Around UTR ${my.toFixed(1)}` : 'Any level';
   // A junior sees who is around their age first; say so, so the list never looks short
   // for no reason.
-  const ages = profile?.band === 'minor' && profile.age != null && filters.ageGap != null
-    ? `ages ${Math.max(10, profile.age - filters.ageGap)}–${Math.min(17, profile.age + filters.ageGap)}` : null;
+  // The narrower of the junior's own filter and their parent's rule is what the server applies.
+  const gap = profile?.band === 'minor' ? [filters.ageGap, profile.maxPartnerAgeGap].filter((x): x is number => x != null).reduce<number | null>((m, x) => (m == null ? x : Math.min(m, x)), null) : null;
+  const ages = profile?.band === 'minor' && profile.age != null && gap != null
+    ? `ages ${Math.max(10, profile.age - gap)}–${Math.min(17, profile.age + gap)}` : null;
   const range = ages ? `${level.replace('Around ', '')} · ${ages}` : level;
 
   // One tap that actually finds people: drop whatever is narrowing the list and step the
@@ -187,7 +189,7 @@ export default function Discover() {
           ) : !profile ? null : list.length === 0 ? (
             <Card style={{ gap: space.sm }}>
               <T v="h2">No one matches yet.</T>
-              <T v="body" tone="muted">{activeFilterCount(filters) ? `Your filters: ${[`${filters.radiusMi} mi`, filters.levelLo != null ? 'a narrow level band' : null, filters.availability ? 'set times' : null, filters.onlyLooking ? 'looking this week only' : null].filter(Boolean).join(', ')}. Widen them and more players show up.` : 'Nobody near your level within this radius yet. Try a few more miles.'}</T>
+              <T v="body" tone="muted">{activeFilterCount(filters) || filters.ageGap != null ? `Your filters: ${[`${filters.radiusMi} mi`, filters.levelLo != null ? 'a narrow level band' : null, filters.availability ? 'set times' : null, filters.onlyLooking ? 'looking this week only' : null, filters.ageGap != null ? 'players around your age' : null].filter(Boolean).join(', ')}. Widen them and more players show up.` : 'Nobody near your level within this radius yet. Try a few more miles.'}</T>
               <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', marginTop: space.xs }}>
                 <Button title="Widen the search" small onPress={widen} />
                 <Button title="Filters" kind="line" small onPress={() => router.push('/filters')} />

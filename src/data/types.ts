@@ -181,6 +181,9 @@ export interface DiscoverFilters {
   onlyLooking: boolean;
   // Juniors: only players within this many years of your age. Null is any age.
   ageGap: number | null;
+  // How many to bring back. Discover shows the closest 50; a court's page and search look
+  // through everyone in range, because they filter afterwards.
+  limit?: number;
 }
 
 // What UTR says about you, minus everything that must stay on the server. Absent means
