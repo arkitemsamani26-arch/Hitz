@@ -18,7 +18,7 @@ export function WeekStrip({ hits, onOpen }: { hits: HitRequest[]; onOpen: (r: Hi
   const on = (d: Date) => hits.filter(r => { const x = new Date(r.windowStart); return x.getFullYear() === d.getFullYear() && x.getMonth() === d.getMonth() && x.getDate() === d.getDate(); })
     .sort((a, b) => a.windowStart.localeCompare(b.windowStart));
   return (
-    <View style={st.row} accessibilityRole="list" accessibilityLabel="The next seven days">
+    <View style={st.row}>
       {days.map((d, i) => {
         const list = on(d);
         const confirmed = list.some(r => r.state === 'confirmed');

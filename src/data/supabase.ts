@@ -132,7 +132,8 @@ export class SupabaseApi implements HitsApi {
     const row: any = {};
     if (patch.availabilityMask != null) row.availability_mask = patch.availabilityMask;
     if (patch.homeCourtId != null) row.home_court_id = patch.homeCourtId;
-    if (patch.displayName != null) row.display_name = patch.displayName;
+    if (patch.displayName != null) row.display_name = patch.displayName.trim();
+    if (patch.lastInitial != null) row.last_initial = patch.lastInitial.trim().slice(0, 1).toUpperCase();
     if (patch.levelValue != null) row.level_value = patch.levelValue;
     if (patch.levelSource != null) row.level_source = patch.levelSource;
     if (patch.prefers !== undefined) row.prefers = patch.prefers?.trim() || null;

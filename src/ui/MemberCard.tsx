@@ -31,7 +31,7 @@ export function MemberCard({ name, lastInitial, photo, level, source, verified, 
   const all: CardStat[] = [{ value: levelBig(level), label: sourceLabel(source, verified) }, ...(stats ?? [])];
   return (
     <View style={[s.card, style]} accessible
-      accessibilityLabel={`Player card. ${name || 'No name yet'}${age != null ? `, ${age}` : ''}. ${where}. ${all.map(x => `${x.label} ${x.value}`).join(', ')}.${looking ? ' Looking to hit this week.' : ''}${line ? ` ${line}` : ''}`}>
+      accessibilityLabel={`Player card. ${(name || 'No name yet').replace(/\.$/, '')}${age != null ? `, ${age}` : ''}. ${where}. ${all.map(x => `${x.label} ${x.value}`).join(', ')}.${looking ? ' Looking to hit this week.' : ''}${line ? ` ${line}` : ''}`}>
       <View style={s.art} pointerEvents="none"><Court width={150} height={280} color={fixed.art} /></View>
       <View style={s.top}>
         <Wordmark size={22} tone="light" />

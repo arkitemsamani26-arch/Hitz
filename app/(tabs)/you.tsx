@@ -55,6 +55,9 @@ export default function ClubCard() {
   const utr = useAsync(() => api.utrStatus(), [tick]);
   const utrClaim = useAsync(() => api.myUtrClaim(), [tick]);
   const [editingAvail, setEditingAvail] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [first, setFirst] = useState('');
+  const [initial, setInitial] = useState('');
   const [sheet, setSheet] = useState<null | 'prefers' | 'court' | 'photo'>(null);
   const [teamName, setTeamName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -108,6 +111,19 @@ export default function ClubCard() {
 
         {/* The rows under the card: what the card says, and the few facts that feed matching. */}
         <T v="micro" tone="muted" style={st.k}>Your game</T>
+        <Row icon="pencil" k="Name" v={`${profile.displayName}${profile.lastInitial ? ` ${profile.lastInitial}.` : ''}`} expanded={editingName}
+          onPress={() => { setFirst(profile.displayName); setInitial(profile.lastInitial ?? ''); setEditingName(e => !e); }} />
+        {editingName && (
+          <View style={{ paddingVertical: space.lg, gap: space.sm }}>
+            <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'flex-end' }}>
+              <View style={{ flex: 1 }}><Field label="First name" value={first} onChangeText={setFirst} maxLength={20} autoCapitalize="words" /></View>
+              <View style={{ width: 84 }}><Field label="Initial" value={initial} onChangeText={v => setInitial(v.replace(/[^A-Za-z]/g, '').slice(0, 1).toUpperCase())} maxLength={1} autoCapitalize="characters" /></View>
+            </View>
+            <T v="meta" tone="muted">Your first name and one letter. Nobody on Hits sees a surname.</T>
+            <Button title="Save" small disabled={first.trim().length < 1 || !/^[A-Za-z]$/.test(initial)} style={{ alignSelf: 'flex-start' }}
+              onPress={() => void guard(async () => { const p = await api.updateProfile({ displayName: first.trim(), lastInitial: initial }); setEditingName(false); toast('Name saved.'); return p; })} />
+          </View>
+        )}
         <Row icon="calendar" k="Usually free" v={availText} onPress={() => setEditingAvail(e => !e)} expanded={editingAvail} />
         {editingAvail && <View style={{ paddingVertical: space.lg }}><AvailabilityGrid mask={profile.availabilityMask} onToggle={toggleSlot} /></View>}
         <Row icon="sparkles" k="Looking for" v={profile.prefers ?? 'Not set'} onPress={() => setSheet('prefers')} />
