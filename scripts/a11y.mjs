@@ -51,7 +51,8 @@ const seeded = () => ({
     guardianEmail: 'parent@example.test', guardianPhone: '6505550101', guardianVerified: true,
     guardianSentAt: iso(day(-2, 9)), guardianOpenedAt: iso(day(-2, 10)), rosterName: null,
   },
-  rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null, messages: [],
+  rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null,
+  messages: [{ id: 'm1', hitId: 'r2', senderId: 'p-ruby', body: 'See you there. Court 2?', createdAt: iso(day(0, 7)) }],
   blocked: [], cohortOpen: true, listMode: null, seenConfirmed: [],
   requests: [{
     id: 'r1', fromId: 'p-maya', toId: 'me', courtId: 'c-stanford',
@@ -59,13 +60,25 @@ const seeded = () => ({
     state: 'pending', awaitingId: 'me', expiresAt: iso(day(3, 9)), createdAt: iso(day(0, 8)),
     confirmedAt: null, declineReason: null, approvals: [], confirmations: {},
     plan: { ballsById: null, format: null, meetAt: null, lateById: null },
+  }, {
+    id: 'r2', fromId: 'me', toId: 'p-ruby', courtId: 'c-rinconada',
+    windowStart: iso(day(4, 17)), windowEnd: iso(day(4, 18)), note: null,
+    state: 'confirmed', awaitingId: null, expiresAt: iso(day(3, 9)), createdAt: iso(day(-1, 8)),
+    confirmedAt: iso(day(-1, 9)), declineReason: null, approvals: [], confirmations: {},
+    plan: { ballsById: 'me', format: null, meetAt: null, lateById: null },
   }],
 });
 
 const SCREENS = [
   ['sign in', '/'],
   ['discover', '/(tabs)'],
+  ['courts', '/(tabs)/courts'],
+  ['court', '/court/c-rinconada'],
   ['my hits', '/(tabs)/hits'],
+  ['messages', '/(tabs)/messages'],
+  ['chat', '/chat/r2'],
+  ['chat on an invitation', '/chat/r1'],
+  ['search', '/search'],
   ['you', '/(tabs)/you'],
   ['preview', '/preview'],
   ['filters', '/filters'],

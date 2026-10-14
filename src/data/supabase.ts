@@ -10,12 +10,24 @@ import { ApiError, type HitsApi } from './api';
 import { toE164 } from '@/lib/phone';
 import { registerCourts } from '@/lib/courts';
 import type {
-  Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
+  Approval, Assurance, Court, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
+  InboxEntry, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 import { DECLINE_COPY } from './types';
 
 const MI = 1609.34;
+
+// What other players' rows can be read for. A birthday, an unapproved photo and the rounded
+// location are not on this list; the database refuses them (migration 20261013000100).
+const PEER_COLS = 'id, display_name, last_initial, photo_url, level_value, level_source, home_court_id, availability_mask, prefers, last_active_at, looking_to_hit_until, requests_received, requests_responded, requests_accepted, hits_confirmed';
+
+function ageFrom(dob: string | null | undefined): number | null {
+  if (!dob) return null;
+  const d = new Date(dob + 'T12:00:00'), now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a -= 1;
+  return a;
+}
 
 export class SupabaseApi implements HitsApi {
   readonly mode = 'supabase' as const;
@@ -84,12 +96,17 @@ export class SupabaseApi implements HitsApi {
       lastActiveAt: r.last_active_at, lookingToHitUntil: r.looking_to_hit_until,
       responseRate: r.requests_received ? r.requests_responded / r.requests_received : null,
       acceptRate: r.requests_responded ? r.requests_accepted / r.requests_responded : null,
-      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, prefers: r.prefers ?? null, ...extras,
+      hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, prefers: r.prefers ?? null,
+      age: new Date(r.adult_at) > new Date() ? ageFrom(r.date_of_birth) : null,
+      maxPartnerAgeGap: r.max_partner_age_gap ?? null,
+      ...extras,
     };
   }
   async me() {
     if (!this.uid) return null;
-    const { data } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle();
+    // Your own row, whole, through the one function allowed to return it.
+    const { data: rows } = await this.sb.rpc('my_profile');
+    const data = Array.isArray(rows) ? rows[0] : rows;
     if (!data) return null;
     const links = (await this.sb.from('guardian_links').select('verified_at, revoked_at, invited_at, opened_at').eq('minor_profile_id', this.uid).is('revoked_at', null)).data ?? [];
     const roster = data.roster_id ? (await this.sb.from('rosters').select('name').eq('id', data.roster_id).maybeSingle()).data : null;
@@ -162,6 +179,11 @@ export class SupabaseApi implements HitsApi {
     })();
     return this.courtsOnce;
   }
+  async courtPlayers(): Promise<CourtStats[]> {
+    const { data, error } = await this.sb.rpc('court_players');
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({ courtId: r.court_id, players: r.players, looking: r.looking }));
+  }
   async peek(levelValue: number, dateOfBirth: string) {
     // No profile row yet, so RLS shows this user nothing and that is correct. A definer
     // RPC counts the cohort without handing back a single identity.
@@ -184,33 +206,39 @@ export class SupabaseApi implements HitsApi {
       acceptRate: r.accept_rate != null ? Number(r.accept_rate) : (r.requests_responded ? r.requests_accepted / r.requests_responded : null),
       hitsConfirmed: r.hits_confirmed ?? 0,
       prefers: r.prefers ?? null,
+      age: r.age ?? null,
     };
+  }
+  // Ages arrive separately, and only for the people the database says you may know them for.
+  private async agesOf(ids: string[]): Promise<Map<string, number>> {
+    if (!ids.length) return new Map();
+    const { data } = await this.sb.rpc('ages', { p_ids: ids });
+    return new Map((data ?? []).map((a: any) => [a.profile_id, a.age]));
   }
   private async courtMap() { return new Map((await this.courts()).map(c => [c.id, c.name])); }
   async discover(f: DiscoverFilters) {
     const { data, error } = await this.sb.rpc('discover', {
       p_radius_m: Math.round(f.radiusMi * MI), p_level_lo: f.levelLo, p_level_hi: f.levelHi,
-      p_availability: f.availability, p_only_looking: f.onlyLooking,
+      p_availability: f.availability, p_only_looking: f.onlyLooking, p_age_gap: f.ageGap ?? null,
     });
     if (error) this.fail(error);
     const courts = await this.courtMap();
     return (data ?? []).map((r: any) => this.mapPlayer(r, courts));
   }
   async player(id: string) {
-    const { data } = await this.sb.from('profiles').select('*').eq('id', id).maybeSingle();
-    if (!data) return null;
-    return this.mapPlayer(data, await this.courtMap());
+    return (await this.players([id])).get(id) ?? null;
   }
   // The peers on a list of hits, in one round trip. RLS still decides which of them come
   // back; anyone it hides gets the unknown-player placeholder, exactly as before.
   private async players(ids: string[]): Promise<Map<string, Player>> {
     const want = [...new Set(ids)].filter(Boolean);
     if (!want.length) return new Map();
-    const [{ data }, courts] = await Promise.all([
-      this.sb.from('profiles').select('*').in('id', want),
+    const [{ data }, courts, ages] = await Promise.all([
+      this.sb.from('profiles').select(PEER_COLS).in('id', want),
       this.courtMap(),
+      this.agesOf(want),
     ]);
-    return new Map((data ?? []).map((r: any) => [r.id, this.mapPlayer(r, courts)]));
+    return new Map((data ?? []).map((r: any) => [r.id, { ...this.mapPlayer(r, courts), age: ages.get(r.id) ?? null }]));
   }
 
   // ---- hits --------------------------------------------------------------------
@@ -224,7 +252,7 @@ export class SupabaseApi implements HitsApi {
       levelValue: null, levelSource: null, levelVerified: false, levelDelta: null,
       distanceBucket: null, homeCourtId: null, homeCourtName: null,
       availabilityMask: 0, lookingToHit: false, lastActiveAt: new Date(0).toISOString(),
-      responseRate: null, acceptRate: null, hitsConfirmed: 0, prefers: null,
+      responseRate: null, acceptRate: null, hitsConfirmed: 0, prefers: null, age: null,
     };
   }
 
@@ -410,8 +438,8 @@ export class SupabaseApi implements HitsApi {
   async guardianAccept(linkId: string) { const { error } = await this.sb.rpc('accept_guardian_link', { p_link: linkId }); if (error) this.fail(error); }
   async guardianRevoke(linkId: string) { const { error } = await this.sb.rpc('revoke_guardian_link', { p_link: linkId }); if (error) this.fail(error); }
   async guardianLinks() {
-    const { data } = await this.sb.from('guardian_links').select('id, verified_at, profiles:minor_profile_id(display_name)').eq('guardian_user_id', this.uid!).is('revoked_at', null);
-    return (data ?? []).map((l: any) => ({ id: l.id, childName: l.profiles?.display_name ?? 'your kid', verifiedAt: l.verified_at }));
+    const { data } = await this.sb.from('guardian_links').select('id, minor_profile_id, verified_at, profiles:minor_profile_id(display_name)').eq('guardian_user_id', this.uid!).is('revoked_at', null);
+    return (data ?? []).map((l: any) => ({ id: l.id, childId: l.minor_profile_id ?? null, childName: l.profiles?.display_name ?? 'your kid', verifiedAt: l.verified_at }));
   }
   // Magic-link sign-in for a parent arriving from the SMS/email. The link carries a
   // token_hash from Supabase auth; after this the user is signed in as the parent.
@@ -447,6 +475,12 @@ export class SupabaseApi implements HitsApi {
     if (error) this.fail(error);
     return { id: data.id, hitId: id, senderId: data.sender_profile_id, body: data.body, createdAt: data.created_at };
   }
+  async inbox(): Promise<InboxEntry[]> {
+    const { data, error } = await this.sb.rpc('inbox');
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({ hitId: r.hit_id, lastBody: r.last_body, lastSenderId: r.last_sender, lastAt: r.last_at, unread: r.unread ?? 0 }));
+  }
+  async markRead(id: string) { await this.sb.rpc('mark_hit_read', { p_hit: id }); }
   async confirmPlayed(id: string, didPlay: boolean) {
     // Answerable twice: tapping again, or changing your mind, used to raise a raw
     // duplicate-key error in the user's face.
@@ -470,19 +504,20 @@ export class SupabaseApi implements HitsApi {
     const { error } = await this.sb.from('guardian_links').insert({ minor_profile_id: this.uid, guardian_email: email, guardian_phone: e164, relationship: 'parent' });
     if (error) this.fail(error);
   }
+  // Every child, whole, in one call; then each child's hits side by side rather than in turn.
   async guardianChildren(): Promise<GuardianChild[]> {
-    const links = (await this.sb.from('guardian_links').select('minor_profile_id').eq('guardian_user_id', this.uid!).not('verified_at', 'is', null).is('revoked_at', null)).data ?? [];
-    const out: GuardianChild[] = [];
-    for (const l of links) {
-      const p = (await this.sb.from('profiles').select('*').eq('id', l.minor_profile_id).maybeSingle()).data;
-      if (!p) continue;
+    const { data: kids } = await this.sb.rpc('my_children');
+    return Promise.all(((kids ?? []) as any[]).map(async p => {
       const profile = this.mapProfile(p, { guardianVerified: true, guardianPending: false });
       const rows = (await this.sb.from('hit_requests').select(this.sel).or(`from_profile_id.eq.${p.id},to_profile_id.eq.${p.id}`)).data ?? [];
       const reqs = await this.mapRequests(rows, p.id);
       const pendingApprovals = reqs.flatMap(r => r.approvals.filter(a => a.minorId === p.id && a.decision == null).map(a => ({ ...a, minorName: profile.displayName, request: r })));
-      out.push({ profile, pendingApprovals, upcoming: reqs.filter(r => r.state === 'confirmed') });
-    }
-    return out;
+      return { profile, pendingApprovals, upcoming: reqs.filter(r => r.state === 'confirmed' && new Date(r.windowEnd) > new Date()) };
+    }));
+  }
+  async setChildAgeGap(childId: string, gap: number | null) {
+    const { error } = await this.sb.rpc('set_child_age_gap', { p_child: childId, p_gap: gap });
+    if (error) this.fail(error);
   }
   async guardianDecide(hitId: string, minorId: string, decision: boolean) {
     const { data, error } = await this.sb.from('hit_guardian_approvals').update({ decision, seen_at: new Date().toISOString() }).eq('hit_request_id', hitId).eq('minor_profile_id', minorId).select().single();

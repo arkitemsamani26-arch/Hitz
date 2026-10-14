@@ -27,7 +27,8 @@ import { midpointCourt } from '@/lib/courts';
 const HITS = ['Warm up, then practice sets', 'Rally and drills', 'A match', 'Whatever works on the day'];
 
 export default function Invitation() {
-  const { id, counter } = useLocalSearchParams<{ id: string; counter?: string }>();
+  // `court` comes from a court's page: "invite them to meet here".
+  const { id, counter, court: atCourt } = useLocalSearchParams<{ id: string; counter?: string; court?: string }>();
   const router = useRouter();
   const toast = useToast();
   const { profile } = useSession();
@@ -41,7 +42,7 @@ export default function Invitation() {
   const next = useNextWindow(profile?.availabilityMask ?? 0);
 
   const [win, setWin] = useState<Window>(next);
-  const [courtId, setCourtId] = useState<string | null>(null);
+  const [courtId, setCourtId] = useState<string | null>(atCourt ?? null);
   const [kind, setKind] = useState(HITS[0]);
   const [note, setNote] = useState('');
   const [editing, setEditing] = useState<null | 'time' | 'court' | 'kind'>(null);
@@ -104,7 +105,10 @@ export default function Invitation() {
         <PlanPanel groups={[
           { label: dateLong(win.start), values: [`${rangeText(win.start, endOf(win))} · ${tzName()}`], note: when ? (when.known ? when.text : `${when.text}. It is outside what they have said about their week.`) : undefined, onPress: () => setEditing(e => e === 'time' ? null : 'time'), editLabel: 'Change the day or time' },
           { label: 'Suggested court', values: [court?.name ?? 'Pick a court'], note: courtNote, onPress: () => setEditing('court'), editLabel: 'Change the court' },
-          ...(isCounter ? [] : [{ label: 'The hit', values: [kind], onPress: () => setEditing('kind'), editLabel: 'Change the kind of hit' }]),
+          ...(isCounter ? [] : [
+            { label: 'The hit', values: [kind], onPress: () => setEditing('kind'), editLabel: 'Change the kind of hit' },
+            { label: 'Balls', values: ['You bring them'], note: 'Whoever asks brings the balls. You can switch it in the plan once it is on.' },
+          ]),
         ]} style={{ marginBottom: 18 }}>
           {editing === 'time' && (
             <View style={{ marginTop: 17 }}>

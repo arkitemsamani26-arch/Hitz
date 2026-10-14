@@ -1,5 +1,5 @@
-// Club card. The card, then the handful of things about you that other players see, then
-// the account.
+// Profile. Your player card, then the handful of things about you that other players see,
+// your rating, your family, your friends and teams, then the account.
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { shareText } from '@/lib/share';
@@ -13,8 +13,8 @@ import { Button } from '@/ui/Button';
 import { Pill } from '@/ui/Pill';
 import { Field } from '@/ui/Field';
 import { Score } from '@/ui/Score';
-import { Icon } from '@/ui/Icon';
-import { MemberCard } from '@/ui/MemberCard';
+import { Icon, type IconName } from '@/ui/Icon';
+import { MemberCard, cardStats } from '@/ui/MemberCard';
 import { OptionSheet } from '@/ui/Sheet';
 import { AvailabilityGrid } from '@/ui/Availability';
 import { useToast } from '@/ui/Toast';
@@ -92,23 +92,39 @@ export default function ClubCard() {
   return (
     <Screen>
       <Centered>
-        <T v="eyebrow" tone="muted" style={{ marginTop: 10 }}>The clubhouse</T>
+        <T v="eyebrow" tone="muted" style={{ marginTop: 10 }}>Profile</T>
         <T v="display" style={st.h} accessibilityRole="header">Your game.{'\n'}<T v="display" italic>Your people.</T></T>
-        <T v="small" tone="muted" style={st.sub}>A little identity. A lot more tennis.</T>
+        <T v="small" tone="muted" style={st.sub}>This card is what other players see when they open your profile.</T>
 
-        <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`.trim()} level={profile.levelValue} source={profile.levelSource} verified={verified} area={area}
-          line={profile.prefers ? `Here for ${profile.prefers.toLowerCase()}.` : 'Here for a good hit.'} />
+        <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`.trim()} lastInitial={profile.lastInitial} photo={profile.photoUrl}
+          level={profile.levelValue} source={profile.levelSource} verified={verified} area={area} court={courts?.find(c => c.id === profile.homeCourtId)?.name ?? null}
+          age={profile.age} looking={looking} stats={cardStats(profile)}
+          line={[profile.prefers ? `Here for ${profile.prefers.toLowerCase()}` : 'Here for a good hit', availText !== 'Not set' ? `plays ${availText.toLowerCase()}` : null].filter(Boolean).join(', ') + '.'} />
+
+        <View style={st.quick}>
+          <Button title={profile.photoUrl ? 'Change photo' : 'Add a photo'} kind="line" small icon="camera" onPress={() => setSheet('photo')} style={{ flexGrow: 1 }} />
+          <Button title="Invite a friend" kind="line" small icon="users" onPress={invite} loading={inviting} style={{ flexGrow: 1 }} />
+        </View>
 
         {/* The rows under the card: what the card says, and the few facts that feed matching. */}
-        <Row k="Typical availability" v={availText} onPress={() => setEditingAvail(e => !e)} expanded={editingAvail} />
+        <T v="micro" tone="muted" style={st.k}>Your game</T>
+        <Row icon="calendar" k="Usually free" v={availText} onPress={() => setEditingAvail(e => !e)} expanded={editingAvail} />
         {editingAvail && <View style={{ paddingVertical: space.lg }}><AvailabilityGrid mask={profile.availabilityMask} onToggle={toggleSlot} /></View>}
-        <Row k="Looking for" v={profile.prefers ?? 'Not set'} onPress={() => setSheet('prefers')} />
-        <Row k="Home court" v={court} onPress={() => setSheet('court')} />
-        <ToggleRow k="Looking to hit this week" v={looking} onChange={setLooking} note="Puts you at the top for players near your level. Expires on its own." />
-        <Row k="Photo" v={profile.photoUrl ? 'Added' : profile.photoPendingUrl ? 'Waiting on your parent' : 'None'} onPress={() => setSheet('photo')} />
+        <Row icon="sparkles" k="Looking for" v={profile.prefers ?? 'Not set'} onPress={() => setSheet('prefers')} />
+        <Row icon="house" k="Home court" v={court} onPress={() => setSheet('court')} />
+        <ToggleRow icon="zap" k="Looking to hit this week" v={looking} onChange={setLooking} note="Puts you at the top for players near your level. Expires on its own." />
+        <Row icon="camera" k="Photo" v={profile.photoUrl ? 'Added' : profile.photoPendingUrl ? 'Waiting on your parent' : 'None'} onPress={() => setSheet('photo')} />
+
         {profile.band === 'minor' && (
-          <Row k="Parent" v={profile.guardianVerified ? 'Linked' : profile.guardianOpenedAt ? 'Opened the link' : profile.guardianPending ? 'Sent' : 'Not linked'}
-            onPress={!profile.guardianVerified && !profile.guardianPending ? () => router.push('/onboarding/guardian') : undefined} />
+          <>
+            <T v="micro" tone="muted" style={st.k}>Family</T>
+            <Row icon="shield" k="Parent" v={profile.guardianVerified ? 'Linked' : profile.guardianOpenedAt ? 'Opened the link' : profile.guardianPending ? 'Sent' : 'Not linked'}
+              onPress={!profile.guardianVerified && !profile.guardianPending ? () => router.push('/onboarding/guardian') : () => router.push('/guardian/link')} />
+            <Row icon="users" k="Who you can hit with" v={profile.maxPartnerAgeGap ? `Within ${profile.maxPartnerAgeGap} ${profile.maxPartnerAgeGap === 1 ? 'year' : 'years'} of you` : 'Any player under 18'} />
+            <T v="meta" tone="muted" style={{ marginTop: 8, lineHeight: 18 }}>
+              {profile.maxPartnerAgeGap ? 'Your parent set this. ' : ''}You only ever see other players under 18. Discover starts with players around your age; widen it in Filters.
+            </T>
+          </>
         )}
         <T v="meta" tone="muted" style={{ marginTop: 12, lineHeight: 18 }}>
           {verified ? 'Rating verified against your UTR profile.' : 'Self-reported rating. Other players see it labelled that way.'}
@@ -192,11 +208,12 @@ export default function ClubCard() {
 
 // The reference's member rows: a muted key on the left, the value on the right, a rule
 // beneath. Tappable rows get a chevron and are the only thing on the screen that moves.
-function Row({ k, v, onPress, expanded }: { k: string; v: string; onPress?: () => void; expanded?: boolean }) {
+function Row({ k, v, onPress, expanded, icon }: { k: string; v: string; onPress?: () => void; expanded?: boolean; icon?: IconName }) {
   const t = useTheme();
   const s = useS();
   const inner = (
     <>
+      {icon && <View style={s.rowIcon}><Icon name={icon} size={16} color={t.ink} /></View>}
       <T v="small" tone="muted" style={{ flexShrink: 0 }}>{k}</T>
       <T v="small" style={{ flex: 1, textAlign: 'right' }} numberOfLines={2}>{v}</T>
       {onPress && <Icon name="chevron-right" size={15} color={t.muted} style={expanded ? { transform: [{ rotate: '90deg' }] } : undefined} />}
@@ -230,12 +247,14 @@ function Knob({ on }: { on: boolean }) {
   );
 }
 
-function ToggleRow({ k, v, onChange, note, flat, style }:
-  { k: string; v: boolean; onChange: (v: boolean) => void; note?: string; flat?: boolean; style?: StyleProp<ViewStyle> }) {
+function ToggleRow({ k, v, onChange, note, flat, style, icon }:
+  { k: string; v: boolean; onChange: (v: boolean) => void; note?: string; flat?: boolean; style?: StyleProp<ViewStyle>; icon?: IconName }) {
+  const t = useTheme();
   const s = useS();
   return (
     <Tap onPress={() => onChange(!v)} style={[flat ? s.flatRow : s.row, style]} accessibilityRole="switch"
          accessibilityState={{ checked: v }} aria-checked={v} accessibilityLabel={k}>
+      {icon && <View style={s.rowIcon}><Icon name={icon} size={16} color={t.ink} /></View>}
       <View style={{ flex: 1 }}>
         <T v={flat ? 'smallM' : 'small'} tone={flat ? 'ink' : 'muted'}>{k}</T>
         {note ? <T v="meta" tone="muted">{note}</T> : null}
@@ -334,13 +353,15 @@ function UtrCard({ profile, status, claim, reload, toast }:
 const st = StyleSheet.create({
   h: { marginTop: 12, marginBottom: 12 },
   sub: { marginBottom: 24, lineHeight: 21 },
-  k: { marginTop: 24, marginBottom: 10 },
+  k: { marginTop: 28, marginBottom: 8 },
+  quick: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
   utrRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
   danger: { minHeight: hit.min, alignItems: 'center', justifyContent: 'center' },
 });
 const useS = makeStyles(c => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 17, minHeight: 56, borderBottomWidth: 1, borderBottomColor: c.line },
   flatRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: hit.min },
+  rowIcon: { width: 32, height: 32, borderRadius: 9, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 56, paddingVertical: space.sm },
   lineRule: { borderTopWidth: 1, borderTopColor: c.line },
   track: { width: 44, height: 26, borderRadius: 13, backgroundColor: c.line, justifyContent: 'center' },

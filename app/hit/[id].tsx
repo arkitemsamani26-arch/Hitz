@@ -1,6 +1,6 @@
 // One hit, whatever state it is in. The screen changes shape with the state.
 import React, { useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Screen, Centered, Card } from '@/ui/Screen';
@@ -14,10 +14,12 @@ import { Icon } from '@/ui/Icon';
 import { PlanPanel } from '@/ui/Plan';
 import { OptionSheet } from '@/ui/Sheet';
 import { Court } from '@/ui/CourtArt';
+import { Avatar } from '@/ui/Avatar';
 import { ShareCard, shareMoment } from '@/ui/ShareCard';
 import { addToCalendar, directionsTo, placeOf } from '@/lib/handoff';
 import { useToast } from '@/ui/Toast';
 import { fixed, font, hit, radius, space } from '@/theme/tokens';
+import { chatTime } from '@/lib/format';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { api, demo } from '@/data';
 import { useSession } from '@/store/session';
@@ -36,12 +38,10 @@ export default function Hit() {
   const s = useS();
   const { profile, tick } = useSession();
   const { data, loading, reload } = useAsync(() => api.hit(id), [id, tick]);
-  const shares = useAsync(() => api.sharedPhones(id), [id, tick]);
   const courts = useAsync(() => api.courts(), []);
+  const inbox = useAsync(() => api.inbox(), [id, tick]);
   const [passing, setPassing] = useState(false);
   const [more, setMore] = useState(false);
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [fresh, setFresh] = useState(false);
   const scroll = useRef<ScrollView>(null);
@@ -64,23 +64,22 @@ export default function Hit() {
   const start = new Date(r.windowStart), end = new Date(r.windowEnd);
   const pastWindow = end < new Date();
   const canChat = ['pending', 'countered', 'accepted', 'confirmed', 'completed'].includes(r.state);
+  const unread = inbox.data?.find(x => x.hitId === r.id)?.unread ?? 0;
+  const openChat = () => router.push(`/chat/${r.id}`);
   const act = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key);
     try { await fn(); await reload(); } catch (e: any) { haptic.warn(); toast(e?.message ?? 'That did not go through.'); } finally { setBusy(null); }
   };
-  const send = async () => {
-    const b = text.trim(); if (!b || sending) return;
-    setSending(true);
-    try { await api.sendMessage(r.id, b); setText(''); await reload(); setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50); }
-    catch (e: any) { haptic.warn(); toast(e?.message ?? "Couldn't send. Your message is still here."); }
-    finally { setSending(false); }
-  };
   const setPlan = (patch: Partial<HitPlan>) => { haptic.tick(); void act('plan', () => api.updatePlan(r.id, patch)); };
   const who = `${r.other.displayName}${r.other.lastInitial ? ` ${r.other.lastInitial}.` : ''}`;
+  // Whoever asked brings the balls, unless the two of them change it in the plan.
+  const balls = r.plan.ballsById === me ? 'You bring them' : r.plan.ballsById === r.other.id ? `${r.other.displayName} brings them` : 'Not decided yet';
   const plan = [
     { label: `With ${who}`, values: [dateLong(start), `${rangeText(start, end)} · ${tzName()}`] },
     { label: 'Court', values: [r.courtName], note: 'Court access and booking availability not checked.' },
   ];
+  // While it is still an invitation, say who brings balls; once it is on, the plan does.
+  const asked = [...plan, { label: 'Balls', values: [balls], note: r.plan.ballsById === r.fromId ? `${r.fromId === me ? 'You' : r.other.displayName} asked, so ${r.fromId === me ? 'you bring' : 'they bring'} the balls. You can switch it once it's on.` : undefined }];
 
   let head: React.ReactNode;
   let bottom: React.ReactNode = undefined;
@@ -90,7 +89,7 @@ export default function Hit() {
       <Animated.View entering={FadeIn.duration(150)}>
         <T v="eyebrow" tone="muted">{r.state === 'countered' ? `${r.other.displayName} suggested another time` : `${r.other.displayName} wants to hit`}</T>
         <T v="display" style={st.h}>Your reply.</T>
-        <PlanPanel groups={r.note ? [...plan, { label: 'They said', values: [r.note] }] : plan} />
+        <PlanPanel groups={r.note ? [...asked, { label: 'They said', values: [r.note] }] : asked} />
       </Animated.View>
     );
     bottom = (
@@ -109,14 +108,13 @@ export default function Hit() {
         <Pill label={`Awaiting ${r.other.displayName}'s reply`} icon="clock-3" />
         <T v="display" style={st.h}>An invitation{'\n'}<T v="display" italic>is the beginning.</T></T>
         <T v="small" tone="muted" style={st.sub}>The hit is confirmed when you both agree. Most people reply the same day; this one expires in {hours}h if they don't.</T>
-        <PlanPanel groups={r.note ? [...plan, { label: 'You said', values: [r.note] }] : plan} />
+        <PlanPanel groups={r.note ? [...asked, { label: 'You said', values: [r.note] }] : asked} />
       </Animated.View>
     );
     bottom = <Centered><Button title="Take it back" kind="ghost" small onPress={() => act('cancel', async () => { await api.cancelRequest(r.id); router.back(); })} loading={busy === 'cancel'} /></Centered>;
   } else if (r.state === 'accepted') {
     head = <WaitingOnParent r={r} me={profile} setPlan={setPlan} plan={plan} />;
   } else if (r.state === 'confirmed' || r.state === 'completed') {
-    const mine = (shares.data ?? []).find(x => x.mine); const theirs = (shares.data ?? []).find(x => !x.mine);
     // Once the window has passed, this is not a plan any more. It is a question, and then
     // a memory, and the next step is the next hit.
     const over = r.state === 'completed' || pastWindow;
@@ -157,29 +155,12 @@ export default function Hit() {
             }} />
             <Button title="Directions" kind="line" small icon="map-pin" onPress={async () => { if (!(await directionsTo(placeOf(r, courts.data?.find(c => c.id === r.courtId)?.address)))) toast("Couldn't open maps."); }} />
             <Button title="Share" kind="line" small icon="share" onPress={async () => { const how = await shareMoment(cardRef, r, profile); if (how === 'copied') toast('Copied. Paste it wherever you like.'); else if (how === 'failed') toast("Couldn't share from here."); }} />
+            <Button title={`Message ${r.other.displayName}`} kind="line" small icon="message-circle" onPress={openChat} />
           </View>
         ) : (
           <Button title={`Hit with ${r.other.displayName} again`} arrow onPress={() => router.push(`/request/${r.other.id}`)} style={{ marginTop: space.md }} />
         )}
         {!over && <Logistics r={r} me={profile} setPlan={setPlan} onTheDay />}
-        {/* Numbers are never shown by default. Share yours for this hit if you'd rather text. */}
-        {!over && (
-          <>
-            <T v="micro" tone="muted" style={st.k}>Rather text?</T>
-            <Card style={{ gap: space.sm }}>
-              {theirs
-                ? <View style={st.row}>
-                    <View style={{ flex: 1 }}><T v="smallM">{r.other.displayName} shared a number</T><T v="meta" tone="muted">{theirs.phone}</T></View>
-                    <Button title={`Text ${r.other.displayName}`} small icon="message-circle" onPress={() => void Linking.openURL(`sms:${theirs.phone.replace(/[^+\d]/g, '')}`)} />
-                  </View>
-                : <T v="small" tone="muted">{r.other.displayName} hasn't shared a number for this hit.</T>}
-              <View style={[st.row, s.rule, { paddingTop: space.sm }]}>
-                <View style={{ flex: 1 }}><T v="smallM">{mine ? 'Your number is shared for this hit' : 'Share your number for this hit'}</T><T v="meta" tone="muted">{mine ? `${r.other.displayName} can text you. Just for this hit.` : `Only ${r.other.displayName}, only for this hit. Take it back any time.`}</T></View>
-                <Button title={mine ? 'Hide my number' : 'Share my number'} kind={mine ? 'line' : 'primary'} small onPress={() => act('share', async () => { await api.sharePhone(r.id, !mine); await shares.reload(); toast(mine ? 'Your number is hidden again.' : `${r.other.displayName} can see your number for this hit.`); })} loading={busy === 'share'} />
-              </View>
-            </Card>
-          </>
-        )}
       </View>
     );
   } else if (r.state === 'declined') {
@@ -204,23 +185,35 @@ export default function Hit() {
   }
 
   return (
-    <Screen scroll={false} bottom={canChat && !myMove && !theirMove ? (
-      <Centered><View style={st.composer}>
-        <TextInput value={text} onChangeText={setText} placeholder={`Message ${r.other.displayName}`} placeholderTextColor={t.muted} style={s.input} onSubmitEditing={send} returnKeyType="send" maxLength={2000} accessibilityLabel="Message" editable={!sending} />
-        <Button title={sending ? 'Sending' : 'Send'} small onPress={send} disabled={!text.trim() || sending} loading={sending} />
-      </View></Centered>
-    ) : bottom}>
+    <Screen scroll={false} bottom={bottom}>
       <Centered>
         <Header right={<Tap onPress={() => setMore(true)} style={st.more} accessibilityRole="button" accessibilityLabel="More options for this hit"><Icon name="ellipsis" size={18} color={t.ink} /></Tap>} />
         <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: space.xl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {head}
           {canChat && (
-            <View style={{ marginTop: space.xl, gap: space.sm }}>
-              <T v="micro" tone="muted">Messages</T>
-              {r.note && (myMove || theirMove) ? null : r.note && <Bubble mine={r.fromId === me} who={r.fromId === me ? 'You' : r.other.displayName} body={r.note} />}
-              {(data?.messages ?? []).map(m => <Bubble key={m.id} mine={m.senderId === me} who={m.senderId === me ? 'You' : r.other.displayName} body={m.body} when={relTime(m.createdAt)} />)}
-              {(data?.messages.length ?? 0) === 0 && <T v="small" tone="muted">{pastWindow ? 'No messages on this one.' : 'Nothing yet. Say hi, sort out balls.'}</T>}
-            </View>
+            <>
+              <T v="micro" tone="muted" style={st.k}>Messages</T>
+              <Tap onPress={openChat} style={s.preview} scaleTo={0.99} accessibilityRole="button"
+                accessibilityLabel={`Messages with ${r.other.displayName}${unread ? `, ${unread} unread` : ''}. Open the conversation.`}>
+                <Avatar name={r.other.displayName} lastInitial={r.other.lastInitial} photo={r.other.photoUrl} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  {(() => {
+                    const last = data?.messages[data.messages.length - 1];
+                    return last
+                      ? <>
+                          <T v="smallM" numberOfLines={1}>{last.senderId === me ? 'You' : r.other.displayName} · <T v="meta" tone="muted">{chatTime(last.createdAt)}</T></T>
+                          <T v="small" tone="muted" numberOfLines={2}>{last.body}</T>
+                        </>
+                      : <>
+                          <T v="smallM">Message {r.other.displayName}</T>
+                          <T v="small" tone="muted">{pastWindow ? 'Nothing was said on this one.' : 'Sort out balls, the court number, where to meet.'}</T>
+                        </>;
+                  })()}
+                </View>
+                {unread > 0 && <View style={s.count}><T v="meta" tone="greenText" style={{ fontFamily: font.bold, fontSize: 11, lineHeight: 14 }}>{unread}</T></View>}
+                <Icon name="chevron-right" size={16} color={t.muted} />
+              </Tap>
+            </>
           )}
         </ScrollView>
         <OptionSheet open={passing} onClose={() => setPassing(false)} title={`Pass on ${r.other.displayName}. They'll see why.`}
@@ -304,22 +297,12 @@ function Logistics({ r, me, setPlan, onTheDay }: { r: HitRequest; me: Profile; s
   );
 }
 
-function Bubble({ mine, who, body, when }: { mine: boolean; who: string; body: string; when?: string }) {
-  const s = useS();
-  return (
-    <View style={[s.msg, mine && s.msgMine]}>
-      <T v="micro" tone={mine ? 'greenText' : 'muted'} style={{ fontSize: 10, lineHeight: 13 }}>{who}{when ? ` · ${when}` : ''}</T>
-      <T v="small" tone={mine ? 'greenText' : 'ink'} style={{ marginTop: 2 }}>{body}</T>
-    </View>
-  );
-}
 const st = StyleSheet.create({
   h: { marginTop: 12, marginBottom: 12 },
   sub: { marginBottom: 18, lineHeight: 21 },
   k: { marginTop: 24, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   more: { minWidth: hit.min, minHeight: hit.min, alignItems: 'center', justifyContent: 'center' },
-  composer: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   summary: { backgroundColor: fixed.member, borderRadius: 16, padding: 23, borderWidth: 1, borderColor: fixed.memberLine, overflow: 'hidden' },
   summaryArt: { position: 'absolute', right: -24, top: -10, opacity: 0.65 },
   summaryRule: { height: 1, backgroundColor: fixed.memberRule, marginVertical: 15 },
@@ -329,7 +312,6 @@ const useS = makeStyles(c => ({
   light: { height: 6, borderRadius: 3, backgroundColor: c.line },
   lightHalf: { backgroundColor: c.avatarLine },
   lightOn: { backgroundColor: c.green },
-  input: { flex: 1, minHeight: 48, borderRadius: radius.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, color: c.ink, paddingHorizontal: 14, fontFamily: font.regular, fontSize: 16 },
-  msg: { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: space.md, alignSelf: 'flex-start', maxWidth: '85%' },
-  msgMine: { alignSelf: 'flex-end', backgroundColor: c.green, borderColor: c.green },
+  preview: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: 14, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, minHeight: hit.row },
+  count: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center' },
 }));

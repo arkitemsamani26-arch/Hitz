@@ -10,13 +10,16 @@ import { Pill } from '@/ui/Pill';
 import { Button } from '@/ui/Button';
 import { Header } from '@/ui/Header';
 import { space } from '@/theme/tokens';
-import { useFilters, DEFAULT_FILTERS } from '@/store/filters';
+import { useFilters, defaultsFor } from '@/store/filters';
 import { useSession } from '@/store/session';
 import { AvailabilityGrid } from '@/ui/Availability';
 
 // Bay Area: 10 is a normal drive, 25 reaches San Jose.
 const RADII = [5, 10, 15, 25];
 const BANDS: { label: string; d: number | null }[] = [{ label: '±0.5', d: 0.5 }, { label: '±1', d: 1 }, { label: '±2', d: 2 }, { label: 'Any level', d: null }];
+// Juniors: how close in age. A parent's rule, when there is one, sits underneath whatever
+// is chosen here; this can narrow it, never widen past it.
+const AGES: { label: string; gap: number | null }[] = [{ label: 'Within a year', gap: 1 }, { label: 'Within 2 years', gap: 2 }, { label: 'Within 3 years', gap: 3 }, { label: 'Any age', gap: null }];
 
 export default function Filters() {
   const toast = useToast();
@@ -30,7 +33,7 @@ export default function Filters() {
   const setBand = (d: number | null) => setF(x => ({ ...x, levelLo: d == null ? null : +(my - d).toFixed(2), levelHi: d == null ? null : +(my + d).toFixed(2) }));
   return (
     <Screen bottom={<Centered><View style={{ flexDirection: 'row', gap: space.sm }}>
-      <Button title="Reset" kind="line" onPress={() => { setF(DEFAULT_FILTERS); toast('Filters cleared.'); }} />
+      <Button title="Reset" kind="line" onPress={() => { setF(defaultsFor(profile?.band)); toast('Filters cleared.'); }} />
       <Button title="Show players" arrow onPress={() => { set(f); goBack(); }} style={{ flex: 1 }} />
     </View></Centered>}>
       <Centered>
@@ -51,6 +54,17 @@ export default function Filters() {
           <View style={{ marginTop: space.xs }}>
             <AvailabilityGrid mask={f.availability} onToggle={bit => setF(x => ({ ...x, availability: x.availability ^ bit }))} />
           </View>
+          {profile?.band === 'minor' && (
+            <>
+              <T v="micro" tone="muted" style={{ marginTop: space.lg }}>Age{profile.age != null ? `, around your ${profile.age}` : ''}</T>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+                {AGES.map(a => <Pill key={a.label} label={a.label} on={f.ageGap === a.gap} onPress={() => setF(x => ({ ...x, ageGap: a.gap }))} />)}
+              </View>
+              <T v="meta" tone="muted">
+                {profile.maxPartnerAgeGap ? `Your parent set within ${profile.maxPartnerAgeGap} ${profile.maxPartnerAgeGap === 1 ? 'year' : 'years'}. That always applies. ` : ''}Only players under 18, always.
+              </T>
+            </>
+          )}
           <View style={{ marginTop: space.lg }}><Pill label="Only players looking to hit this week" on={f.onlyLooking} onPress={() => setF(x => ({ ...x, onlyLooking: !x.onlyLooking }))} style={{ alignSelf: 'flex-start' }} /></View>
         </Card>
       </Centered>

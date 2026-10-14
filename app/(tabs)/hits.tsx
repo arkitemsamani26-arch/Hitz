@@ -10,6 +10,7 @@ import { Button } from '@/ui/Button';
 import { Pill } from '@/ui/Pill';
 import { Loading } from '@/ui/Loading';
 import { PlanPanel } from '@/ui/Plan';
+import { WeekStrip } from '@/ui/WeekStrip';
 import { OptionSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { space } from '@/theme/tokens';
@@ -20,29 +21,7 @@ import { useAsync } from '@/store/useAsync';
 import { dateLong, expiresText, rangeText, tzName } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { DECLINE_COPY, type DeclineReason, type HitRequest } from '@/data/types';
-
-type Group = 'you' | 'them' | 'upcoming' | 'past';
-
-export function groupOf(r: HitRequest, me: string | undefined): Group {
-  if ((r.state === 'pending' || r.state === 'countered') && r.awaitingId === me) return 'you';
-  if (r.state === 'pending' || r.state === 'countered') return 'them';
-  if (r.state === 'accepted' || r.state === 'confirmed') return new Date(r.windowEnd) < new Date() ? 'past' : 'upcoming';
-  return 'past';
-}
-
-export function statusOf(r: HitRequest, me: string | undefined): { label: string; icon: 'clock-3' | 'check' | 'x' | 'calendar-check-2' | 'users'; live?: boolean } {
-  const who = r.other.displayName;
-  switch (r.state) {
-    case 'pending': return r.awaitingId === me ? { label: `Your reply · ${expiresText(r.expiresAt).toLowerCase()}`, icon: 'clock-3', live: true } : { label: `Awaiting ${who}'s reply`, icon: 'clock-3', live: true };
-    case 'countered': return r.awaitingId === me ? { label: `${who} suggested another time`, icon: 'clock-3', live: true } : { label: `Awaiting ${who}'s reply to your new time`, icon: 'clock-3', live: true };
-    case 'accepted': return { label: 'Waiting on a parent', icon: 'users', live: true };
-    case 'confirmed': return { label: "It's on", icon: 'calendar-check-2', live: true };
-    case 'completed': return { label: 'Played', icon: 'check' };
-    case 'declined': return { label: r.awaitingId === null && r.fromId !== me ? 'You passed' : `${who} passed`, icon: 'x' };
-    case 'cancelled': return { label: 'Cancelled', icon: 'x' };
-    case 'expired': return { label: 'Expired', icon: 'x' };
-  }
-}
+import { groupOf, statusOf, type Group } from '@/lib/status';
 
 export default function MyHits() {
   const router = useRouter();
@@ -100,6 +79,9 @@ export default function MyHits() {
       <Centered>
         <T v="eyebrow" tone="muted" style={{ marginTop: 10 }}>Your court time</T>
         <T v="display" style={s.h} accessibilityRole="header">A little tennis{'\n'}<T v="display" italic>to look forward to.</T></T>
+        {reqs.data && (
+          <WeekStrip hits={all.filter(r => ['pending', 'countered', 'accepted', 'confirmed'].includes(r.state) && new Date(r.windowEnd) > new Date())} onOpen={r => router.push(`/hit/${r.id}`)} />
+        )}
 
         {reqs.loading && !reqs.data ? <Loading label="Loading your hits" /> : live === 0 && groups.past.length === 0 ? (
           <>

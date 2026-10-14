@@ -1,6 +1,6 @@
 // Tapping a notification opens the thing it is about. Every push the server sends
 // carries `{ hit: <id> }` (or `{ code }` for an invite that landed); a parent's goes to the
-// approval screen, a player's to the hit.
+// approval screen, a player's to the hit, and a new message (`chat: true`) to the thread.
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -12,7 +12,7 @@ try { Notifications = require('expo-notifications'); } catch { Notifications = n
 export function routeFor(data: Record<string, unknown> | null | undefined, isGuardian: boolean): string | null {
   if (!data) return null;
   const hit = typeof data.hit === 'string' ? data.hit : null;
-  if (hit) return isGuardian ? `/guardian/approve/${hit}` : `/hit/${hit}`;
+  if (hit) return isGuardian ? `/guardian/approve/${hit}` : data.chat ? `/chat/${hit}` : `/hit/${hit}`;
   if (typeof data.code === 'string') return '/(tabs)/you';
   return null;
 }

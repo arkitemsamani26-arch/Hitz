@@ -33,9 +33,10 @@ select is(
   0::bigint,
   'an adult selecting a minor by primary key gets nothing');
 
-select is(
-  (select count(*) from app.profiles where date_of_birth > current_date - interval '18 years'),
-  0::bigint,
+-- Not "gets zero rows": the column is not readable at all, by anyone but its owner.
+select throws_ok(
+  $$select count(*) from app.profiles where date_of_birth > current_date - interval '18 years'$$,
+  '42501', null,
   'an adult cannot enumerate minors by date of birth');
 
 select is(

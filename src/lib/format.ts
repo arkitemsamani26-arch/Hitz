@@ -113,3 +113,32 @@ export function expiresText(iso: string): string {
   const d = Math.round(h / 24);
   return d === 1 ? 'Expires tomorrow' : `Expires in ${d} days`;
 }
+
+// A message's time, the way a phone's messages list says it: "6:42 pm" today, "Yesterday",
+// the weekday this week, then the date.
+export function chatTime(iso: string): string {
+  const d = new Date(iso), now = new Date();
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  const t = timeShort(d);
+  if (diff <= 0) return `${t.slice(0, -2)} ${t.slice(-2)}`;
+  if (diff === 1) return 'Yesterday';
+  if (diff < 7) return DAYS_LONG[d.getDay()];
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+// The divider between days in a thread: "Today", "Yesterday", "Monday, October 12".
+export function chatDay(iso: string): string {
+  const d = new Date(iso), now = new Date();
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  if (diff <= 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return dateLong(d);
+}
+
+// "Thu 5:30 pm", for a line that names a hit without spelling the whole date.
+export function hitShort(iso: string): string {
+  const d = new Date(iso); const t = timeShort(d);
+  return `${dayShort(d)} ${t.slice(0, -2)} ${t.slice(-2)}`;
+}

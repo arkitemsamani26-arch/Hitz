@@ -27,8 +27,11 @@ export interface Profile {
   rosterName: string | null;
   photoPendingUrl?: string | null;  // a minor's photo awaiting the parent
   // What kind of hit they are after, in their words: "Practice sets", "Rally & drills".
-  // Null until the live schema carries it; the demo seeds it.
   prefers: string | null;
+  // Juniors only, in years. Adults' ages are not shown to anyone.
+  age: number | null;
+  // Juniors only: how far apart in age their partners may be, set by a parent. Null is any.
+  maxPartnerAgeGap: number | null;
 }
 
 // Planned together while the parents decide. Small, one-tap choices both sides see.
@@ -89,6 +92,8 @@ export interface Player {
   acceptRate: number | null;
   hitsConfirmed: number;
   prefers: string | null;
+  // In years, and only when both of you are under 18.
+  age: number | null;
 }
 
 export interface Court {
@@ -143,6 +148,22 @@ export interface Message {
   createdAt: string;
 }
 
+// One line of the Messages tab: the hit, its latest message, and what you have not read.
+export interface InboxEntry {
+  hitId: string;
+  lastBody: string | null;
+  lastSenderId: string | null;
+  lastAt: string | null;
+  unread: number;
+}
+
+// How many players you could invite call a court home. A count, never a list of names.
+export interface CourtStats {
+  courtId: string;
+  players: number;
+  looking: number;
+}
+
 export interface MarketStatus {
   marketSlug: string;
   marketName: string;
@@ -158,6 +179,8 @@ export interface DiscoverFilters {
   levelHi: number | null;
   availability: number;
   onlyLooking: boolean;
+  // Juniors: only players within this many years of your age. Null is any age.
+  ageGap: number | null;
 }
 
 // What UTR says about you, minus everything that must stay on the server. Absent means

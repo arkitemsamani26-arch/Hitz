@@ -18,7 +18,7 @@ import { shadow } from '@/lib/shadow';
 
 export function name(p: Pick<Player, 'displayName' | 'lastInitial'>) { return p.lastInitial ? `${p.displayName} ${p.lastInitial}.` : p.displayName; }
 
-// The featured card: sage stripe, arched monogram, serif name, the rating at the right,
+// The featured card: sage stripe, round photo or initials, serif name, the rating at the right,
 // one honest line about when you are both free, and the green strip that invites.
 export function FeaturedCard({ p, me, win, onInvite, onOpen, locked, lockedLabel }:
   { p: Player; me: Profile; win: Window; onInvite: () => void; onOpen: () => void; locked?: boolean; lockedLabel?: string }) {
@@ -31,7 +31,7 @@ export function FeaturedCard({ p, me, win, onInvite, onOpen, locked, lockedLabel
       <View style={s.main}>
         <T v="micro" tone="muted" style={{ marginBottom: 14, letterSpacing: 1.25 }}>{tagLine(me, p)}</T>
         <Tap onPress={onOpen} style={s.top} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${metaLine(p)}. Open profile.`}>
-          <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={46} />
+          <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={54} dot={p.lookingToHit} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <T v="h1" style={{ lineHeight: 28 }}>{name(p)}</T>
             {!!metaLine(p) && <T v="meta" tone="muted" style={{ marginTop: 5 }}>{metaLine(p)}</T>}
@@ -54,13 +54,13 @@ export function FeaturedCard({ p, me, win, onInvite, onOpen, locked, lockedLabel
   );
 }
 
-// The quieter row: round monogram, sans name, a line of meta, the rating in the sans.
+// The quieter row: round photo, sans name, a line of meta, the rating in the sans.
 export function CompactRow({ p, onPress, first, note }: { p: Player; onPress: () => void; first?: boolean; note?: string }) {
   const s = useS();
-  const line = p.prefers ? [p.prefers, slotsOf(p.availabilityMask)[0]].filter(Boolean).join(' · ') : [p.homeCourtName ?? p.distanceBucket, slotsOf(p.availabilityMask)[0]].filter(Boolean).join(' · ');
+  const line = [p.age != null ? `Age ${p.age}` : null, ...(p.prefers ? [p.prefers, slotsOf(p.availabilityMask)[0]] : [p.homeCourtName ?? p.distanceBucket, slotsOf(p.availabilityMask)[0]])].filter(Boolean).join(' · ');
   return (
     <Tap onPress={onPress} style={[s.row, !first && s.rowRule]} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${note ? `${note}. ` : ''}${line}. ${note ? 'Open the hit.' : 'Open profile.'}`}>
-      <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={36} shape="round" />
+      <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={42} dot={p.lookingToHit} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <T v="smallM" numberOfLines={1}>{name(p)}</T>
         {note ? <T v="meta" tone="green" numberOfLines={1} style={{ fontFamily: font.medium }}>{note}</T>
@@ -77,7 +77,7 @@ export function PlayerCard({ p, anonymous, me }: { p: Player; anonymous?: boolea
   return (
     <Card>
       <View style={st.top}>
-        <Avatar name={anonymous ? '?' : p.displayName} lastInitial={anonymous ? null : p.lastInitial} photo={anonymous ? null : p.photoUrl} size={46} />
+        <Avatar name={anonymous ? '?' : p.displayName} lastInitial={anonymous ? null : p.lastInitial} photo={anonymous ? null : p.photoUrl} size={52} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <T v="h1" style={{ lineHeight: 28 }}>{anonymous ? 'A player' : name(p)}</T>
           <T v="meta" tone="muted" style={{ marginTop: 5 }}>{metaLine(p) || activeText(p.lastActiveAt)}</T>

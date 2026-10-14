@@ -1,5 +1,5 @@
 import type {
-  Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
+  Approval, Assurance, Court, CourtStats, HitPlan, InboxEntry, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
   Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 
@@ -28,6 +28,8 @@ export interface HitsApi {
   // market + courts
   marketStatus(): Promise<MarketStatus | null>;
   courts(): Promise<Court[]>;
+  // Players you could invite who call each court home.
+  courtPlayers(): Promise<CourtStats[]>;
   // Before a profile exists: a taste of what's out there. The date of birth picks the
   // cohort, since a minor and an adult are looking at two different rooms.
   peek(levelValue: number, dateOfBirth: string): Promise<{ count: number; sample: Player[] }>;
@@ -45,6 +47,10 @@ export interface HitsApi {
   decline(id: string, reason: DeclineReason): Promise<HitRequest>;
   counter(id: string, courtId: string, windowStart: Date, windowEnd: Date): Promise<HitRequest>;
   sendMessage(id: string, body: string): Promise<Message>;
+  // The Messages tab: every hit you are in, its latest message and your unread count.
+  inbox(): Promise<InboxEntry[]>;
+  // Opening a thread reads it.
+  markRead(id: string): Promise<void>;
   confirmPlayed(id: string, didPlay: boolean): Promise<HitRequest>;
   updatePlan(id: string, patch: Partial<HitPlan>): Promise<HitRequest>;
   // Share your number for one confirmed hit. Off by default, revocable, per hit.
@@ -82,6 +88,8 @@ export interface HitsApi {
   // guardian
   inviteGuardian(email: string, phone: string): Promise<void>;
   guardianChildren(): Promise<GuardianChild[]>;
+  // A parent's rule: their child only finds and invites juniors within this many years.
+  setChildAgeGap(childId: string, gap: number | null): Promise<void>;
   guardianDecide(hitId: string, minorId: string, decision: boolean): Promise<Approval>;
   guardianHit(hitId: string): Promise<{ request: HitRequest; messages: Message[]; child: Profile } | null>;
   guardianBlock(childId: string, profileId: string): Promise<void>;
@@ -90,7 +98,7 @@ export interface HitsApi {
   guardianLinkOpened(linkId: string): Promise<void>;
   guardianAccept(linkId: string): Promise<void>;
   guardianRevoke(linkId: string): Promise<void>;
-  guardianLinks(): Promise<{ id: string; childName: string; verifiedAt: string | null }[]>;
+  guardianLinks(): Promise<{ id: string; childName: string; childId: string | null; verifiedAt: string | null }[]>;
   assurance(hitId: string): Promise<Assurance | null>;
 
   // subscriptions (lightweight; demo uses a tick)

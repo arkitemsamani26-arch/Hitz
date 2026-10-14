@@ -58,8 +58,10 @@ function milesOf(bucket: string | null): number | null {
 }
 
 // The small line above the name. Only facts that are true of this person.
-export function tagLine(me: Pick<Profile, 'levelValue'>, p: Player): string {
+export function tagLine(me: Pick<Profile, 'levelValue'> & { age?: number | null }, p: Player): string {
   const parts: string[] = [];
+  // Between juniors, being the same age matters as much as the level.
+  if (me.age != null && p.age != null && Math.abs(me.age - p.age) <= 1) parts.push(me.age === p.age ? 'Your age' : 'Around your age');
   const gap = gapOf(me, p);
   if (gap != null && gap < 1) parts.push('Near your level');
   const mi = milesOf(p.distanceBucket);
@@ -72,5 +74,5 @@ export function tagLine(me: Pick<Profile, 'levelValue'>, p: Player): string {
 // "Palo Alto · Practice sets" in the reference. We know a home court and a distance, not a
 // city, so it is the court when there is one.
 export function metaLine(p: Player): string {
-  return [p.homeCourtName ?? (p.distanceBucket ? `${p.distanceBucket} away` : null), p.prefers].filter(Boolean).join(' · ');
+  return [p.age != null ? `Age ${p.age}` : null, p.homeCourtName ?? (p.distanceBucket ? `${p.distanceBucket} away` : null), p.prefers].filter(Boolean).join(' · ');
 }

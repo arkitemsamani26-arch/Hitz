@@ -18,8 +18,6 @@ set local role authenticated;
 select app.guardian_approve_photo(:'junior_a'::uuid, true);
 reset role;
 select is((select photo_url from app.profiles where id = :'junior_a'::uuid), 'https://x/avatars/a1/new.jpg', 'the parent approves it into place');
-select set_config('request.jwt.claim.sub', :'junior_b', true);
-set local role authenticated;
 select is((select count(*) from app.profiles where id = :'junior_a'::uuid and photo_pending_url is not null), 0::bigint, 'pending is cleared');
 select * from finish();
 rollback;

@@ -19,7 +19,8 @@ Anything that doesn't serve that loop is not v1.
 - **Not tournament or league management.** Draws, brackets, scheduling engines — no.
 - **Not a stats tracker.** We are not trying to be Strava for tennis. Light "hits this
   month" texture, yes; a dashboard of your winners and unforced errors, no.
-- **Not a DM app.** Messaging exists to close a hit request, not to host conversations.
+- **Not a DM app.** Every conversation belongs to a hit. There is a Messages tab so you can
+  find them, and no way to message a stranger without an invitation.
 
 ## The one metric
 
@@ -49,6 +50,7 @@ The app (Expo), schema, RLS policies and the safety test suite are in. The docs,
 | [`docs/08-center-court-pass.md`](docs/08-center-court-pass.md) | The earlier Center Court pass (superseded by 15) |
 | [`docs/15-clubhouse.md`](docs/15-clubhouse.md) | The Clubhouse, refined design: tokens, screens, deviations, checks |
 | [`docs/16-launch-audit.md`](docs/16-launch-audit.md) | The pre-launch checklist, every verdict, and what is left for you |
+| [`docs/17-making-it-an-app.md`](docs/17-making-it-an-app.md) | Five tabs, the new player card, messages, courts, the family view, junior ages |
 | [`docs/store/listing.md`](docs/store/listing.md) | App Store and Play listing copy, rating answers, review notes, screenshots |
 | [`docs/09-supabase-setup.md`](docs/09-supabase-setup.md) | Standing up a live project |
 

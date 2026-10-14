@@ -4,8 +4,8 @@ begin;
 select plan(24);
 set search_path = app, public;
 
-select has_function('app', 'discover', array['integer','numeric','numeric','integer','boolean','interval','integer','integer'], 'discover(p_radius_m, p_level_lo, p_level_hi, p_availability, p_only_looking, p_active_within, p_limit, p_offset)');
-select function_lang_is('app', 'discover', array['integer','numeric','numeric','integer','boolean','interval','integer','integer'], 'sql');
+select has_function('app', 'discover', array['integer','numeric','numeric','integer','boolean','interval','integer','integer','integer'], 'discover(p_radius_m, p_level_lo, p_level_hi, p_availability, p_only_looking, p_active_within, p_limit, p_offset, p_age_gap)');
+select function_lang_is('app', 'discover', array['integer','numeric','numeric','integer','boolean','interval','integer','integer','integer'], 'sql');
 select has_function('app', 'my_market_status', '{}'::text[], 'my_market_status()');
 select has_function('app', 'set_my_location', array['double precision','double precision'], 'set_my_location(p_lat, p_lon)');
 select has_function('app', 'touch_me', '{}'::text[], 'touch_me()');
@@ -21,7 +21,7 @@ select has_function('app', 'revoke_guardian_link', array['uuid'], 'revoke_guardi
 
 -- Named parameters are what PostgREST matches on.
 select is((select string_agg(p, ',' order by o) from unnest(proargnames) with ordinality as t(p, o)
-           where p like 'p\_%' escape '\'), 'p_radius_m,p_level_lo,p_level_hi,p_availability,p_only_looking,p_active_within,p_limit,p_offset')
+           where p like 'p\_%' escape '\'), 'p_radius_m,p_level_lo,p_level_hi,p_availability,p_only_looking,p_active_within,p_limit,p_offset,p_age_gap')
   from pg_proc where proname = 'discover' and pronamespace = 'app'::regnamespace;
 select is((select proargnames[1] from pg_proc where proname = 'redeem_roster_code' and pronamespace = 'app'::regnamespace), 'p_code', 'redeem_roster_code takes p_code');
 select is((select proargnames[1] from pg_proc where proname = 'hit_assurance' and pronamespace = 'app'::regnamespace), 'p_hit', 'hit_assurance takes p_hit');

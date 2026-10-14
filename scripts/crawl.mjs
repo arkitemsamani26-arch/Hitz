@@ -51,7 +51,8 @@ const seeded = () => ({
     guardianEmail: 'parent@example.test', guardianPhone: '6505550101', guardianVerified: true,
     guardianSentAt: iso(day(-2, 9)), guardianOpenedAt: iso(day(-2, 10)), rosterName: null,
   },
-  rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null, messages: [],
+  rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null,
+  messages: [{ id: 'm1', hitId: 'r2', senderId: 'p-ruby', body: 'See you there. Court 2?', createdAt: iso(day(0, 7)) }],
   blocked: [], cohortOpen: true, listMode: null, seenConfirmed: [],
   requests: [{
     id: 'r1', fromId: 'p-maya', toId: 'me', courtId: 'c-stanford',
@@ -70,7 +71,13 @@ const seeded = () => ({
 
 const SCREENS = [
   ['discover', '/(tabs)'],
+  ['courts', '/(tabs)/courts'],
+  ['court', '/court/c-rinconada'],
   ['my hits', '/(tabs)/hits'],
+  ['messages', '/(tabs)/messages'],
+  ['chat', '/chat/r2'],
+  ['chat on an invitation', '/chat/r1'],
+  ['search', '/search'],
   ['you', '/(tabs)/you'],
   ['preview', '/preview'],
   ['filters', '/filters'],

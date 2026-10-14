@@ -1,6 +1,6 @@
 // Discover. The wordmark, the hero, your next window, and the player we would hand you.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen, Centered, Card, GUTTER } from '@/ui/Screen';
 import { T } from '@/ui/Text';
@@ -12,7 +12,9 @@ import { FeaturedCard, CompactRow } from '@/ui/Player';
 import { Icon } from '@/ui/Icon';
 import { DiscoverHeader, Hero, WindowPanel, SectionHead } from '@/ui/DiscoverParts';
 import { WindowEditor } from '@/ui/WindowEditor';
-import { initialsOf } from '@/ui/Avatar';
+import { Avatar, initialsOf } from '@/ui/Avatar';
+import { Score } from '@/ui/Score';
+import { Icon as Glyph, type IconName } from '@/ui/Icon';
 import { useToast } from '@/ui/Toast';
 import { radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -23,6 +25,9 @@ import { useNextWindow, useWindow } from '@/store/window';
 import { useAsync } from '@/store/useAsync';
 import { bestMatch } from '@/lib/defaults';
 import { registerPush } from '@/lib/push';
+import { shareText } from '@/lib/share';
+import { hitShort } from '@/lib/format';
+import { haptic } from '@/lib/haptics';
 
 const RADII = [5, 10, 15, 25];
 
@@ -31,7 +36,7 @@ export default function Discover() {
   const toast = useToast();
   const t = useTheme();
   const s = useS();
-  const { profile, tick } = useSession();
+  const { profile, setProfile, tick } = useSession();
   const { filters, set } = useFilters();
   const { setWin } = useWindow();
   const win = useNextWindow(profile?.availabilityMask ?? 0);
@@ -60,9 +65,14 @@ export default function Discover() {
   const top = useMemo(() => (profile ? bestMatch(profile, list.filter(p => !openWith.has(p.id))) : null), [profile, list, openWith]);
   const rest = useMemo(() => list.filter(p => p.id !== top?.id), [list, top]);
   const my = profile?.levelValue;
-  const range = filters.levelLo != null && filters.levelHi != null
+  const level = filters.levelLo != null && filters.levelHi != null
     ? `UTR ${filters.levelLo.toFixed(1)}–${filters.levelHi.toFixed(1)}`
     : my != null ? `Around UTR ${my.toFixed(1)}` : 'Any level';
+  // A junior sees who is around their age first; say so, so the list never looks short
+  // for no reason.
+  const ages = profile?.band === 'minor' && profile.age != null && filters.ageGap != null
+    ? `ages ${Math.max(10, profile.age - filters.ageGap)}–${Math.min(17, profile.age + filters.ageGap)}` : null;
+  const range = ages ? `${level.replace('Around ', '')} · ${ages}` : level;
 
   // One tap that actually finds people: drop whatever is narrowing the list and step the
   // radius out, then say exactly what changed so nothing is loosened behind your back.
@@ -74,6 +84,7 @@ export default function Discover() {
     if (filters.levelLo != null || filters.levelHi != null) { next.levelLo = null; next.levelHi = null; changed.push('any level'); }
     if (filters.availability) { next.availability = 0; changed.push('any time'); }
     if (filters.onlyLooking) { next.onlyLooking = false; changed.push('not just people looking this week'); }
+    if (filters.ageGap != null) { next.ageGap = null; changed.push('any age under 18'); }
     if (!changed.length) { router.push('/filters'); return; }
     set(next);
     toast(`Now showing ${changed.join(', ')}.`);
@@ -81,6 +92,30 @@ export default function Discover() {
 
   const open = (id: string) => router.push(`/player/${id}`);
   const invite = (id: string) => router.push(`/request/${id}`);
+  // Your next confirmed hit, so the first screen answers "what have I got coming up".
+  const next = useMemo(() => (reqs.data ?? []).filter(r => r.state === 'confirmed' && new Date(r.windowEnd) > new Date())
+    .sort((a, b) => a.windowStart.localeCompare(b.windowStart))[0] ?? null, [reqs.data]);
+  // People who said they want to hit this week, beyond the one we feature.
+  const keen = useMemo(() => list.filter(p => p.lookingToHit && p.id !== top?.id && !openWith.has(p.id)).slice(0, 10), [list, top, openWith]);
+  const looking = !!profile?.lookingToHitUntil && new Date(profile.lookingToHitUntil) > new Date();
+  const toggleLooking = async () => {
+    try { const p = await api.setLooking(looking ? null : 7); setProfile(p); haptic.tick(); toast(looking ? "You're off the looking list." : "You're on the looking list for 7 days."); }
+    catch (e: any) { toast(e?.message ?? "That didn't save."); }
+  };
+  const inviteFriend = async () => {
+    try {
+      const i = await api.issueInvite();
+      const how = await shareText(`Come hit with me on Hits. Use my code ${i.code} when you sign up. Players at your level, on courts near you.`);
+      if (how === 'copied') toast('Invite copied. Paste it to a friend.');
+      else if (how === 'failed') toast(`Your code is ${i.code}. Send it to a friend.`);
+    } catch (e: any) { toast(e?.message ?? "Couldn't make an invite."); }
+  };
+  const ACTIONS: { icon: IconName; label: string; a11y: string; onPress: () => void; on?: boolean }[] = [
+    { icon: 'search', label: 'Search', a11y: 'Search players and courts', onPress: () => router.push('/search') },
+    { icon: 'map', label: 'Courts', a11y: 'Courts near you', onPress: () => router.push('/(tabs)/courts') },
+    { icon: 'zap', label: looking ? "I'm free" : 'Free?', a11y: looking ? 'You are looking to hit this week. Turn it off.' : 'Say you are looking to hit this week', onPress: toggleLooking, on: looking },
+    { icon: 'users', label: 'Invite', a11y: 'Invite a friend to Hits', onPress: inviteFriend },
+  ];
 
   return (
     <Screen flush pad={false} onRefresh={async () => { await Promise.all([players.reload(), reqs.reload(), market.reload(), api.touch().catch(() => {})]); }}>
@@ -93,6 +128,33 @@ export default function Discover() {
           {editing && (
             <View style={{ marginTop: -10, marginBottom: 21 }}>
               <WindowEditor value={win} onChange={setWin} onDone={() => setEditing(false)} />
+            </View>
+          )}
+
+          {/* Shortcuts to the things people come here to do. */}
+          <View style={st.actions}>
+            {ACTIONS.map(a => (
+              <Tap key={a.label} onPress={a.onPress} style={[s.action, a.on && s.actionOn]} scaleTo={0.97} accessibilityRole="button" accessibilityLabel={a.a11y} accessibilityState={a.on === undefined ? undefined : { selected: a.on }}>
+                <View style={[s.actionIcon, a.on && s.actionIconOn]}><Glyph name={a.icon} size={19} color={a.on ? t.greenText : t.ink} /></View>
+                <T v="meta" style={{ fontSize: 12 }} numberOfLines={1}>{a.label}</T>
+              </Tap>
+            ))}
+          </View>
+
+          {next && (
+            <View style={s.next}>
+              <Tap onPress={() => router.push(`/hit/${next.id}`)} style={st.nextMain} scaleTo={0.99} accessibilityRole="button"
+                accessibilityLabel={`Your next hit: ${hitShort(next.windowStart)} with ${next.other.displayName} at ${next.courtName}. Open.`}>
+                <Avatar name={next.other.displayName} lastInitial={next.other.lastInitial} photo={next.other.photoUrl} size={44} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T v="micro" tone="muted" style={{ fontSize: 10 }}>Your next hit</T>
+                  <T v="smallM" numberOfLines={1} style={{ marginTop: 2 }}>{hitShort(next.windowStart)} with {next.other.displayName}</T>
+                  <T v="meta" tone="muted" numberOfLines={1}>{next.courtName}</T>
+                </View>
+              </Tap>
+              <Tap onPress={() => router.push(`/chat/${next.id}`)} style={st.nextMsg} accessibilityRole="button" accessibilityLabel={`Message ${next.other.displayName}`}>
+                <Glyph name="message-circle" size={18} color={t.ink} />
+              </Tap>
             </View>
           )}
 
@@ -134,6 +196,26 @@ export default function Discover() {
           ) : (
             <>
               {top && <FeaturedCard p={top} me={profile} win={win} onInvite={() => invite(top.id)} onOpen={() => open(top.id)} locked={!canInvite} lockedLabel="Unlocks when your parent says yes" />}
+              {keen.length > 1 && (
+                <>
+                  <View style={st.rowHead}>
+                    <T v="h2" accessibilityRole="header">Free this week.</T>
+                    <T v="meta" tone="muted">{keen.length} looking</T>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.carousel}>
+                    {keen.map(p => (
+                      <Tap key={p.id} onPress={() => open(p.id)} style={s.keen} scaleTo={0.97} accessibilityRole="button"
+                        accessibilityLabel={`${p.displayName}${p.lastInitial ? ` ${p.lastInitial}.` : ''}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating'}${p.age != null ? `, age ${p.age}` : ''}. Looking to hit this week. Open profile.`}>
+                        <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={56} dot />
+                        <T v="smallM" numberOfLines={1} style={{ marginTop: 8 }}>{p.displayName}{p.lastInitial ? ` ${p.lastInitial}.` : ''}</T>
+                        <T v="meta" tone="muted" numberOfLines={1}>{p.age != null ? `Age ${p.age} · ` : ''}{p.homeCourtName ?? p.distanceBucket ?? ''}</T>
+                        <Score value={p.levelValue} source={p.levelSource} verified={p.levelVerified} sans align="left" style={{ marginTop: 6 }} />
+                      </Tap>
+                    ))}
+                  </ScrollView>
+                  <T v="h2" style={{ marginTop: 6, marginBottom: 2 }} accessibilityRole="header">Everyone nearby.</T>
+                </>
+              )}
               <View style={{ paddingTop: 4 }}>
                 {rest.map((p, i) => <CompactRow key={p.id} p={p} first={i === 0} note={openWith.get(p.id)} onPress={() => { const r = (reqs.data ?? []).find(x => x.other.id === p.id && new Date(x.windowEnd) > new Date() && ['pending', 'countered', 'accepted', 'confirmed'].includes(x.state)); if (r) router.push(`/hit/${r.id}`); else open(p.id); }} />)}
               </View>
@@ -148,7 +230,18 @@ export default function Discover() {
 
 const st = StyleSheet.create({
   body: { paddingHorizontal: GUTTER, paddingBottom: GUTTER },
+  actions: { flexDirection: 'row', gap: 8, marginBottom: 18 },
+  nextMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  nextMsg: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  rowHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 26, marginBottom: 10 },
+  carousel: { gap: 10, paddingBottom: 6, paddingRight: 4 },
 });
 const useS = makeStyles(c => ({
+  action: { flex: 1, minWidth: 0, alignItems: 'center', gap: 6, paddingVertical: 11, paddingHorizontal: 4, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, minHeight: 76 },
+  actionOn: { borderColor: c.green },
+  actionIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' },
+  actionIconOn: { backgroundColor: c.green },
+  next: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, paddingRight: 4, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, marginBottom: 18 },
+  keen: { width: 132, padding: 13, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   note: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: c.soft, borderRadius: radius.xs, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 21, minHeight: 44 },
 }));

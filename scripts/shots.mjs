@@ -29,7 +29,11 @@ const seeded = () => ({
   session: { userId: 'me', phone: '6505550137', isGuardian: false },
   profile: { displayName: 'Arki', lastInitial: 'T', dateOfBirth: '1999-04-02', levelValue: 10.5, levelSource: 'utr_self', homeCourtId: 'c-rinconada', availabilityMask: 4 | 32,
     lookingToHitUntil: iso(day(7, 9)), lastActiveAt: iso(new Date()), guardianEmail: null, guardianVerified: false, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, prefers: 'Rally & practice sets' },
-  rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null, messages: [], blocked: [], cohortOpen: true, listMode: null, seenConfirmed: [],
+  rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null, blocked: [], cohortOpen: true, listMode: null, seenConfirmed: [],
+  messages: [
+    { id: 'm1', hitId: 'r3', senderId: 'p-dan', body: 'Court 2 has the best lights.', createdAt: iso(day(0, 7)) },
+    { id: 'm2', hitId: 'r3', senderId: 'me', body: 'Great. I have a new can of balls.', createdAt: iso(day(0, 8)) },
+  ],
   requests: [
     { id: 'r1', fromId: 'me', toId: 'p-elena-r', courtId: 'c-rinconada', windowStart: iso(day(2, 18)), windowEnd: iso(day(2, 19.5)), note: 'Warm up, then practice sets', state: 'pending', awaitingId: 'p-elena-r', expiresAt: iso(day(3, 9)), createdAt: iso(day(0, 8)), confirmedAt: null, declineReason: null, approvals: [], confirmations: {}, plan: { ballsById: null, format: null, meetAt: null, lateById: null } },
     { id: 'r2', fromId: 'p-kenji', toId: 'me', courtId: 'c-rinconada', windowStart: iso(day(4, 18)), windowEnd: iso(day(4, 19.5)), note: 'Sets?', state: 'pending', awaitingId: 'me', expiresAt: iso(day(5, 9)), createdAt: iso(day(0, 8)), confirmedAt: null, declineReason: null, approvals: [], confirmations: {}, plan: { ballsById: null, format: null, meetAt: null, lateById: null } },
@@ -38,8 +42,9 @@ const seeded = () => ({
 });
 
 const SCREENS = [
-  ['discover', '/(tabs)'], ['hits', '/(tabs)/hits'], ['club-card', '/(tabs)/you'], ['invite', '/request/p-elena-r'], ['hit-confirmed', '/hit/r3'],
-  ['hit-pending', '/hit/r1'], ['preview', '/preview'], ['filters', '/filters'], ['player', '/player/p-elena-r'], ['sign-in', '/onboarding/phone'],
+  ['discover', '/(tabs)'], ['courts', '/(tabs)/courts'], ['hits', '/(tabs)/hits'], ['messages', '/(tabs)/messages'], ['profile', '/(tabs)/you'],
+  ['court', '/court/c-rinconada'], ['chat', '/chat/r3'], ['invite', '/request/p-elena-r'], ['hit-confirmed', '/hit/r3'],
+  ['hit-pending', '/hit/r1'], ['preview', '/preview'], ['filters', '/filters'], ['player', '/player/p-elena-r'], ['search', '/search'], ['sign-in', '/onboarding/phone'],
 ];
 const WIDTHS = [390, 402, 320, 430, 1024];
 
@@ -55,7 +60,7 @@ const main = async () => {
       await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded' });
       await page.evaluate(s => localStorage.setItem('hits.demo.v4', JSON.stringify(s)), seeded());
       for (const [name, path] of SCREENS) {
-        if (width !== 390 && width !== 402 && !['discover', 'hits', 'club-card', 'invite'].includes(name)) continue;
+        if (width !== 390 && width !== 402 && !['discover', 'hits', 'profile', 'messages', 'chat'].includes(name)) continue;
         await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(1600);
         await page.evaluate(() => document.fonts?.ready);

@@ -28,7 +28,7 @@ export async function registerPush(): Promise<string | null> {
 
 // Local notification, used by the demo layer so the phone buzzes at the same moments a
 // server would push. On web this is a no-op.
-export async function notifyLocal(title: string, body: string, data?: Record<string, string>) {
+export async function notifyLocal(title: string, body: string, data?: Record<string, string | boolean>) {
   if (Platform.OS === 'web' || !Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({ content: { title, body, data, sound: 'default' }, trigger: null });

@@ -16,13 +16,13 @@ actually does, the app is wrong and we want to know: <a href="mailto:[support@yo
 <table>
 <tr><th>Phone number</th><td>How you sign in. We send a one-time code by SMS. Stored separately from your public profile.</td></tr>
 <tr><th>First name and last initial</th><td>Shown to other players. We do not ask for your full surname.</td></tr>
-<tr><th>Date of birth</th><td>Decides whether you are treated as an under-18 or an adult. Collected once and not editable afterwards.</td></tr>
+<tr><th>Date of birth</th><td>Decides whether you are treated as an under-18 or an adult. Collected once and not editable afterwards. If you are under 18, other under-18s see your age in years (never the date), so players can find partners their own age.</td></tr>
 <tr><th>Photo</th><td>Optional. If you are under 18, your parent or guardian approves it before anyone else sees it, and can remove it at any time.</td></tr>
 <tr><th>Location</th><td>Only if you tap "Use location", and only <em>approximate</em> location: the app asks your phone for its coarse position, not GPS. That position is rounded again the moment it reaches us, to roughly a two-kilometre grid, and the unrounded one is never written down; there is no column in our database that could hold it. The rounded position is what other players' distances are calculated from. You can skip this and just pick a home court.</td></tr>
 <tr><th>Calendar</th><td>Nothing is read. When you tap "Add to calendar" on a confirmed hit, your phone shows its own new-event screen with the date, time and court filled in, and you choose whether to save it. Hits cannot see your other events.</td></tr>
 <tr><th>Tennis level</th><td>Your UTR or self-reported level. If you ask us to verify it, the UTR profile link and the name on it, so a person can check the two match.</td></tr>
 <tr><th>Availability</th><td>Which mornings, afternoons and evenings you can usually play.</td></tr>
-<tr><th>Messages</th><td>What you write to the other player about a specific hit.</td></tr>
+<tr><th>Messages</th><td>What you write to the other player about a specific hit, and when you last opened that conversation, so the app can show what you have not read.</td></tr>
 <tr><th>Your guardian's details</th><td>If you are under 18: your parent or guardian's email address and phone number, so we can reach them for approvals. This is personal information about someone else, and we treat it that way.</td></tr>
 <tr><th>Device push token</th><td>An anonymous identifier so we can notify you about a request, an approval or tomorrow's hit. Nothing else.</td></tr>
 </table>
@@ -38,10 +38,11 @@ enforced by the database, so a fault in the app cannot reveal an under-18 to an 
 the other way round.</p>
 </div>
 <ul>
-<li><strong>Other players</strong> see your first name and last initial, your photo if you have one, your level, your approximate distance from them, and how often you reply.</li>
+<li><strong>Other players</strong> see your first name and last initial, your photo if you have one, your level, your home court, your approximate distance from them, how many hits you have played on Hits, and how often you reply. If you are under 18, other under-18s also see your age in years.</li>
+<li><strong>Courts</strong> show how many players call each one home. A count, never a list of who.</li>
 <li><strong>Your phone number</strong> is hidden by default. You can share it for one confirmed hit, one at a time, and take it back afterwards.</li>
-<li><strong>Your parent or guardian</strong>, if you are under 18, sees who you are arranging to meet, where and when, the messages in that conversation, and your photo. They approve or refuse each meetup.</li>
-<li><strong>Nobody</strong> sees your date of birth or your phone number unless you shared it for a hit. Nobody sees your precise location, including us, because we do not keep it.</li>
+<li><strong>Your parent or guardian</strong>, if you are under 18, sees who you are arranging to meet (including that player's age), where and when, the messages in that conversation, and your photo. They approve or refuse each meetup, and can choose how close in age the players you see must be.</li>
+<li><strong>Nobody</strong> sees your date of birth (the database will not hand it to another account) or your phone number unless you shared it for a hit. Nobody sees your precise location, including us, because we do not keep it.</li>
 </ul>
 
 <h2>If you are under 18</h2>

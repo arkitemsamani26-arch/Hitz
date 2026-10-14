@@ -2,8 +2,8 @@
 
 Copy for App Store Connect and the Play Console, written against what the app does today.
 Character limits are the stores' own. Screenshots are in this folder (1290 × 2796, the
-6.7-inch size both stores accept) and use the demo's sample players, so the listing
-should not imply they are real members.
+6.7-inch size both stores accept; seven of them, under the ten both stores allow) and use
+the demo's sample players, so the listing should not imply they are real members.
 
 ## Name and subtitle
 
@@ -23,11 +23,15 @@ Hits finds you tennis partners at your level, on courts near you, at times you c
 
 **Your kind of player.** Set your rating (UTR, NTRP, or just describe how you play) and the courts you use. Hits shows players near your level and nearby, and tells you plainly when your weeks line up: "Both usually free Monday evenings", or "Ask Elena about Monday" when it does not know.
 
-**One invitation, not a group chat.** Pick a day, a time and a court. Hits suggests the court halfway between your two home courts so nobody drives the whole way. Send it. The other player can accept, suggest another time, or pass with a real reason, so you never wait on silence.
+**One invitation, not a group chat.** Pick a day, a time and a court. Hits suggests the court halfway between your two home courts so nobody drives the whole way. Whoever asks brings the balls. The other player can accept, suggest another time, or pass with a real reason, so you never wait on silence.
 
-**It's on.** Once you both agree, add it to your calendar, get directions to the court, and sort out who brings balls. Share your number for that one hit if you would rather text, and take it back any time.
+**Talk it through.** Every hit has its own conversation, with one-tap replies like "On my way" and "Running 5 minutes late". Share your number for that one hit if you would rather text, and take it back any time.
 
-**Built for juniors and their parents.** Players under 18 only ever see other players under 18. A parent links once, by text, and approves each meetup before it is confirmed. They see every invitation and message in full. No adult can find or contact a junior on Hits; the database enforces it, not a setting.
+**Courts near you.** See every public park and club court nearby, how far each is from yours, and who calls it home. Invite someone to meet you there in two taps.
+
+**It's on.** Once you both agree, add it to your calendar, get directions to the court, and sort out the plan: balls, sets or drills, where to meet.
+
+**Built for juniors and their parents.** Players under 18 only ever see other players under 18, and they see each other's ages, so two 13-year-olds find each other first. A parent links once, by text, and approves each meetup before it is confirmed. One family view covers every child: what needs an OK, what's on the calendar, and how close in age their partners must be. Parents see every invitation and message in full. No adult can find or contact a junior on Hits; the database enforces it, not a setting.
 
 **Private by default.** Your phone number is your login and is never shown. Hits uses approximate location only, rounds it to about two kilometres, and never stores the precise point. There is no advertising and no third-party analytics.
 
@@ -57,9 +61,10 @@ The app opens in demo mode if no backend is configured. For review, provide a te
 
 ## What the screenshots show
 
-1. Discover: the hero, your next window, a suggested player.
-2. Invitation: date and time, the suggested court with its honest booking note, the kind of hit.
-3. My hits: an invitation waiting on you, with Accept, Suggest another time, Decline.
-4. It's on: the confirmed hit with Add to calendar, Directions, Share, and the plan.
-5. Club card: your player card and the settings beneath it.
-6. A player's profile: rating with its source, track record, when they usually play.
+1. Discover: the hero, your next window, shortcuts, your next hit, a suggested player.
+2. A player card: photo, rating with its source, hits played, reply rate, when they play.
+3. A conversation: the hit it belongs to, a shared number, one-tap replies.
+4. A court: who calls it home, who is free this week, an invite button on each.
+5. It's on: the confirmed hit with Add to calendar, Directions, Share, Message, and the plan.
+6. Messages: every conversation, with what you have not read.
+7. The family view: each child, what needs a parent's OK, and their age setting.

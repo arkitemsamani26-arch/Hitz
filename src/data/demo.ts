@@ -7,8 +7,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi } from './api';
 import type {
-  Approval, Assurance, Court, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim,
+  Approval, Assurance, Court, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
+  InboxEntry, Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim,
 } from './types';
 import { DECLINE_COPY } from './types';
 import { notifyLocal } from '@/lib/push';
@@ -18,7 +18,7 @@ const ME = 'me';
 const GUARDIAN = 'guardian-me';
 
 type SeedPlayer = {
-  id: string; name: string; initial: string; band: 'minor' | 'adult'; level: number;
+  id: string; age?: number; name: string; initial: string; band: 'minor' | 'adult'; level: number;
   miles: number; activeHoursAgo: number; response: number | null; accept: number | null;
   looking: boolean; court: string; avail: number; hits: number; verified?: boolean; prefers?: string;
 };
@@ -36,32 +36,32 @@ const COURTS: Court[] = [
 ];
 
 const SEED: SeedPlayer[] = [
-  { id: 'p-maya', name: 'Maya', initial: 'R', band: 'minor', level: 8.6, miles: 2.1, activeHoursAgo: 0.5, response: 0.94, accept: 0.7, looking: true, court: 'c-stanford', avail: 8 | 16 | 4, hits: 14, prefers: 'Practice sets' },
-  { id: 'p-theo', name: 'Theo', initial: 'K', band: 'minor', level: 8.9, miles: 3.8, activeHoursAgo: 5, response: 0.8, accept: 0.6, looking: true, court: 'c-mitchell', avail: 8 | 4, hits: 9 },
-  { id: 'p-priya', name: 'Priya', initial: 'S', band: 'minor', level: 8.1, miles: 1.4, activeHoursAgo: 20, response: 1.0, accept: 0.9, looking: false, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 22, verified: true },
-  { id: 'p-jonah', name: 'Jonah', initial: 'L', band: 'minor', level: 9.4, miles: 6.2, activeHoursAgo: 30, response: 0.55, accept: 0.4, looking: false, court: 'c-cuesta', avail: 4 | 32, hits: 5 },
-  { id: 'p-elena', name: 'Elena', initial: 'M', band: 'minor', level: 7.9, miles: 4.9, activeHoursAgo: 2, response: 0.88, accept: 0.8, looking: true, court: 'c-burgess', avail: 1 | 8 | 16, hits: 11 },
-  { id: 'p-sam', name: 'Sam', initial: 'D', band: 'minor', level: 8.3, miles: 8.7, activeHoursAgo: 70, response: null, accept: null, looking: false, court: 'c-sunnyvale', avail: 8, hits: 0 },
-  { id: 'p-lucas', name: 'Lucas', initial: 'P', band: 'minor', level: 9.8, miles: 5.5, activeHoursAgo: 12, response: 0.7, accept: 0.5, looking: true, court: 'c-losaltos', avail: 2 | 4 | 16, hits: 17 },
-  { id: 'p-ava', name: 'Ava', initial: 'C', band: 'minor', level: 7.2, miles: 3.1, activeHoursAgo: 48, response: 0.6, accept: 0.7, looking: false, court: 'c-nealon', avail: 8 | 16, hits: 3 },
-  { id: 'p-nico', name: 'Nico', initial: 'B', band: 'minor', level: 8.5, miles: 11.3, activeHoursAgo: 1, response: 0.9, accept: 0.85, looking: true, court: 'c-cuesta', avail: 4 | 8 | 32, hits: 8 },
-  { id: 'p-ruby', name: 'Ruby', initial: 'A', band: 'minor', level: 8.4, miles: 0.9, activeHoursAgo: 0.3, response: 0.96, accept: 0.8, looking: true, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 18, verified: true, prefers: 'Drills, then sets' },
-  { id: 'p-dev', name: 'Dev', initial: 'N', band: 'minor', level: 8.7, miles: 1.8, activeHoursAgo: 1.5, response: 0.82, accept: 0.65, looking: true, court: 'c-mitchell', avail: 4 | 8, hits: 12 },
-  { id: 'p-clara', name: 'Clara', initial: 'V', band: 'minor', level: 7.6, miles: 2.4, activeHoursAgo: 4, response: 0.9, accept: 0.85, looking: true, court: 'c-burgess', avail: 1 | 8 | 16, hits: 7 },
-  { id: 'p-mateo', name: 'Mateo', initial: 'R', band: 'minor', level: 9.1, miles: 3.2, activeHoursAgo: 8, response: 0.74, accept: 0.55, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 21, verified: true },
-  { id: 'p-zoe', name: 'Zoe', initial: 'H', band: 'minor', level: 8.2, miles: 1.1, activeHoursAgo: 0.8, response: 1.0, accept: 0.9, looking: true, court: 'c-rinconada', avail: 8 | 16, hits: 16 },
-  { id: 'p-arjun', name: 'Arjun', initial: 'P', band: 'minor', level: 8.8, miles: 4.4, activeHoursAgo: 18, response: 0.68, accept: 0.6, looking: false, court: 'c-cuesta', avail: 4 | 8 | 16, hits: 10 },
-  { id: 'p-iris', name: 'Iris', initial: 'L', band: 'minor', level: 7.4, miles: 2.9, activeHoursAgo: 3, response: 0.87, accept: 0.78, looking: true, court: 'c-nealon', avail: 1 | 16 | 32, hits: 6 },
-  { id: 'p-felix', name: 'Felix', initial: 'B', band: 'minor', level: 9.3, miles: 5.8, activeHoursAgo: 22, response: 0.6, accept: 0.45, looking: false, court: 'c-losaltos', avail: 4 | 32, hits: 24 },
-  { id: 'p-nina', name: 'Nina', initial: 'K', band: 'minor', level: 8.0, miles: 1.6, activeHoursAgo: 2.5, response: 0.93, accept: 0.82, looking: true, court: 'c-mitchell', avail: 8 | 16 | 32, hits: 13, verified: true },
-  { id: 'p-owen', name: 'Owen', initial: 'S', band: 'minor', level: 8.6, miles: 6.7, activeHoursAgo: 40, response: 0.5, accept: 0.5, looking: false, court: 'c-sunnyvale', avail: 4 | 8, hits: 4 },
-  { id: 'p-leila', name: 'Leila', initial: 'M', band: 'minor', level: 7.8, miles: 3.6, activeHoursAgo: 6, response: 0.85, accept: 0.75, looking: true, court: 'c-burgess', avail: 8 | 16, hits: 9 },
-  { id: 'p-hugo', name: 'Hugo', initial: 'T', band: 'minor', level: 9.7, miles: 8.2, activeHoursAgo: 14, response: 0.72, accept: 0.4, looking: true, court: 'c-losaltos', avail: 2 | 4, hits: 29, verified: true },
-  { id: 'p-tess', name: 'Tess', initial: 'D', band: 'minor', level: 8.5, miles: 0.6, activeHoursAgo: 0.2, response: 0.98, accept: 0.88, looking: true, court: 'c-rinconada', avail: 1 | 8 | 16 | 32, hits: 20, prefers: 'Rally & drills' },
-  { id: 'p-caleb', name: 'Caleb', initial: 'J', band: 'minor', level: 7.1, miles: 4.1, activeHoursAgo: 52, response: 0.55, accept: 0.65, looking: false, court: 'c-nealon', avail: 16, hits: 2 },
-  { id: 'p-anya', name: 'Anya', initial: 'F', band: 'minor', level: 9.0, miles: 2.2, activeHoursAgo: 9, response: 0.8, accept: 0.6, looking: true, court: 'c-stanford', avail: 4 | 8 | 16, hits: 15 },
-  { id: 'p-rafi', name: 'Rafi', initial: 'C', band: 'minor', level: 8.3, miles: 7.9, activeHoursAgo: 28, response: 0.62, accept: 0.55, looking: false, court: 'c-sunnyvale', avail: 8 | 32, hits: 8 },
-  { id: 'p-juno', name: 'Juno', initial: 'W', band: 'minor', level: 10.2, miles: 5.1, activeHoursAgo: 1.2, response: 0.91, accept: 0.35, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 33, verified: true, prefers: 'Match play' },
+  { id: 'p-maya', age: 15, name: 'Maya', initial: 'R', band: 'minor', level: 8.6, miles: 2.1, activeHoursAgo: 0.5, response: 0.94, accept: 0.7, looking: true, court: 'c-stanford', avail: 8 | 16 | 4, hits: 14, prefers: 'Practice sets' },
+  { id: 'p-theo', age: 16, name: 'Theo', initial: 'K', band: 'minor', level: 8.9, miles: 3.8, activeHoursAgo: 5, response: 0.8, accept: 0.6, looking: true, court: 'c-mitchell', avail: 8 | 4, hits: 9 },
+  { id: 'p-priya', age: 14, name: 'Priya', initial: 'S', band: 'minor', level: 8.1, miles: 1.4, activeHoursAgo: 20, response: 1.0, accept: 0.9, looking: false, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 22, verified: true },
+  { id: 'p-jonah', age: 17, name: 'Jonah', initial: 'L', band: 'minor', level: 9.4, miles: 6.2, activeHoursAgo: 30, response: 0.55, accept: 0.4, looking: false, court: 'c-cuesta', avail: 4 | 32, hits: 5 },
+  { id: 'p-elena', age: 13, name: 'Elena', initial: 'M', band: 'minor', level: 7.9, miles: 4.9, activeHoursAgo: 2, response: 0.88, accept: 0.8, looking: true, court: 'c-burgess', avail: 1 | 8 | 16, hits: 11 },
+  { id: 'p-sam', age: 12, name: 'Sam', initial: 'D', band: 'minor', level: 8.3, miles: 8.7, activeHoursAgo: 70, response: null, accept: null, looking: false, court: 'c-sunnyvale', avail: 8, hits: 0 },
+  { id: 'p-lucas', age: 17, name: 'Lucas', initial: 'P', band: 'minor', level: 9.8, miles: 5.5, activeHoursAgo: 12, response: 0.7, accept: 0.5, looking: true, court: 'c-losaltos', avail: 2 | 4 | 16, hits: 17 },
+  { id: 'p-ava', age: 13, name: 'Ava', initial: 'C', band: 'minor', level: 7.2, miles: 3.1, activeHoursAgo: 48, response: 0.6, accept: 0.7, looking: false, court: 'c-nealon', avail: 8 | 16, hits: 3 },
+  { id: 'p-nico', age: 16, name: 'Nico', initial: 'B', band: 'minor', level: 8.5, miles: 11.3, activeHoursAgo: 1, response: 0.9, accept: 0.85, looking: true, court: 'c-cuesta', avail: 4 | 8 | 32, hits: 8 },
+  { id: 'p-ruby', age: 15, name: 'Ruby', initial: 'A', band: 'minor', level: 8.4, miles: 0.9, activeHoursAgo: 0.3, response: 0.96, accept: 0.8, looking: true, court: 'c-rinconada', avail: 8 | 16 | 32, hits: 18, verified: true, prefers: 'Drills, then sets' },
+  { id: 'p-dev', age: 16, name: 'Dev', initial: 'N', band: 'minor', level: 8.7, miles: 1.8, activeHoursAgo: 1.5, response: 0.82, accept: 0.65, looking: true, court: 'c-mitchell', avail: 4 | 8, hits: 12 },
+  { id: 'p-clara', age: 13, name: 'Clara', initial: 'V', band: 'minor', level: 7.6, miles: 2.4, activeHoursAgo: 4, response: 0.9, accept: 0.85, looking: true, court: 'c-burgess', avail: 1 | 8 | 16, hits: 7 },
+  { id: 'p-mateo', age: 17, name: 'Mateo', initial: 'R', band: 'minor', level: 9.1, miles: 3.2, activeHoursAgo: 8, response: 0.74, accept: 0.55, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 21, verified: true },
+  { id: 'p-zoe', age: 14, name: 'Zoe', initial: 'H', band: 'minor', level: 8.2, miles: 1.1, activeHoursAgo: 0.8, response: 1.0, accept: 0.9, looking: true, court: 'c-rinconada', avail: 8 | 16, hits: 16 },
+  { id: 'p-arjun', age: 16, name: 'Arjun', initial: 'P', band: 'minor', level: 8.8, miles: 4.4, activeHoursAgo: 18, response: 0.68, accept: 0.6, looking: false, court: 'c-cuesta', avail: 4 | 8 | 16, hits: 10 },
+  { id: 'p-iris', age: 12, name: 'Iris', initial: 'L', band: 'minor', level: 7.4, miles: 2.9, activeHoursAgo: 3, response: 0.87, accept: 0.78, looking: true, court: 'c-nealon', avail: 1 | 16 | 32, hits: 6 },
+  { id: 'p-felix', age: 17, name: 'Felix', initial: 'B', band: 'minor', level: 9.3, miles: 5.8, activeHoursAgo: 22, response: 0.6, accept: 0.45, looking: false, court: 'c-losaltos', avail: 4 | 32, hits: 24 },
+  { id: 'p-nina', age: 15, name: 'Nina', initial: 'K', band: 'minor', level: 8.0, miles: 1.6, activeHoursAgo: 2.5, response: 0.93, accept: 0.82, looking: true, court: 'c-mitchell', avail: 8 | 16 | 32, hits: 13, verified: true },
+  { id: 'p-owen', age: 14, name: 'Owen', initial: 'S', band: 'minor', level: 8.6, miles: 6.7, activeHoursAgo: 40, response: 0.5, accept: 0.5, looking: false, court: 'c-sunnyvale', avail: 4 | 8, hits: 4 },
+  { id: 'p-leila', age: 13, name: 'Leila', initial: 'M', band: 'minor', level: 7.8, miles: 3.6, activeHoursAgo: 6, response: 0.85, accept: 0.75, looking: true, court: 'c-burgess', avail: 8 | 16, hits: 9 },
+  { id: 'p-hugo', age: 17, name: 'Hugo', initial: 'T', band: 'minor', level: 9.7, miles: 8.2, activeHoursAgo: 14, response: 0.72, accept: 0.4, looking: true, court: 'c-losaltos', avail: 2 | 4, hits: 29, verified: true },
+  { id: 'p-tess', age: 15, name: 'Tess', initial: 'D', band: 'minor', level: 8.5, miles: 0.6, activeHoursAgo: 0.2, response: 0.98, accept: 0.88, looking: true, court: 'c-rinconada', avail: 1 | 8 | 16 | 32, hits: 20, prefers: 'Rally & drills' },
+  { id: 'p-caleb', age: 12, name: 'Caleb', initial: 'J', band: 'minor', level: 7.1, miles: 4.1, activeHoursAgo: 52, response: 0.55, accept: 0.65, looking: false, court: 'c-nealon', avail: 16, hits: 2 },
+  { id: 'p-anya', age: 16, name: 'Anya', initial: 'F', band: 'minor', level: 9.0, miles: 2.2, activeHoursAgo: 9, response: 0.8, accept: 0.6, looking: true, court: 'c-stanford', avail: 4 | 8 | 16, hits: 15 },
+  { id: 'p-rafi', age: 14, name: 'Rafi', initial: 'C', band: 'minor', level: 8.3, miles: 7.9, activeHoursAgo: 28, response: 0.62, accept: 0.55, looking: false, court: 'c-sunnyvale', avail: 8 | 32, hits: 8 },
+  { id: 'p-juno', age: 17, name: 'Juno', initial: 'W', band: 'minor', level: 10.2, miles: 5.1, activeHoursAgo: 1.2, response: 0.91, accept: 0.35, looking: true, court: 'c-stanford', avail: 2 | 4 | 32, hits: 33, verified: true, prefers: 'Match play' },
 
   { id: 'p-dan', name: 'Dan', initial: 'W', band: 'adult', level: 8.7, miles: 2.8, activeHoursAgo: 3, response: 0.9, accept: 0.7, looking: true, court: 'c-stanford', avail: 4 | 8, hits: 31, verified: true, prefers: 'Sets' },
   { id: 'p-marisol', name: 'Marisol', initial: 'G', band: 'adult', level: 8.2, miles: 5.1, activeHoursAgo: 26, response: 0.75, accept: 0.6, looking: false, court: 'c-cuesta', avail: 1 | 8 | 16, hits: 12 },
@@ -113,7 +113,13 @@ type State = {
     lookingToHitUntil: string | null; lastActiveAt: string;
     guardianEmail: string | null; guardianPhone?: string | null; guardianVerified: boolean;
     guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null; prefers?: string | null;
+    maxPartnerAgeGap?: number | null;
   };
+  // When you last opened each thread, by hit id. Unread is anything newer from them.
+  reads?: Record<string, string>;
+  // The demo parent's other child: her rule, set from the family view.
+  siblingGap?: number | null;
+  siblingRevoked?: boolean;
   rosters: Roster[];
   invites: Invite[];
   pushToken: string | null;
@@ -138,6 +144,17 @@ function bucket(mi: number): string {
   if (mi < 15) return `~${Math.round(mi)} mi`;
   return `~${Math.round(mi / 5) * 5} mi`;
 }
+
+function ageOf(dob: string): number {
+  const d = new Date(dob), now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a -= 1;
+  return a;
+}
+
+// The demo parent has two kids: whoever is playing the demo, and a younger sister with a
+// week of her own, so the family view shows what it is for.
+const SIBLING = { id: 'kid-lily', name: 'Lily', initial: 'T', age: 12, level: 5.8, court: 'c-mitchell', avail: 8 | 16 };
 
 function bandOf(dob: string): 'minor' | 'adult' {
   const d = new Date(dob);
@@ -267,6 +284,8 @@ export class DemoApi implements HitsApi {
       acceptRate: responded.length ? accepted.length / responded.length : null,
       hitsConfirmed: this.s.requests.filter(r => r.state === 'completed').length,
       prefers: p.prefers ?? null,
+      age: bandOf(p.dateOfBirth) === 'minor' ? ageOf(p.dateOfBirth) : null,
+      maxPartnerAgeGap: p.maxPartnerAgeGap ?? null,
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
@@ -325,6 +344,12 @@ export class DemoApi implements HitsApi {
     };
   }
   async courts() { await this.load(); return COURTS; }
+  async courtPlayers(): Promise<CourtStats[]> {
+    await this.load();
+    const band = this.myBand();
+    const visible = SEED.filter(p => p.band === band && !this.s.blocked.includes(p.id) && p.activeHoursAgo < 24 * 30 && this.ageOk(p, null));
+    return COURTS.map(c => ({ courtId: c.id, players: visible.filter(p => p.court === c.id).length, looking: visible.filter(p => p.court === c.id && p.looking).length }));
+  }
   async peek(level: number, dateOfBirth: string) {
     await this.wait(250);
     const band = bandOf(dateOfBirth);
@@ -343,7 +368,16 @@ export class DemoApi implements HitsApi {
       homeCourtName: COURTS.find(c => c.id === p.court)?.name ?? null,
       availabilityMask: p.avail, lookingToHit: p.looking, lastActiveAt: hoursAgo(p.activeHoursAgo),
       responseRate: p.response, acceptRate: p.accept, hitsConfirmed: p.hits, prefers: p.prefers ?? null,
+      age: p.band === 'minor' && this.myBand() === 'minor' ? p.age ?? null : null,
     };
+  }
+  // The age rule as the database applies it: the parent's limit always, the junior's own
+  // "around my age" when they ask for it. Adults are never limited by age.
+  private ageOk(p: SeedPlayer, ownGap: number | null) {
+    const me = this.s.profile; if (!me || bandOf(me.dateOfBirth) === 'adult' || p.band === 'adult' || p.age == null) return true;
+    const diff = Math.abs(p.age - ageOf(me.dateOfBirth));
+    const rule = me.maxPartnerAgeGap ?? null;
+    return (rule == null || diff <= rule) && (ownGap == null || diff <= ownGap);
   }
   async discover(f: DiscoverFilters) {
     await this.load(); await this.wait(180);
@@ -358,6 +392,7 @@ export class DemoApi implements HitsApi {
       .filter(p => f.levelHi == null || p.level <= f.levelHi)
       .filter(p => !f.availability || (p.avail & f.availability))
       .filter(p => !f.onlyLooking || p.looking)
+      .filter(p => this.ageOk(p, f.ageGap ?? null))
       .filter(p => p.activeHoursAgo < 24 * 30)
       .sort((a, b) => (Math.abs(a.level - myLevel) - Math.abs(b.level - myLevel)) || (a.miles - b.miles))
       .map(p => this.toPlayer(p, myLevel));
@@ -392,6 +427,7 @@ export class DemoApi implements HitsApi {
       homeCourtName: COURTS.find(c => c.id === m.homeCourtId)?.name ?? null,
       availabilityMask: m.availabilityMask, lookingToHit: !!m.lookingToHitUntil,
       lastActiveAt: m.lastActiveAt, responseRate: m.responseRate, acceptRate: m.acceptRate, hitsConfirmed: m.hitsConfirmed, prefers: m.prefers,
+      age: m.age,
     };
   }
   private find(id: string) { const r = this.s.requests.find(x => x.id === id); if (!r) throw new ApiError('Not found'); return r; }
@@ -439,6 +475,7 @@ export class DemoApi implements HitsApi {
     if (this.s.blocked.includes(toId)) throw new ApiError("You can't reach this player.");
     const seed = SEED.find(p => p.id === toId);
     if (!seed || seed.band !== this.myBand()) throw new ApiError("You can't reach this player.");
+    if (!this.ageOk(seed, null)) throw new ApiError('Your parent has set an age range, and this player is outside it.');
     const r = row(ME, toId, courtId, start, note, toId, end);
     this.s.requests.push(r);
     // They reply. Mostly yes; sometimes a real, non-ghost "no".
@@ -577,11 +614,30 @@ export class DemoApi implements HitsApi {
     const m: Message = { id: uid(), hitId: id, senderId: ME, body, createdAt: iso(new Date()) };
     this.s.messages.push(m);
     const otherId = r.fromId === ME ? r.toId : r.fromId;
-    const replies = ['sounds good', "i'll bring balls", 'see you there', 'perfect', 'yes, new can of balls on me', 'works for me'];
+    const replies = ['Sounds good', 'See you there', 'Perfect', 'Works for me', 'Great, warm up then sets?', 'On my way when it gets closer'];
     this.later(2500 + Math.random() * 2500, () => {
-      this.s.messages.push({ id: uid(), hitId: id, senderId: otherId, body: replies[Math.floor(Math.random() * replies.length)], createdAt: iso(new Date()) });
+      const body = replies[Math.floor(Math.random() * replies.length)];
+      this.s.messages.push({ id: uid(), hitId: id, senderId: otherId, body, createdAt: iso(new Date()) });
+      // The same push the server sends: who wrote, what they said, and it opens the thread.
+      void notifyLocal(SEED.find(p => p.id === otherId)?.name ?? 'New message', body, { hit: id, chat: true });
     });
     this.save(); return m;
+  }
+  async inbox(): Promise<InboxEntry[]> {
+    await this.load();
+    const reads = this.s.reads ?? {};
+    return this.s.requests.map(r => {
+      const msgs = this.s.messages.filter(m => m.hitId === r.id);
+      const last = msgs[msgs.length - 1];
+      const seen = reads[r.id] ?? '';
+      return { hitId: r.id, lastBody: last?.body ?? null, lastSenderId: last?.senderId ?? null, lastAt: last?.createdAt ?? null,
+        unread: msgs.filter(m => m.senderId !== ME && m.createdAt > seen).length };
+    });
+  }
+  async markRead(id: string) {
+    await this.load();
+    this.s.reads = { ...(this.s.reads ?? {}), [id]: iso(new Date()) };
+    void AsyncStorage.setItem(KEY, JSON.stringify(this.s)).catch(() => {});
   }
   async confirmPlayed(id: string, didPlay: boolean) {
     await this.load();
@@ -622,8 +678,36 @@ export class DemoApi implements HitsApi {
     const me = this.meProfile(); if (!me || me.band !== 'minor') return [];
     const rows = this.s.requests.filter(r => r.fromId === ME || r.toId === ME);
     const pending = rows.flatMap(r => r.approvals.filter(a => a.minorId === ME && a.decision == null).map(a => ({ ...a, request: this.toRequest(r) })));
-    const upcoming = rows.filter(r => r.state === 'confirmed').map(r => this.toRequest(r));
-    return [{ profile: me, pendingApprovals: pending, upcoming }];
+    const upcoming = rows.filter(r => r.state === 'confirmed' && new Date(r.windowEnd) > new Date()).map(r => this.toRequest(r));
+    const kids: GuardianChild[] = [{ profile: me, pendingApprovals: pending, upcoming }];
+    if (me.guardianVerified && !this.s.siblingRevoked) kids.push({ profile: this.sibling(), pendingApprovals: [], upcoming: this.siblingRows().map(r => this.toRequest(r, SIBLING.id)) });
+    return kids;
+  }
+  private sibling(): Profile {
+    return {
+      id: SIBLING.id, displayName: SIBLING.name, lastInitial: SIBLING.initial, photoUrl: null, band: 'minor',
+      levelValue: SIBLING.level, levelSource: 'utr_self', homeCourtId: SIBLING.court, availabilityMask: SIBLING.avail,
+      lastActiveAt: hoursAgo(5), lookingToHitUntil: null, responseRate: 1, acceptRate: 0.9, hitsConfirmed: 4,
+      phoneVerified: true, guardianVerified: true, guardianPending: false, guardianSentAt: null, guardianOpenedAt: null,
+      rosterName: null, prefers: 'Rally & drills', age: SIBLING.age, maxPartnerAgeGap: this.s.siblingGap === undefined ? 2 : this.s.siblingGap,
+    };
+  }
+  // Her one hit this week, with a girl her age. Rebuilt from today so it never goes stale.
+  private siblingRows(): Row[] {
+    const d = new Date(); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7)); d.setHours(10, 0, 0, 0);
+    const r = row('p-iris', SIBLING.id, 'c-mitchell', d, 'Want to rally Saturday morning?', SIBLING.id);
+    return [{ ...r, id: 'sib-hit-1', state: 'confirmed', awaitingId: null, confirmedAt: hoursAgo(20), createdAt: hoursAgo(30),
+      approvals: [
+        { hitId: 'sib-hit-1', minorId: SIBLING.id, minorName: SIBLING.name, guardianUserId: GUARDIAN, decision: true, decidedAt: hoursAgo(20) },
+        { hitId: 'sib-hit-1', minorId: 'p-iris', minorName: 'Iris', guardianUserId: 'g-p-iris', decision: true, decidedAt: hoursAgo(22) },
+      ] }];
+  }
+  async setChildAgeGap(childId: string, gap: number | null) {
+    await this.load();
+    if (gap != null && (gap < 1 || gap > 5)) throw new ApiError('Pick between one and five years, or anyone under 18.');
+    if (childId === SIBLING.id) this.s.siblingGap = gap;
+    else if (this.s.profile) this.s.profile.maxPartnerAgeGap = gap;
+    this.save();
   }
   async guardianDecide(hitId: string, minorId: string, decision: boolean) {
     await this.load(); await this.wait();
@@ -637,17 +721,24 @@ export class DemoApi implements HitsApi {
   async guardianLinkPreview() { await this.load(); return this.s.profile ? { childName: this.s.profile.displayName, verified: this.s.profile.guardianVerified } : null; }
   async guardianLinkOpened() { await this.load(); if (this.s.profile && !this.s.profile.guardianOpenedAt) { this.s.profile.guardianOpenedAt = iso(new Date()); this.save(); } }
   async guardianAccept() { await this.load(); if (this.s.profile) { this.s.profile.guardianVerified = true; this.s.profile.guardianOpenedAt ??= iso(new Date()); this.save(); } }
-  async guardianRevoke() {
+  async guardianRevoke(linkId?: string) {
     await this.load(); if (!this.s.profile) return;
+    if (linkId === 'link-lily') { this.s.siblingRevoked = true; this.save(); return; }
     this.s.profile.guardianVerified = false; this.s.profile.guardianEmail = null; this.s.profile.guardianSentAt = null; this.s.profile.guardianOpenedAt = null;
     this.s.requests.forEach(r => { if (['pending', 'countered', 'accepted', 'confirmed'].includes(r.state)) { r.state = 'cancelled'; r.awaitingId = null; } });
     this.save();
   }
-  async guardianLinks() { await this.load(); return this.s.profile?.guardianVerified ? [{ id: 'link-demo', childName: this.s.profile.displayName, verifiedAt: iso(new Date()) }] : []; }
+  async guardianLinks() {
+    await this.load();
+    return this.s.profile?.guardianVerified
+      ? [{ id: 'link-demo', childId: ME, childName: this.s.profile.displayName, verifiedAt: iso(new Date()) },
+         ...(this.s.siblingRevoked ? [] : [{ id: 'link-lily', childId: SIBLING.id, childName: SIBLING.name, verifiedAt: hoursAgo(24 * 120) }])]
+      : [];
+  }
   async assurance(hitId: string): Promise<Assurance | null> {
     await this.load();
-    const r = this.s.requests.find(x => x.id === hitId); if (!r) return null;
-    const otherId = r.fromId === ME ? r.toId : r.fromId;
+    const r = this.s.requests.find(x => x.id === hitId) ?? this.siblingRows().find(x => x.id === hitId); if (!r) return null;
+    const otherId = r.fromId === ME || r.fromId === SIBLING.id ? r.toId : r.fromId;
     const seed = SEED.find(p => p.id === otherId); if (!seed) return null;
     const approvals = r.approvals.find(a => a.minorId === otherId);
     return {
@@ -659,6 +750,11 @@ export class DemoApi implements HitsApi {
   }
   async guardianHit(hitId: string) {
     await this.load();
+    const sib = this.siblingRows().find(x => x.id === hitId);
+    if (sib) return { request: this.toRequest(sib, SIBLING.id), messages: [
+      { id: 'sm1', hitId, senderId: 'p-iris', body: 'Want to rally Saturday morning?', createdAt: hoursAgo(30) },
+      { id: 'sm2', hitId, senderId: SIBLING.id, body: 'Yes! My mom can drive me.', createdAt: hoursAgo(29) },
+    ], child: this.sibling() };
     const r = this.s.requests.find(x => x.id === hitId); if (!r) return null;
     return { request: this.toRequest(r), messages: this.s.messages.filter(m => m.hitId === hitId), child: this.meProfile()! };
   }
@@ -684,6 +780,8 @@ function row(fromId: string, toId: string, courtId: string, start: Date, note: s
   return {
     id: uid(), fromId, toId, courtId, windowStart: iso(start), windowEnd: iso(e), note,
     state: 'pending', awaitingId, expiresAt: iso(new Date(Date.now() + 72 * 3600000)),
-    createdAt: iso(new Date()), confirmedAt: null, declineReason: null, approvals: [], confirmations: {}, plan: emptyPlan(),
+    createdAt: iso(new Date()), confirmedAt: null, declineReason: null, approvals: [], confirmations: {},
+    // The person asking brings the balls, the same default the database sets.
+    plan: { ...emptyPlan(), ballsById: fromId },
   };
 }

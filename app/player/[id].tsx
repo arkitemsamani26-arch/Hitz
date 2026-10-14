@@ -11,7 +11,8 @@ import { Field } from '@/ui/Field';
 import { Pill } from '@/ui/Pill';
 import { Icon } from '@/ui/Icon';
 import { OptionSheet } from '@/ui/Sheet';
-import { PlayerCard } from '@/ui/Player';
+import { MemberCard, cardStats } from '@/ui/MemberCard';
+import { name as nameOf } from '@/ui/Player';
 import { useToast } from '@/ui/Toast';
 import { hit, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/theme';
@@ -19,8 +20,10 @@ import { api } from '@/data';
 import { useSession } from '@/store/session';
 import { useNextWindow } from '@/store/window';
 import { useAsync } from '@/store/useAsync';
-import { overlapLine } from '@/lib/match';
-import { slotsOf } from '@/data/types';
+import { gapLine, overlapLine } from '@/lib/match';
+import { dateLong } from '@/lib/format';
+import { statusOf } from '@/lib/status';
+import { slotsOf, slotsSummary } from '@/data/types';
 
 const REASONS = [
   { k: 'fake_profile', l: 'Fake profile' }, { k: 'inappropriate_messages', l: 'Inappropriate messages' },
@@ -33,9 +36,11 @@ export default function PlayerScreen() {
   const router = useRouter();
   const toast = useToast();
   const t = useTheme();
-  const { profile } = useSession();
+  const { profile, tick } = useSession();
   const win = useNextWindow(profile?.availabilityMask ?? 0);
   const { data: p, loading } = useAsync(() => api.player(id), [id]);
+  const reqs = useAsync(() => api.requests(), [tick]);
+  const market = useAsync(() => api.marketStatus(), []);
   const [more, setMore] = useState(false);
   const [reporting, setReporting] = useState(!!report);
   const [reason, setReason] = useState<string | null>(null);
@@ -54,12 +59,49 @@ export default function PlayerScreen() {
   };
   const when = profile ? overlapLine(profile, p, win) : null;
   const free = slotsOf(p.availabilityMask);
+  // Everything the two of you have had going, newest first. A live one opens the thread.
+  const together = (reqs.data ?? []).filter(r => r.other.id === p.id).sort((a, b) => b.windowStart.localeCompare(a.windowStart));
+  const live = together.find(r => ['pending', 'countered', 'accepted', 'confirmed'].includes(r.state) && new Date(r.windowEnd) > new Date());
+  const played = together.filter(r => r.state === 'completed').length;
 
   return (
     <Screen bottom={!reporting ? <Centered><Button arrow title={canRequest ? 'Invite to hit' : 'Unlocks when your parent says yes'} disabled={!canRequest} onPress={() => router.push(`/request/${p.id}`)} /></Centered> : undefined}>
       <Centered>
         <Header backLabel="Back to players" right={<Tap onPress={() => setMore(true)} style={{ minWidth: hit.min, minHeight: hit.min, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="More options for this player"><Icon name="ellipsis" size={18} color={t.ink} /></Tap>} />
-        <PlayerCard p={p} me={profile} />
+        <MemberCard name={nameOf(p)} lastInitial={p.lastInitial} photo={p.photoUrl} level={p.levelValue} source={p.levelSource} verified={p.levelVerified}
+          area={p.distanceBucket ? `${p.distanceBucket} away` : market.data?.marketName ?? 'Palo Alto'} court={p.homeCourtName} age={p.age} looking={p.lookingToHit}
+          stats={cardStats(p)} line={[p.prefers ? `Here for ${p.prefers.toLowerCase()}` : null, p.availabilityMask ? `plays ${slotsSummary(p.availabilityMask).toLowerCase()}` : null].filter(Boolean).join(', ') + (p.prefers || p.availabilityMask ? '.' : '')} />
+
+        {live && (
+          <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, flexWrap: 'wrap' }}>
+            <Button title={`Message ${p.displayName}`} kind="line" small icon="message-circle" onPress={() => router.push(`/chat/${live.id}`)} style={{ flexGrow: 1 }} />
+            <Button title="Open the hit" kind="line" small icon="calendar-days" onPress={() => router.push(`/hit/${live.id}`)} style={{ flexGrow: 1 }} />
+          </View>
+        )}
+
+        {profile && (
+          <>
+            <T v="micro" tone="muted" style={{ marginTop: 24, marginBottom: 10 }}>You two</T>
+            <Card style={{ gap: 12 }}>
+              <View style={{ flexDirection: 'row', gap: 13, alignItems: 'flex-start' }}>
+                <Icon name="trophy" size={16} color={t.ink} style={{ marginTop: 2 }} />
+                <T v="small" style={{ flex: 1 }}>{gapLine(profile, p)}</T>
+              </View>
+              {p.age != null && profile.age != null && (
+                <View style={{ flexDirection: 'row', gap: 13, alignItems: 'flex-start' }}>
+                  <Icon name="users" size={16} color={t.ink} style={{ marginTop: 2 }} />
+                  <T v="small" style={{ flex: 1 }}>{p.age === profile.age ? `You're both ${p.age}.` : `${p.displayName} is ${p.age}; you're ${profile.age}.`}</T>
+                </View>
+              )}
+              {played > 0 && (
+                <View style={{ flexDirection: 'row', gap: 13, alignItems: 'flex-start' }}>
+                  <Icon name="check" size={16} color={t.ink} style={{ marginTop: 2 }} />
+                  <T v="small" style={{ flex: 1 }}>You've hit together {played === 1 ? 'once' : `${played} times`}.</T>
+                </View>
+              )}
+            </Card>
+          </>
+        )}
         <T v="micro" tone="muted" style={{ marginTop: 24, marginBottom: 10 }}>When</T>
         <Card style={{ gap: space.sm }}>
           {when && (
@@ -75,6 +117,27 @@ export default function PlayerScreen() {
         <T v="meta" tone="muted" style={{ marginTop: space.md, lineHeight: 18 }}>
           {p.levelVerified ? 'Rating verified through UTR.' : 'Rating is self-reported. Close enough is normal; way off is worth a report.'}
         </T>
+
+        {together.length > 0 && (
+          <>
+            <T v="micro" tone="muted" style={{ marginTop: 24, marginBottom: 10 }}>Your hits together</T>
+            <Card style={{ paddingVertical: 2 }}>
+              {together.slice(0, 4).map((r, i) => {
+                const st = statusOf(r, profile?.id);
+                return (
+                  <Tap key={r.id} onPress={() => router.push(`/hit/${r.id}`)} style={[{ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 56, paddingVertical: 10 }, i > 0 && { borderTopWidth: 1, borderTopColor: t.line }]}
+                    accessibilityRole="button" accessibilityLabel={`${st.label}. ${dateLong(new Date(r.windowStart))}, ${r.courtName}. Open.`}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <T v="smallM" numberOfLines={1}>{dateLong(new Date(r.windowStart))}</T>
+                      <T v="meta" tone="muted" numberOfLines={1}>{r.courtName}</T>
+                    </View>
+                    <Pill label={st.label} icon={st.icon} />
+                  </Tap>
+                );
+              })}
+            </Card>
+          </>
+        )}
 
         {reporting && (
           <Card style={{ marginTop: space.lg, gap: space.md }}>

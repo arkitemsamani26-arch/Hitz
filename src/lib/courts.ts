@@ -1,3 +1,5 @@
+import type { Court, CourtStats } from '@/data/types';
+
 // Court coordinates, used client side to order the picker and to suggest a court that
 // sits between two players. The server holds the authoritative set.
 //
@@ -66,4 +68,26 @@ export function betweenText(aCourtId: string | null, bCourtId: string | null): s
   const mi = milesBetween(a, b);
   if (mi < 1) return 'Same patch of town';
   return `${Math.round(mi)} mi apart`;
+}
+
+/** Miles from one court to another, or null when either has no known point. */
+export function courtMiles(fromId: string | null | undefined, toId: string): number | null {
+  const a = fromId ? COURT_POINTS[fromId] : null, b = COURT_POINTS[toId];
+  return a && b ? milesBetween(a, b) : null;
+}
+
+// How a court is described in a list: "Public · Hard · Outdoor", how far it is from
+// yours, and how many players call it home.
+export function courtFacts(c: Court): string {
+  const surface = c.surface ? c.surface.charAt(0).toUpperCase() + c.surface.slice(1) : null;
+  return [c.access === 'club' ? 'Club' : 'Public', surface, c.indoor ? 'Indoor' : 'Outdoor'].filter(Boolean).join(' · ');
+}
+export function milesText(mi: number | null, short = false): string | null {
+  if (mi == null) return null;
+  if (short) return mi < 0.6 ? 'Near yours' : `~${Math.max(1, Math.round(mi))} mi`;
+  return mi < 0.6 ? 'Close to your court' : `~${Math.max(1, Math.round(mi))} mi from your court`;
+}
+export function playersText(st?: CourtStats): string {
+  if (!st || st.players === 0) return 'No players here yet';
+  return `${st.players} ${st.players === 1 ? 'player' : 'players'}${st.looking ? ` · ${st.looking} free this week` : ''}`;
 }
