@@ -54,6 +54,9 @@ export default function ClubCard() {
   const invites = useAsync(() => api.myInvites(), [tick]);
   const utr = useAsync(() => api.utrStatus(), [tick]);
   const utrClaim = useAsync(() => api.myUtrClaim(), [tick]);
+  const coaches = useAsync(() => api.myCoaches(), [tick]);
+  const coaching = useAsync(() => api.myCoaching(), [tick]);
+  const [leaving, setLeaving] = useState<{ coachId: string; name: string } | null>(null);
   const [editingAvail, setEditingAvail] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [first, setFirst] = useState('');
@@ -149,6 +152,18 @@ export default function ClubCard() {
         <UtrCard profile={profile} status={utr.data} claim={utrClaim.data} reload={async () => { await utr.reload(); await utrClaim.reload(); await refresh(); }} toast={toast} />
 
         {/* Invites: one code brings one friend. Attribution, never a privilege. */}
+        {/* Coaching: the coaches you have joined, and your own coach tools if you are one. */}
+        <T v="micro" tone="muted" style={st.k}>Coaching</T>
+        {(coaches.data ?? []).map(c => (
+          <Row key={c.coachId} icon="handshake" k={`Coach ${c.name}`}
+            v={c.status === 'active' ? c.academy : c.status === 'parent' ? 'Waiting on your parent' : 'Hits is checking the coach'}
+            onPress={() => setLeaving({ coachId: c.coachId, name: c.name })} />
+        ))}
+        <Row icon="plus" k={(coaches.data ?? []).length ? 'Join another coach' : 'Join your coach'} v="With their code" onPress={() => router.push('/coach/join')} />
+        {profile.band === 'adult' && (
+          <Row icon="users" k="Coach tools" v={coaching.data ? coaching.data.academy : 'Pair your players'} onPress={() => router.push('/coach')} />
+        )}
+
         <T v="micro" tone="muted" style={st.k}>Bring a friend</T>
         <Card style={{ gap: space.sm }}>
           <T v="small" tone="muted">A code for one person. They see your name when they type it in, and you hear when they join.</T>
@@ -212,6 +227,11 @@ export default function ClubCard() {
         ]} />
         <OptionSheet open={sheet === 'court'} onClose={() => setSheet(null)} title="Your home court. Never an address."
           options={(courts ?? []).map(c => ({ label: c.name, sub: [c.access === 'club' ? 'Club' : 'Public', c.indoor ? 'Indoor' : 'Outdoor', c.distanceBucket].filter(Boolean).join(' · '), onPress: () => guard(() => api.updateProfile({ homeCourtId: c.id })) }))} />
+        <OptionSheet open={!!leaving} onClose={() => setLeaving(null)} title={leaving ? `Coach ${leaving.name}` : ''} options={[
+          { label: 'Leave this coach', sub: 'They stop seeing you and can no longer pair you.', danger: true,
+            onPress: async () => { if (!leaving) return; try { await api.leaveCoach(leaving.coachId); await coaches.reload(); toast(`You left Coach ${leaving.name}'s roster.`); } catch (e: any) { toast(e?.message ?? "Couldn't leave."); } } },
+          { label: 'Stay', onPress: () => {} },
+        ]} />
         <OptionSheet open={sheet === 'photo'} onClose={() => setSheet(null)} title={profile.band === 'minor' ? 'Your photo. Your parent sees it before anyone else does.' : 'Your photo'} options={[
           { label: 'Take a photo', onPress: () => guard(async () => { const r = await pickPhoto('camera'); return r ? api.setPhoto(r.base64) : null; }) },
           { label: 'Choose from library', onPress: () => guard(async () => { const r = await pickPhoto('library'); return r ? api.setPhoto(r.base64) : null; }) },

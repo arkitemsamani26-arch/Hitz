@@ -31,7 +31,9 @@ Hits finds you tennis partners at your level, on courts near you, at times you c
 
 **It's on.** Once you both agree, add it to your calendar, get directions to the court, and sort out the plan: balls, sets or drills, where to meet.
 
-**Built for juniors and their parents.** Players under 18 only ever see other players under 18, and they see each other's ages, so two 13-year-olds find each other first. A parent links once, by text, and approves each meetup before it is confirmed. One family view covers every child: what needs an OK, what's on the calendar, and how close in age their partners must be. Parents see every invitation and message in full. No adult can find or contact a junior on Hits; the database enforces it, not a setting.
+**Built for juniors and their parents.** Players under 18 only ever see other players under 18, and they see each other's ages, so two 13-year-olds find each other first. A parent links once, by text, and approves each meetup before it is confirmed. One family view covers every child: what needs an OK, what's on the calendar, and how close in age their partners must be. Parents see every invitation and message in full. No adult can find or message a junior on Hits; the database enforces it, not a setting. The one exception is a coach the parent approves by name, and even they can only suggest partners.
+
+**Coaches pair their players.** Run an academy or a team? Turn on coach tools, share your code, and pair your players to hit with each other between lessons. They get your suggestion with your note, one of them sends the invite, and you see how it went.
 
 **Private by default.** Your phone number is your login and is never shown. Hits uses approximate location only, rounds it to about two kilometres, and never stores the precise point. There is no advertising and no third-party analytics.
 

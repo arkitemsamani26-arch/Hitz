@@ -273,3 +273,69 @@ export function slotsSummary(mask: number): string {
   if (we) out.push(`weekend ${list(parts(we))}`);
   return cap(out.join(', '));
 }
+
+// Coaches ------------------------------------------------------------------------------------
+// Where a player stands on a coach's roster. A junior waits on their parent ('parent'), then
+// on Hits verifying the coach ('verify'), before the coach can see or pair them.
+export type CoachStatus = 'active' | 'parent' | 'verify' | 'inactive';
+
+// Your own coach tools, if you have turned them on.
+export interface Coaching {
+  academy: string;
+  code: string;
+  juniorsVerified: boolean;
+}
+
+// A player on your roster. Until they are 'active', only their first name is filled in.
+export interface RosterMember extends Player {
+  band: AgeBand;
+  status: CoachStatus;
+  joinedAt: string;
+}
+
+// A pairing you made, and how it went: the hit's state, never what was said.
+export interface CoachPairing {
+  id: string;
+  aId: string; aName: string;
+  bId: string; bName: string;
+  courtId: string | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  note: string | null;
+  state: 'open' | 'sent' | 'dismissed';
+  hitState: HitState | null;
+  createdAt: string;
+}
+
+// A coach you have joined.
+export interface MyCoach {
+  coachId: string;
+  name: string;
+  academy: string;
+  status: CoachStatus;
+}
+
+// A coach's suggestion that you hit with someone.
+export interface Pairing {
+  id: string;
+  coachId: string;
+  coachName: string;
+  academy: string;
+  other: Player;
+  courtId: string | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+// For a parent: a coach one of their children has joined, and whether they approved it.
+export interface GuardianCoachLink {
+  childId: string;
+  childName: string;
+  coachId: string;
+  coachName: string;
+  academy: string;
+  approved: boolean;
+  coachVerified: boolean;
+}

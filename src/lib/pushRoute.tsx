@@ -13,6 +13,10 @@ export function routeFor(data: Record<string, unknown> | null | undefined, isGua
   if (!data) return null;
   const hit = typeof data.hit === 'string' ? data.hit : null;
   if (hit) return isGuardian ? `/guardian/approve/${hit}` : data.chat ? `/chat/${hit}` : `/hit/${hit}`;
+  // A coach's pairing opens Discover, where the suggestion waits; coach news opens the
+  // coach's tools, or the family view for a parent asked to approve one.
+  if (typeof data.pairing === 'string') return '/(tabs)';
+  if (data.coach) return isGuardian ? '/guardian' : '/coach';
   if (typeof data.code === 'string') return '/(tabs)/you';
   return null;
 }

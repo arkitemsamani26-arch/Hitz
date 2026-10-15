@@ -42,13 +42,19 @@ export default function Family() {
   const kids = useAsync(() => api.guardianChildren(), [tick]);
   const links = useAsync(() => api.guardianLinks(), [tick]);
   const courts = useAsync(() => api.courts(), []);
+  const coachLinks = useAsync(() => api.guardianCoachLinks(), [tick]);
   const [sel, setSel] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<{ id: string; childName: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const all = kids.data ?? [];
   useEffect(() => { if (all.length && !all.some(k => k.profile.id === sel)) setSel(all[0].profile.id); }, [all, sel]);
   const k: GuardianChild | undefined = all.find(x => x.profile.id === sel);
-  const waiting = all.reduce((n, x) => n + x.pendingApprovals.length, 0);
+  const pendingCoach = (coachLinks.data ?? []).filter(c => !c.approved);
+  const waiting = all.reduce((n, x) => n + x.pendingApprovals.length, 0) + pendingCoach.length;
+  const decideCoach = async (childId: string, coachId: string, ok: boolean, coachName: string) => {
+    try { await api.guardianDecideCoach(childId, coachId, ok); await coachLinks.reload(); toast(ok ? `Approved Coach ${coachName}.` : `Coach ${coachName} removed.`); }
+    catch (e: any) { toast(e?.message ?? "That didn't go through."); }
+  };
   const link = useMemo(() => (links.data ?? []).find(l => l.childId === k?.profile.id) ?? null, [links.data, k]);
 
   const setGap = async (gap: number | null) => {
@@ -87,7 +93,7 @@ export default function Family() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.strip}>
               {all.map(x => {
                 const on = x.profile.id === sel;
-                const n = x.pendingApprovals.length;
+                const n = x.pendingApprovals.length + pendingCoach.filter(c => c.childId === x.profile.id).length;
                 return (
                   <Tap key={x.profile.id} onPress={() => setSel(x.profile.id)} style={[s.kid, on && s.kidOn]} scaleTo={0.97}
                     accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={`${x.profile.displayName}${x.profile.age != null ? `, ${x.profile.age}` : ''}${n ? `, ${n} waiting for your OK` : ''}`}>
@@ -110,7 +116,7 @@ export default function Family() {
             {waiting > 0 && (
               <View style={s.alert}>
                 <Icon name="clock-3" size={15} color={t.ink} />
-                <T v="small" style={{ flex: 1 }}>{waiting === 1 ? 'One hit is waiting for your OK.' : `${waiting} hits are waiting for your OK.`}</T>
+                <T v="small" style={{ flex: 1 }}>{waiting === 1 ? 'One thing needs your OK.' : `${waiting} things need your OK.`}</T>
               </View>
             )}
 
@@ -132,6 +138,18 @@ export default function Family() {
                     </View>
                   </Card>
                 )}
+
+                {/* Coaches this child joined. One approval, by name, before the coach sees them. */}
+                {(coachLinks.data ?? []).filter(c => c.childId === k.profile.id && !c.approved).map(c => (
+                  <Card key={c.coachId} stripe style={{ marginTop: space.md, gap: space.sm }}>
+                    <T v="smallM">{k.profile.displayName} wants to join Coach {c.coachName}'s roster</T>
+                    <T v="meta" tone="muted">{c.academy}. A coach can suggest juniors for {k.profile.displayName} to hit with. They can't message {k.profile.displayName}, and you still approve every hit.</T>
+                    <View style={{ flexDirection: 'row', gap: space.sm }}>
+                      <Button title="Approve" small onPress={() => void decideCoach(c.childId, c.coachId, true, c.coachName)} style={{ flex: 1 }} />
+                      <Button title="Decline" kind="line" small onPress={() => void decideCoach(c.childId, c.coachId, false, c.coachName)} />
+                    </View>
+                  </Card>
+                ))}
 
                 <T v="micro" tone="muted" style={st.k}>Needs your OK</T>
                 {k.pendingApprovals.length === 0
@@ -177,6 +195,21 @@ export default function Family() {
                       : `${k.profile.displayName} can see any player under 18. Adults never appear, whatever you choose.`} You still approve every meetup.
                   </T>
                 </Card>
+
+                {(coachLinks.data ?? []).some(c => c.childId === k.profile.id && c.approved) && (
+                  <>
+                    <T v="micro" tone="muted" style={st.k}>{k.profile.displayName}'s coaches</T>
+                    <Card style={{ paddingVertical: 4 }}>
+                      {(coachLinks.data ?? []).filter(c => c.childId === k.profile.id && c.approved).map((c, i) => (
+                        <View key={c.coachId} style={[st.row, i > 0 && s.rule]}>
+                          <Icon name="handshake" size={17} color={t.ink} />
+                          <View style={{ flex: 1 }}><T v="smallM">Coach {c.coachName}</T><T v="meta" tone="muted">{c.academy}{c.coachVerified ? '' : ' · Hits is checking this coach'}</T></View>
+                          <Button title="Remove" kind="ghost" small onPress={() => void decideCoach(c.childId, c.coachId, false, c.coachName)} />
+                        </View>
+                      ))}
+                    </Card>
+                  </>
+                )}
 
                 {link && (
                   <Tap onPress={() => setRevoking({ id: link.id, childName: link.childName })} style={st.remove} accessibilityRole="button" accessibilityLabel={`Remove your link to ${link.childName}`}>

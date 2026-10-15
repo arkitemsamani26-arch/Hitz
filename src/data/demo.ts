@@ -7,11 +7,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi } from './api';
 import type {
-  Approval, Assurance, Court, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  InboxEntry, Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim,
+  Approval, Assurance, Coaching, CoachPairing, CoachStatus, Court, CourtStats, GuardianCoachLink, HitPlan, Roster, DeclineReason,
+  DiscoverFilters, GuardianChild, HitRequest, HitState, InboxEntry, Invite, MarketStatus, Message, MyCoach, Pairing, Player,
+  Profile, ProfileInput, RosterMember, Session, UtrClaim,
 } from './types';
 import { DECLINE_COPY } from './types';
 import { notifyLocal } from '@/lib/push';
+import { midpointCourt } from '@/lib/courts';
 
 const KEY = 'hits.demo.v4';
 const ME = 'me';
@@ -120,6 +122,12 @@ type State = {
   // The demo parent's other child: her rule, set from the family view.
   siblingGap?: number | null;
   siblingRevoked?: boolean;
+  // You as a coach: your academy, and when Hits finishes verifying you for juniors.
+  coaching?: { academy: string; code: string; verifyAt: string } | null;
+  coachPairs?: (Omit<CoachPairing, 'aName' | 'bName'>)[];
+  // You as a player, linked to the demo's coach.
+  myCoach?: { status: CoachStatus; joinedAt: string; paired?: boolean } | null;
+  pairings?: { id: string; otherId: string; courtId: string | null; windowStart: string | null; windowEnd: string | null; note: string | null; state: 'open' | 'sent' | 'dismissed'; createdAt: string }[];
   rosters: Roster[];
   invites: Invite[];
   pushToken: string | null;
@@ -156,6 +164,14 @@ function ageOf(dob: string): number {
 // The demo parent has two kids: whoever is playing the demo, and a younger sister with a
 // week of her own, so the family view shows what it is for.
 const SIBLING = { id: 'kid-lily', name: 'Lily', initial: 'T', age: 12, level: 5.8, court: 'c-mitchell', avail: 8 | 16 };
+
+// The demo's coach, for walking the player side: join with code PTA26.
+const COACH = { id: 'coach-maria', name: 'Maria S.', academy: 'Peninsula Tennis Academy', code: 'PTA26' };
+// Who is on your roster when you turn on coach tools in the demo: adults, and juniors who
+// wait on Hits verifying you. Clara's parent has not answered yet, so she stays waiting.
+const ROSTER = ['p-kenji', 'p-elena-r', 'p-grace', 'p-gabe', 'p-priya-a', 'p-tom', 'p-sofia', 'p-dan',
+  'p-maya', 'p-theo', 'p-ruby', 'p-zoe', 'p-dev', 'p-tess', 'p-nina', 'p-clara'];
+const WAITING_ON_PARENT = new Set(['p-clara']);
 
 function bandOf(dob: string): 'minor' | 'adult' {
   const d = new Date(dob);
@@ -215,6 +231,14 @@ export class DemoApi implements HitsApi {
         }
         const before = r.state; this.maybeConfirm(r); if (r.state !== before) changed = true;
       }
+    }
+    // Coaching, settled the same way so a reload does not strand anything halfway.
+    const mc = this.s.myCoach;
+    if (mc && mc.status === 'parent' && age(mc.joinedAt) > 10000) { mc.status = 'active'; mc.joinedAt = iso(new Date()); changed = true; }
+    if (mc && mc.status === 'active' && !mc.paired && age(mc.joinedAt) > 5000) { mc.paired = true; this.coachSuggests(); changed = true; }
+    for (const x of this.s.coachPairs ?? []) {
+      if (x.state === 'open' && age(x.createdAt) > 6000) { x.state = 'sent'; x.hitState = 'pending'; changed = true; }
+      if (x.state === 'sent' && x.hitState === 'pending' && age(x.createdAt) > 12000) { x.hitState = 'confirmed'; changed = true; }
     }
     return changed;
   }
@@ -648,6 +672,124 @@ export class DemoApi implements HitsApi {
     r.confirmations[otherId] = didPlay;    // demo: they agree
     if (didPlay) r.state = 'completed';
     this.save(); return this.toRequest(r);
+  }
+
+  // ---- coaches: you as a coach ------------------------------------------------
+  private rosterStatus(id: string): CoachStatus {
+    const p = SEED.find(x => x.id === id); const c = this.s.coaching;
+    if (!p || !c) return 'inactive';
+    if (p.band === 'adult') return 'active';
+    if (WAITING_ON_PARENT.has(id)) return 'parent';
+    return new Date(c.verifyAt).getTime() <= Date.now() ? 'active' : 'verify';
+  }
+  async myCoaching(): Promise<Coaching | null> {
+    await this.load(); const c = this.s.coaching;
+    return c ? { academy: c.academy, code: c.code, juniorsVerified: new Date(c.verifyAt).getTime() <= Date.now() } : null;
+  }
+  async becomeCoach(academy: string): Promise<Coaching> {
+    await this.load(); await this.wait();
+    if (this.myBand() !== 'adult') throw new ApiError('Coaches are adults.');
+    if (academy.trim().length < 2) throw new ApiError('Name your academy or team.');
+    const code = academy.replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase() + String(Math.floor(Math.random() * 90) + 10);
+    this.s.coaching = this.s.coaching ? { ...this.s.coaching, academy: academy.trim() } : { academy: academy.trim(), code, verifyAt: iso(new Date(Date.now() + 8000)) };
+    this.save(); return (await this.myCoaching())!;
+  }
+  async coachRoster(): Promise<RosterMember[]> {
+    await this.load(); if (!this.s.coaching) return [];
+    const joined = (i: number) => hoursAgo(24 * (3 + i));
+    return ROSTER.map((id, i) => {
+      const p = SEED.find(x => x.id === id)!; const status = this.rosterStatus(id); const ok = status === 'active';
+      const base = this.toPlayer(p, this.meProfile()?.levelValue ?? null);
+      return ok ? { ...base, age: p.band === 'minor' ? p.age ?? null : null, levelDelta: null, distanceBucket: null, band: p.band, status, joinedAt: joined(i) }
+        : { ...base, lastInitial: null, photoUrl: null, levelValue: null, levelSource: null, levelVerified: false, levelDelta: null, distanceBucket: null,
+            homeCourtId: null, homeCourtName: null, availabilityMask: 0, lookingToHit: false, hitsConfirmed: 0, prefers: null, age: null,
+            responseRate: null, acceptRate: null, band: p.band, status, joinedAt: joined(i) };
+    }).sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active') || a.displayName.localeCompare(b.displayName));
+  }
+  async coachPair(aId: string, bId: string, courtId: string | null, start: Date | null, end: Date | null, note: string | null) {
+    await this.load(); await this.wait();
+    if (!this.s.coaching) throw new ApiError('Turn on coach tools first.');
+    if (aId === bId) throw new ApiError('Pick two different players.');
+    if (this.rosterStatus(aId) !== 'active' || this.rosterStatus(bId) !== 'active') throw new ApiError('Both players need to be on your roster.');
+    const a = SEED.find(x => x.id === aId)!, b = SEED.find(x => x.id === bId)!;
+    if (a.band !== b.band) throw new ApiError('Juniors are only paired with juniors.');
+    if (start && start < new Date()) throw new ApiError('Pick a time that has not passed.');
+    const pairs = this.s.coachPairs ?? [];
+    if (pairs.some(x => x.state === 'open' && ((x.aId === aId && x.bId === bId) || (x.aId === bId && x.bId === aId)))) throw new ApiError('You already paired these two.');
+    pairs.unshift({ id: uid(), aId, bId, courtId, windowStart: start ? iso(start) : null, windowEnd: end ? iso(end) : null, note: note?.trim() || null, state: 'open', hitState: null, createdAt: iso(new Date()) });
+    this.s.coachPairs = pairs; this.save();
+  }
+  async coachPairings(): Promise<CoachPairing[]> {
+    await this.load();
+    const nm = (id: string) => SEED.find(x => x.id === id)?.name ?? 'Player';
+    return (this.s.coachPairs ?? []).map(x => ({ ...x, aName: nm(x.aId), bName: nm(x.bId) }));
+  }
+  async coachRemove(playerId: string) {
+    await this.load();
+    (this.s.coachPairs ?? []).forEach(x => { if (x.state === 'open' && (x.aId === playerId || x.bId === playerId)) x.state = 'dismissed'; });
+    this.save();
+  }
+
+  // ---- coaches: you as a player ------------------------------------------------
+  async checkCoachCode(code: string) {
+    await this.load(); await this.wait(200);
+    return code.trim().toUpperCase() === COACH.code ? { coachName: COACH.name, academy: COACH.academy } : null;
+  }
+  async joinCoach(code: string) {
+    await this.load(); await this.wait();
+    if (code.trim().toUpperCase() !== COACH.code) throw new ApiError('That code is not a coach on Hits. Check it with them.');
+    const minor = this.myBand() === 'minor';
+    this.s.myCoach = { status: minor ? 'parent' : 'active', joinedAt: iso(new Date()) };
+    this.save();
+    return { coachName: COACH.name, academy: COACH.academy, needsParent: minor };
+  }
+  async myCoaches(): Promise<MyCoach[]> {
+    await this.load(); const m = this.s.myCoach;
+    return m ? [{ coachId: COACH.id, name: COACH.name, academy: COACH.academy, status: m.status }] : [];
+  }
+  async leaveCoach() {
+    await this.load(); this.s.myCoach = null;
+    (this.s.pairings ?? []).forEach(x => { if (x.state === 'open') x.state = 'dismissed'; });
+    this.save();
+  }
+  // The coach's suggestion: someone your level and age, free when you are, at their court.
+  private coachSuggests() {
+    const me = this.s.profile; if (!me) return;
+    const band = bandOf(me.dateOfBirth);
+    const pick = SEED.filter(p => p.band === band && !this.s.blocked.includes(p.id) && this.ageOk(p, band === 'minor' ? 2 : null))
+      .sort((a, b) => Number(b.looking) - Number(a.looking) || Math.abs(a.level - me.levelValue) - Math.abs(b.level - me.levelValue))[0];
+    if (!pick) return;
+    const start = nextSlot(pick.avail & me.availabilityMask || pick.avail, 2);
+    const court = midpointCourt(me.homeCourtId, pick.court, COURTS.map(c => c.id)) ?? pick.court;
+    const id = uid();
+    this.s.pairings = [{ id, otherId: pick.id, courtId: court, windowStart: iso(start), windowEnd: iso(new Date(start.getTime() + 90 * 60000)),
+      note: 'You two have similar games. Start with cross-court rallies, then play a set.', state: 'open', createdAt: iso(new Date()) }, ...(this.s.pairings ?? [])];
+    void notifyLocal(`Coach ${COACH.name.split(' ')[0]} paired you with ${pick.name}`, `${start.toLocaleString('en-US', { weekday: 'short', hour: 'numeric' })} · ${COURTS.find(c => c.id === court)?.name ?? ''}`, { pairing: id });
+  }
+  async myPairings(): Promise<Pairing[]> {
+    await this.load();
+    if (this.s.myCoach?.status !== 'active') return [];
+    return (this.s.pairings ?? []).filter(x => x.state === 'open').flatMap(x => {
+      const p = SEED.find(s => s.id === x.otherId); if (!p) return [];
+      return [{ id: x.id, coachId: COACH.id, coachName: COACH.name, academy: COACH.academy, other: this.toPlayer(p, this.meProfile()?.levelValue ?? null),
+        courtId: x.courtId, windowStart: x.windowStart, windowEnd: x.windowEnd, note: x.note, createdAt: x.createdAt }];
+    });
+  }
+  async pairingSent(pairingId: string) { await this.load(); const x = (this.s.pairings ?? []).find(y => y.id === pairingId); if (x) { x.state = 'sent'; this.save(); } }
+  async dismissPairing(pairingId: string) { await this.load(); const x = (this.s.pairings ?? []).find(y => y.id === pairingId); if (x) { x.state = 'dismissed'; this.save(); } }
+
+  // ---- coaches: you as a parent ------------------------------------------------
+  async guardianCoachLinks(): Promise<GuardianCoachLink[]> {
+    await this.load(); const m = this.s.myCoach; const p = this.s.profile;
+    if (!m || !p || bandOf(p.dateOfBirth) !== 'minor') return [];
+    return [{ childId: ME, childName: p.displayName, coachId: COACH.id, coachName: COACH.name, academy: COACH.academy, approved: m.status !== 'parent', coachVerified: true }];
+  }
+  async guardianDecideCoach(_child: string, _coach: string, ok: boolean) {
+    await this.load();
+    if (!this.s.myCoach) return;
+    if (ok) { this.s.myCoach.status = 'active'; this.s.myCoach.joinedAt = iso(new Date()); }
+    else this.s.myCoach = null;
+    this.save();
   }
 
   // ---- safety ------------------------------------------------------------------

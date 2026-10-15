@@ -130,3 +130,50 @@ drop function app.discover_v1(int, numeric, numeric, int, boolean, interval, int
 Screenshots of every main screen are in `docs/shots/`, and the seven store screenshots in
 `docs/store/` now show Discover, a player card, a conversation, a court, a confirmed hit,
 Messages and the family view.
+
+## Coaches
+
+Asked for after the first pass: a coach, the way CoachNow links a coach and their students,
+who can pair two of their players to hit together.
+
+**Coach tools** (`/coach`, from Profile, adults only): name your academy or team and you get
+a join code ("PENIN86"). The dashboard shows the code with a Share button, your players with
+their level, age (juniors) and usual times, **pairs we would suggest** (same side of 18,
+within a point of each other, free at the same times, juniors within two years, nobody in
+more than two suggestions), and every pairing you have made with where it got to: sent to
+both, invite sent, with the parents, it's on, played, or passed.
+
+**Pairing** (`/coach/pair`): pick two players (the second list ranks who fits the first and
+says why), suggest a time or let them pick, choose a court (halfway between their home courts
+by default), add a note. Both get it as a push and as a card at the top of Discover: "Hit with
+Theo K.", the time and court, the coach's note, and **Send the invite**, which opens an
+ordinary invitation already filled in. From there it is their hit: they talk, a parent
+approves a junior's hit, it's on. The coach sees the hit's state, never the conversation.
+
+**Joining** (`/coach/join`, from Profile): type the code, see whose academy it is, join.
+
+**Juniors.** A coach is an adult, and the rule is that no adult finds or contacts a junior.
+So a junior appears on a coach's roster only when all three hold: the junior joined with the
+code, their parent approved that coach by name (in the family view), and a person at Hits
+has verified the coach (`coaches.juniors_verified_at`, which only the server can set). Until
+then the coach sees a first name and "waiting on their parent" or "waiting on Hits", nothing
+more. A coach can never message anyone, can never pair a junior with an adult, and a
+parent's age rule applies to pairings exactly as it does to invitations. A parent can remove
+a coach at any time, which takes their child off the roster and withdraws open pairings.
+
+**To verify a coach for juniors** (owner task, after checking who they are):
+
+```sql
+update app.coaches set juniors_verified_at = now() where code = 'PENIN86';
+```
+
+Migration `20261014000100_coaches.sql`; 30 tests in `supabase/tests/22_coaches.sql`.
+
+## Looking to hit
+
+`/looking`, from "See all" beside "Free this week" on Discover: everyone who said they want
+to play this week, each with their usual week as six small squares (weekday and weekend,
+morning, afternoon, evening). Solid squares are times you are both free; outlined ones are
+only them. It opens filtered to when you are free, sorted by how much you overlap, with
+chips for any single time and an Invite button on every row. Your own "I'm free this week"
+switch sits at the top.

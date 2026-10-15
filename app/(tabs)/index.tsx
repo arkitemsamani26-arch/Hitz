@@ -15,6 +15,7 @@ import { WindowEditor } from '@/ui/WindowEditor';
 import { Avatar, initialsOf } from '@/ui/Avatar';
 import { Score } from '@/ui/Score';
 import { Icon as Glyph, type IconName } from '@/ui/Icon';
+import { PairingCard } from '@/ui/PairingCard';
 import { useToast } from '@/ui/Toast';
 import { radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -44,6 +45,8 @@ export default function Discover() {
   const market = useAsync(() => api.marketStatus(), [tick]);
   const players = useAsync(() => api.discover(filters), [filters, tick]);
   const reqs = useAsync(() => api.requests(), [tick]);
+  const pairings = useAsync(() => api.myPairings(), [tick]);
+  const courtList = useAsync(() => api.courts(), []);
   useEffect(() => { void api.touch(); void registerPush(); }, []);
 
   const me = profile?.id;
@@ -62,7 +65,9 @@ export default function Discover() {
     }
     return m;
   }, [reqs.data, me]);
-  const top = useMemo(() => (profile ? bestMatch(profile, list.filter(p => !openWith.has(p.id))) : null), [profile, list, openWith]);
+  // Someone a coach just paired you with is already on screen above, so not featured twice.
+  const paired = useMemo(() => new Set((pairings.data ?? []).map(x => x.other.id)), [pairings.data]);
+  const top = useMemo(() => (profile ? bestMatch(profile, list.filter(p => !openWith.has(p.id) && !paired.has(p.id))) : null), [profile, list, openWith, paired]);
   const rest = useMemo(() => list.filter(p => p.id !== top?.id), [list, top]);
   const my = profile?.levelValue;
   const level = filters.levelLo != null && filters.levelHi != null
@@ -143,6 +148,18 @@ export default function Discover() {
             ))}
           </View>
 
+          {/* A coach's suggestions come first: someone you trust picked this person for you. */}
+          {(pairings.data ?? []).map(x => (
+            <PairingCard key={x.id} x={x} courts={courtList.data} locked={!canInvite}
+              onOpen={() => open(x.other.id)}
+              onDismiss={async () => { try { await api.dismissPairing(x.id); await pairings.reload(); toast(`Coach ${x.coachName.split(' ')[0]} will see you passed on this one.`); } catch (e: any) { toast(e?.message ?? "That didn't go through."); } }}
+              onSend={() => router.push({ pathname: '/request/[id]', params: {
+                id: x.other.id, pairing: x.id, ...(x.courtId ? { court: x.courtId } : {}),
+                ...(x.windowStart && x.windowEnd ? { start: x.windowStart, end: x.windowEnd } : {}),
+                note: `Coach ${x.coachName.split(' ')[0]} paired us.${x.note ? ` ${x.note}` : ''}`.slice(0, 140),
+              } })} />
+          ))}
+
           {next && (
             <View style={s.next}>
               <Tap onPress={() => router.push(`/hit/${next.id}`)} style={st.nextMain} scaleTo={0.99} accessibilityRole="button"
@@ -202,7 +219,9 @@ export default function Discover() {
                 <>
                   <View style={st.rowHead}>
                     <T v="h2" accessibilityRole="header">Free this week.</T>
-                    <T v="meta" tone="muted">{keen.length} looking</T>
+                    <Tap onPress={() => router.push('/looking')} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={`See all ${keen.length} looking this week, with when they are free`}>
+                      <T v="smallM" tone="green">See all {keen.length}</T>
+                    </Tap>
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.carousel}>
                     {keen.map(p => (

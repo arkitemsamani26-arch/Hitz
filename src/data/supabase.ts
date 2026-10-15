@@ -11,7 +11,8 @@ import { toE164 } from '@/lib/phone';
 import { registerCourts } from '@/lib/courts';
 import type {
   Approval, Assurance, Court, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
-  InboxEntry, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
+  Coaching, CoachPairing, GuardianCoachLink, InboxEntry, MarketStatus, Message, MyCoach, Pairing, Player, Profile, ProfileInput,
+  RosterMember, Session, UtrClaim, UtrStatus,
 } from './types';
 import { DECLINE_COPY } from './types';
 
@@ -489,6 +490,76 @@ export class SupabaseApi implements HitsApi {
       .upsert({ hit_request_id: id, profile_id: this.uid, did_play: didPlay }, { onConflict: 'hit_request_id,profile_id' });
     if (error) this.fail(error);
     return (await this.hit(id))!.request;
+  }
+
+  // ---- coaches -----------------------------------------------------------------
+  private one<T>(data: unknown): T | null { return (Array.isArray(data) ? data[0] : data) as T ?? null; }
+  async myCoaching(): Promise<Coaching | null> {
+    const { data } = await this.sb.rpc('my_coaching');
+    const r = this.one<any>(data); return r ? { academy: r.academy, code: r.code, juniorsVerified: r.juniors_verified } : null;
+  }
+  async becomeCoach(academy: string): Promise<Coaching> {
+    const { data, error } = await this.sb.rpc('become_coach', { p_academy: academy });
+    if (error) this.fail(error);
+    const r = this.one<any>(data)!; return { academy: r.academy, code: r.code, juniorsVerified: r.juniors_verified };
+  }
+  async coachRoster(): Promise<RosterMember[]> {
+    const [{ data, error }, courts] = await Promise.all([this.sb.rpc('coach_roster'), this.courtMap()]);
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any): RosterMember => ({
+      id: r.player_id, displayName: r.display_name, lastInitial: r.last_initial, photoUrl: r.photo_url,
+      levelValue: r.level_value == null ? null : Number(r.level_value), levelSource: r.level_source, levelVerified: r.level_source === 'utr_verified',
+      levelDelta: null, distanceBucket: null, homeCourtId: r.home_court_id, homeCourtName: courts.get(r.home_court_id) ?? null,
+      availabilityMask: r.availability_mask ?? 0, lookingToHit: !!r.looking_to_hit, lastActiveAt: r.last_active_at ?? new Date(0).toISOString(),
+      responseRate: null, acceptRate: null, hitsConfirmed: r.hits_confirmed ?? 0, prefers: r.prefers ?? null, age: r.age ?? null,
+      band: r.band, status: r.status, joinedAt: r.joined_at,
+    }));
+  }
+  async coachPair(aId: string, bId: string, courtId: string | null, start: Date | null, end: Date | null, note: string | null) {
+    const { error } = await this.sb.rpc('coach_pair', { p_a: aId, p_b: bId, p_court: courtId, p_start: start?.toISOString() ?? null, p_end: end?.toISOString() ?? null, p_note: note });
+    if (error) this.fail(error);
+  }
+  async coachPairings(): Promise<CoachPairing[]> {
+    const { data, error } = await this.sb.rpc('coach_pairings');
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({ id: r.id, aId: r.a_id, aName: r.a_name, bId: r.b_id, bName: r.b_name, courtId: r.court_id,
+      windowStart: r.window_start, windowEnd: r.window_end, note: r.note, state: r.state, hitState: r.hit_state, createdAt: r.created_at }));
+  }
+  async coachRemove(playerId: string) { const { error } = await this.sb.rpc('coach_remove', { p_player: playerId }); if (error) this.fail(error); }
+  async checkCoachCode(code: string) {
+    const { data } = await this.sb.rpc('check_coach_code', { p_code: code.trim() });
+    const r = this.one<any>(data); return r ? { coachName: r.coach_name, academy: r.academy } : null;
+  }
+  async joinCoach(code: string) {
+    const { data, error } = await this.sb.rpc('join_coach', { p_code: code.trim() });
+    if (error) this.fail(error);
+    const r = this.one<any>(data)!; return { coachName: r.coach_name, academy: r.academy, needsParent: r.needs_parent };
+  }
+  async myCoaches(): Promise<MyCoach[]> {
+    const { data } = await this.sb.rpc('my_coaches');
+    return (data ?? []).map((r: any) => ({ coachId: r.coach_id, name: r.coach_name, academy: r.academy, status: r.status }));
+  }
+  async leaveCoach(coachId: string) { const { error } = await this.sb.rpc('leave_coach', { p_coach: coachId }); if (error) this.fail(error); }
+  async myPairings(): Promise<Pairing[]> {
+    const { data, error } = await this.sb.rpc('my_pairings');
+    if (error) this.fail(error);
+    const rows = (data ?? []) as any[];
+    const peers = await this.players(rows.map(r => r.other_id));
+    return rows.filter(r => peers.has(r.other_id)).map(r => ({
+      id: r.id, coachId: r.coach_id, coachName: r.coach_name, academy: r.academy, other: peers.get(r.other_id)!,
+      courtId: r.court_id, windowStart: r.window_start, windowEnd: r.window_end, note: r.note, createdAt: r.created_at,
+    }));
+  }
+  async pairingSent(pairingId: string, hitId: string) { const { error } = await this.sb.rpc('pairing_sent', { p_pairing: pairingId, p_hit: hitId }); if (error) this.fail(error); }
+  async dismissPairing(pairingId: string) { const { error } = await this.sb.rpc('dismiss_pairing', { p_pairing: pairingId }); if (error) this.fail(error); }
+  async guardianCoachLinks(): Promise<GuardianCoachLink[]> {
+    const { data } = await this.sb.rpc('guardian_coach_links');
+    return (data ?? []).map((r: any) => ({ childId: r.child_id, childName: r.child_name, coachId: r.coach_id, coachName: r.coach_name,
+      academy: r.academy, approved: r.approved, coachVerified: r.coach_verified }));
+  }
+  async guardianDecideCoach(childId: string, coachId: string, ok: boolean) {
+    const { error } = await this.sb.rpc('guardian_decide_coach', { p_child: childId, p_coach: coachId, p_ok: ok });
+    if (error) this.fail(error);
   }
 
   // ---- safety ------------------------------------------------------------------

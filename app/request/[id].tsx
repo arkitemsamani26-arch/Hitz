@@ -28,7 +28,10 @@ const HITS = ['Warm up, then practice sets', 'Rally and drills', 'A match', 'Wha
 
 export default function Invitation() {
   // `court` comes from a court's page: "invite them to meet here".
-  const { id, counter, court: atCourt } = useLocalSearchParams<{ id: string; counter?: string; court?: string }>();
+  // `pairing`, `start`, `end` and `note` come from a coach's suggestion: the invitation
+  // arrives filled in, and sending it tells the coach it went out.
+  const { id, counter, court: atCourt, pairing, start: pStart, end: pEnd, note: pNote } =
+    useLocalSearchParams<{ id: string; counter?: string; court?: string; pairing?: string; start?: string; end?: string; note?: string }>();
   const router = useRouter();
   const toast = useToast();
   const { profile } = useSession();
@@ -41,10 +44,14 @@ export default function Invitation() {
   const { data: courts } = useAsync(() => api.courts(), []);
   const next = useNextWindow(profile?.availabilityMask ?? 0);
 
-  const [win, setWin] = useState<Window>(next);
+  const [win, setWin] = useState<Window>(() => {
+    if (!pStart || !pEnd) return next;
+    const s0 = new Date(pStart), e0 = new Date(pEnd);
+    return s0 > new Date() ? { start: s0, durMin: Math.max(30, Math.round((e0.getTime() - s0.getTime()) / 60000)) } : next;
+  });
   const [courtId, setCourtId] = useState<string | null>(atCourt ?? null);
   const [kind, setKind] = useState(HITS[0]);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(pNote ?? '');
   const [editing, setEditing] = useState<null | 'time' | 'court' | 'kind'>(null);
   const [busy, setBusy] = useState(false);
   // A counter starts from what they proposed, so the change you make is the whole message.
@@ -71,6 +78,7 @@ export default function Invitation() {
       const start = win.start, end = endOf(win);
       const body = isCounter ? null : [kind, note.trim()].filter(Boolean).join(' · ');
       const r = isCounter ? await api.counter(counter!, chosenCourt, start, end) : await api.sendRequest(player.id, chosenCourt, start, end, body);
+      if (pairing) await api.pairingSent(pairing, r.id).catch(() => {});
       haptic.sent();
       toast(isCounter ? `Sent ${player.displayName} your counter.` : `Invitation sent to ${player.displayName}. It's on when they accept.`);
       router.replace(isCounter ? `/hit/${r.id}` : '/(tabs)/hits');

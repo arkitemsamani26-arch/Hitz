@@ -1,5 +1,5 @@
 import type {
-  Approval, Assurance, Court, CourtStats, HitPlan, InboxEntry, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
+  Approval, Assurance, Coaching, CoachPairing, Court, CourtStats, GuardianCoachLink, HitPlan, InboxEntry, MyCoach, Pairing, RosterMember, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
   Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 
@@ -80,6 +80,26 @@ export interface HitsApi {
   // One field takes either kind. `label` is the team's name or the inviter's first name;
   // it comes back even when the code is spent, so the field can explain rather than deny.
   checkCode(code: string): Promise<{ valid: boolean; kind: 'roster' | 'invite' | null; label: string | null }>;
+
+  // coaches: your own coach tools
+  myCoaching(): Promise<Coaching | null>;
+  becomeCoach(academy: string): Promise<Coaching>;
+  coachRoster(): Promise<RosterMember[]>;
+  coachPair(aId: string, bId: string, courtId: string | null, start: Date | null, end: Date | null, note: string | null): Promise<void>;
+  coachPairings(): Promise<CoachPairing[]>;
+  coachRemove(playerId: string): Promise<void>;
+  // coaches: as a player
+  checkCoachCode(code: string): Promise<{ coachName: string; academy: string } | null>;
+  joinCoach(code: string): Promise<{ coachName: string; academy: string; needsParent: boolean }>;
+  myCoaches(): Promise<MyCoach[]>;
+  leaveCoach(coachId: string): Promise<void>;
+  myPairings(): Promise<Pairing[]>;
+  // One of the pair sent the invitation the coach suggested.
+  pairingSent(pairingId: string, hitId: string): Promise<void>;
+  dismissPairing(pairingId: string): Promise<void>;
+  // coaches: as a parent
+  guardianCoachLinks(): Promise<GuardianCoachLink[]>;
+  guardianDecideCoach(childId: string, coachId: string, ok: boolean): Promise<void>;
 
   // safety
   block(profileId: string): Promise<void>;
