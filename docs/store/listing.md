@@ -2,7 +2,7 @@
 
 Copy for App Store Connect and the Play Console, written against what the app does today.
 Character limits are the stores' own. Screenshots are in this folder (1290 × 2796, the
-6.7-inch size both stores accept; seven of them, under the ten both stores allow) and use
+6.7-inch size both stores accept; eight of them, under the ten both stores allow) and use
 the demo's sample players, so the listing should not imply they are real members.
 
 ## Name and subtitle
@@ -70,3 +70,4 @@ The app opens in demo mode if no backend is configured. For review, provide a te
 5. It's on: the confirmed hit with Add to calendar, Directions, Share, Message, and the plan.
 6. Messages: every conversation, with what you have not read.
 7. The family view: each child, what needs a parent's OK, and their age setting.
+8. Coach tools: the academy's join code, pairs we would suggest, and the roster.

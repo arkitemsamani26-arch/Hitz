@@ -56,6 +56,10 @@ const family = {
     approvals: [{ hitId: 'f1', minorId: 'me', minorName: 'Maya', guardianUserId: 'guardian-me', decision: null, decidedAt: null, createdAt: ago(30) }, { hitId: 'f1', minorId: 'p-clara', minorName: 'Clara', guardianUserId: 'g', decision: true, decidedAt: ago(20) }] })],
 };
 
+// A coach with coach tools on and juniors verified, for the coach dashboard.
+const coach = { ...seed, coaching: { academy: 'Peninsula Tennis Academy', code: 'PENIN86', verifyAt: ago(600) },
+  coachPairs: [{ id: 'cp1', aId: 'p-kenji', bId: 'p-elena-r', courtId: 'c-rinconada', windowStart: iso(day(wd + 1, 18)), windowEnd: iso(day(wd + 1, 19.5)), note: 'Work on returns.', state: 'sent', hitState: 'confirmed', createdAt: ago(2000) }] };
+
 const SHOTS = [
   ['1-discover', '/(tabs)', seed],
   ['2-player-card', '/player/p-elena-r', seed],
@@ -64,6 +68,7 @@ const SHOTS = [
   ['5-its-on', '/hit/on1', seed],
   ['6-inbox', '/(tabs)/messages', seed],
   ['7-family', '/guardian', family],
+  ['8-coach', '/coach', coach],
 ];
 
 const { chromium } = require_('playwright');
