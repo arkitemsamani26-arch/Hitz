@@ -177,3 +177,23 @@ morning, afternoon, evening). Solid squares are times you are both free; outline
 only them. It opens filtered to when you are free, sorted by how much you overlap, with
 chips for any single time and an Invite button on every row. Your own "I'm free this week"
 switch sits at the top.
+
+## Supabase security emails (October 2026)
+
+The "security vulnerabilities detected" emails come from Supabase's advisor. Every finding
+is about the `public` schema, not the app's own tables:
+
+- `public.spatial_ref_sys` (PostGIS's list of map projections) has no row-level security.
+- `public.st_estimatedextent` (a PostGIS helper) can be called through the API.
+- `postgis`, `citext` and `pg_net` are installed in `public`.
+
+Supabase's admin role owns these and granted access to them, so the project's `postgres`
+role cannot revoke it (tried; it has no effect). The app never uses `public`: every call
+goes to the `app` schema (`db: { schema: 'app' }` in `src/data/supabase.ts`). The fix is
+to stop exposing `public` to the API:
+
+**Dashboard → Project Settings → Data API → Exposed schemas: remove `public`, keep `app`.**
+
+The remaining "RLS enabled, no policy" notes are informational and intended: those tables
+(coaches, pairings, notifications, private profile fields and so on) are reachable only
+through the app's checked functions, never read directly.
