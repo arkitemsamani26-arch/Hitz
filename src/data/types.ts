@@ -32,7 +32,12 @@ export interface Profile {
   age: number | null;
   // Juniors only: how far apart in age their partners may be, set by a parent. Null is any.
   maxPartnerAgeGap: number | null;
+  // Singles, doubles, or either. What the "Looking to hit" list shows next to your name.
+  playFormat: PlayFormat;
 }
+
+export type PlayFormat = 'singles' | 'doubles' | 'either';
+export type DoublesRole = 'partner' | 'opponent';
 
 // Planned together while the parents decide. Small, one-tap choices both sides see.
 export interface HitPlan {
@@ -94,6 +99,7 @@ export interface Player {
   prefers: string | null;
   // In years, and only when both of you are under 18.
   age: number | null;
+  playFormat?: PlayFormat;
 }
 
 export interface Court {
@@ -127,6 +133,71 @@ export interface HitRequest {
   plan: HitPlan;
   myConfirmation: boolean | null;
   theirConfirmation: boolean | null;
+  // Doubles: each invitation in a game is still between two people. The game is the
+  // invitations from one organizer that share a matchId.
+  format: 'singles' | 'doubles';
+  matchId: string | null;
+  doublesRole: DoublesRole | null;
+  tournamentId: string | null;
+}
+
+// One of the four in a doubles game.
+export interface DoublesMember {
+  id: string;
+  displayName: string;
+  lastInitial: string | null;
+  photoUrl: string | null;
+  levelValue: number | null;
+  age: number | null;
+  role: 'organizer' | DoublesRole;
+  state: HitState | null;        // the organizer has none
+  hitId: string | null;          // only for invitations you are in
+}
+
+export interface DoublesSuggestion extends Player {
+  commonTimes: number;
+}
+
+// A tournament players said they are playing. Entered by players, not pulled from any
+// organizer's draw.
+export interface Tournament {
+  id: string;
+  name: string;
+  startsOn: string;              // yyyy-mm-dd
+  endsOn: string;
+  location: string | null;
+  url: string | null;
+  entered: boolean;
+  division: string | null;
+  singles: boolean;
+  doubles: boolean;
+  wantsPartner: boolean;
+  players: number;               // only the ones you could find
+  partnerSeekers: number;
+}
+
+export interface TournamentPlayer {
+  id: string;
+  displayName: string;
+  lastInitial: string | null;
+  photoUrl: string | null;
+  levelValue: number | null;
+  levelSource: LevelSource | null;
+  age: number | null;
+  division: string | null;
+  singles: boolean;
+  doubles: boolean;
+  wantsPartner: boolean;
+  sameDivision: boolean;
+  availabilityMask: number;
+  homeCourtId: string | null;
+}
+
+export interface TournamentEntry {
+  division: string | null;
+  singles: boolean;
+  doubles: boolean;
+  wantsPartner: boolean;
 }
 
 export interface Approval {

@@ -5,9 +5,9 @@
 // respond on a short delay so the loop actually closes. State persists locally so a
 // reload doesn't restart onboarding.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ApiError, type HitsApi } from './api';
+import { ApiError, type HitsApi, type SendDoubles } from './api';
 import type {
-  Approval, Assurance, Coaching, CoachPairing, CoachStatus, Court, CourtStats, GuardianCoachLink, HitPlan, Roster, DeclineReason,
+  Approval, Assurance, Coaching, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, CoachPairing, CoachStatus, Court, CourtStats, GuardianCoachLink, HitPlan, Roster, DeclineReason,
   DiscoverFilters, GuardianChild, HitRequest, HitState, InboxEntry, Invite, MarketStatus, Message, MyCoach, Pairing, Player,
   Profile, ProfileInput, RosterMember, Session, UtrClaim,
 } from './types';
@@ -23,6 +23,7 @@ type SeedPlayer = {
   id: string; age?: number; name: string; initial: string; band: 'minor' | 'adult'; level: number;
   miles: number; activeHoursAgo: number; response: number | null; accept: number | null;
   looking: boolean; court: string; avail: number; hits: number; verified?: boolean; prefers?: string;
+  fmt?: PlayFormat;
 };
 
 const COURTS: Court[] = [
@@ -84,11 +85,51 @@ const SEED: SeedPlayer[] = [
   { id: 'p-gabe', name: 'Gabe', initial: 'N', band: 'adult', level: 8.6, miles: 2.3, activeHoursAgo: 7, response: 0.86, accept: 0.72, looking: true, court: 'c-rinconada', avail: 1 | 8 | 32, hits: 23 },
 ];
 
+// What each seeded player is after, when the seed line does not say: a steady mix, so the
+// doubles list is never empty and never everyone.
+const FORMATS: PlayFormat[] = ['either', 'doubles', 'singles'];
+function fmtOf(p: SeedPlayer): PlayFormat { return p.fmt ?? FORMATS[SEED.indexOf(p) % 3]; }
+
+// Tournaments in the demo: made up, local-sounding, and dated from today so they never go
+// stale. Not real events; on Hits, players add the tournaments they are playing.
+type DemoTournament = { id: string; name: string; startIn: number; days: number; location: string; band: 'minor' | 'adult' };
+const TOURNAMENTS: DemoTournament[] = [
+  { id: 't-pjo', name: 'Peninsula Junior Open', startIn: 0, days: 2, location: 'Mitchell Park, Palo Alto', band: 'minor' },
+  { id: 't-bjd', name: 'Bayside Junior Doubles Day', startIn: 14, days: 1, location: 'Cuesta Park, Mountain View', band: 'minor' },
+  { id: 't-mdc', name: 'Midpeninsula Doubles Classic', startIn: 7, days: 2, location: 'Burgess Park, Menlo Park', band: 'adult' },
+];
+// The next Saturday on or after today, plus whole days.
+function satPlus(days: number): string {
+  const d = new Date(); d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7) + days);
+  return localDate(d);
+}
+function localDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function divisionFor(p: SeedPlayer): string {
+  if (p.band === 'adult') return p.level >= 9.5 ? 'Open' : '4.0';
+  const a = p.age ?? 16;
+  return a <= 12 ? '12U' : a <= 14 ? '14U' : a <= 16 ? '16U' : '18U';
+}
+// Who the seeded players say they are playing. Roughly half of each side, with every
+// third doubles player still looking for a partner.
+function seedEntries(t: DemoTournament): Record<string, TournamentEntry> {
+  const out: Record<string, TournamentEntry> = {};
+  SEED.filter(p => p.band === t.band).forEach((p, i) => {
+    if ((i + t.id.length) % 2) return;
+    const doubles = fmtOf(p) !== 'singles' || t.id === 't-bjd' || t.id === 't-mdc';
+    out[p.id] = { division: divisionFor(p), singles: fmtOf(p) !== 'doubles' && t.id === 't-pjo', doubles, wantsPartner: doubles && i % 3 === 0 };
+  });
+  return out;
+}
+
 type Row = {
   id: string; fromId: string; toId: string; courtId: string; windowStart: string; windowEnd: string;
   note: string | null; state: HitState; awaitingId: string | null; expiresAt: string; createdAt: string;
   confirmedAt: string | null; declineReason: string | null;
   approvals: Approval[]; confirmations: Record<string, boolean>; plan: HitPlan; shares?: string[];
+  format?: 'singles' | 'doubles'; matchId?: string | null; doublesRole?: DoublesRole | null; tournamentId?: string | null;
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -116,7 +157,11 @@ type State = {
     guardianEmail: string | null; guardianPhone?: string | null; guardianVerified: boolean;
     guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null; prefers?: string | null;
     maxPartnerAgeGap?: number | null;
+    playFormat?: PlayFormat;
   };
+  // Tournaments players added in this demo, and your entries (and your sister's), by id.
+  addedTournaments?: { id: string; name: string; startsOn: string; endsOn: string; location: string | null; url: string | null }[];
+  entries?: Record<string, Record<string, TournamentEntry>>;
   // When you last opened each thread, by hit id. Unread is anything newer from them.
   reads?: Record<string, string>;
   // The demo parent's other child: her rule, set from the family view.
@@ -311,6 +356,7 @@ export class DemoApi implements HitsApi {
       prefers: p.prefers ?? null,
       age: bandOf(p.dateOfBirth) === 'minor' ? ageOf(p.dateOfBirth) : null,
       maxPartnerAgeGap: p.maxPartnerAgeGap ?? null,
+      playFormat: p.playFormat ?? 'either',
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
@@ -394,6 +440,7 @@ export class DemoApi implements HitsApi {
       availabilityMask: p.avail, lookingToHit: p.looking, lastActiveAt: hoursAgo(p.activeHoursAgo),
       responseRate: p.response, acceptRate: p.accept, hitsConfirmed: p.hits, prefers: p.prefers ?? null,
       age: p.band === 'minor' && this.myBand() === 'minor' ? p.age ?? null : null,
+      playFormat: fmtOf(p),
     };
   }
   // The age rule as the database applies it: the parent's limit always, the junior's own
@@ -441,6 +488,7 @@ export class DemoApi implements HitsApi {
       confirmedAt: r.confirmedAt, declineReason: r.declineReason, other, approvals: r.approvals, plan: r.plan ?? emptyPlan(),
       myConfirmation: r.confirmations[viewer] ?? null,
       theirConfirmation: r.confirmations[otherId] ?? null,
+      format: r.format ?? 'singles', matchId: r.matchId ?? null, doublesRole: r.doublesRole ?? null, tournamentId: r.tournamentId ?? null,
     };
   }
   private selfAsPlayer(): Player {
@@ -452,7 +500,7 @@ export class DemoApi implements HitsApi {
       homeCourtName: COURTS.find(c => c.id === m.homeCourtId)?.name ?? null,
       availabilityMask: m.availabilityMask, lookingToHit: !!m.lookingToHitUntil,
       lastActiveAt: m.lastActiveAt, responseRate: m.responseRate, acceptRate: m.acceptRate, hitsConfirmed: m.hitsConfirmed, prefers: m.prefers,
-      age: m.age,
+      age: m.age, playFormat: m.playFormat,
     };
   }
   private find(id: string) { const r = this.s.requests.find(x => x.id === id); if (!r) throw new ApiError('Not found'); return r; }
@@ -495,13 +543,24 @@ export class DemoApi implements HitsApi {
     }
   }
 
-  async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null) {
+  async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null, doubles?: SendDoubles) {
     await this.load(); await this.wait();
     if (this.s.blocked.includes(toId)) throw new ApiError("You can't reach this player.");
     const seed = SEED.find(p => p.id === toId);
     if (!seed || seed.band !== this.myBand()) throw new ApiError("You can't reach this player.");
     if (!this.ageOk(seed, null)) throw new ApiError('Your parent has set an age range, and this player is outside it.');
     const r = row(ME, toId, courtId, start, note, toId, end);
+    if (doubles) {
+      // The same rules the database enforces on a doubles game.
+      const game = doubles.matchId ? this.s.requests.filter(x => x.matchId === doubles.matchId) : [];
+      if (doubles.matchId && !game.length) throw new ApiError('That doubles game is not on Hits.');
+      if (game.some(x => x.fromId !== ME)) throw new ApiError('Only the player who set up the doubles game invites the others.');
+      const live = game.filter(x => LIVE.includes(x.state));
+      if (live.some(x => x.toId === toId)) throw new ApiError('They are already in this game.');
+      if (doubles.role === 'partner' && live.some(x => x.doublesRole === 'partner')) throw new ApiError('This game already has a partner.');
+      if (doubles.role === 'opponent' && live.filter(x => x.doublesRole === 'opponent').length >= 2) throw new ApiError('This game already has two opponents.');
+      r.format = 'doubles'; r.matchId = doubles.matchId ?? r.id; r.doublesRole = doubles.role; r.tournamentId = doubles.tournamentId ?? null;
+    }
     this.s.requests.push(r);
     // They reply. Mostly yes; sometimes a real, non-ghost "no".
     const declines = (seed.accept ?? 0.7) < 0.5 && Math.random() < 0.6;
@@ -792,6 +851,106 @@ export class DemoApi implements HitsApi {
     this.save();
   }
 
+  // ---- doubles -------------------------------------------------------------------
+  async doublesMatch(matchId: string): Promise<DoublesMember[]> {
+    await this.load();
+    const game = this.s.requests.filter(r => r.matchId === matchId);
+    const me = this.meProfile(); if (!game.length || !me) return [];
+    const members: DoublesMember[] = [{ id: ME, displayName: me.displayName, lastInitial: me.lastInitial, photoUrl: me.photoUrl, levelValue: me.levelValue, age: me.age, role: 'organizer', state: null, hitId: null }];
+    for (const r of game) {
+      const p = SEED.find(x => x.id === r.toId); if (!p) continue;
+      members.push({ id: p.id, displayName: p.name, lastInitial: p.initial, photoUrl: null, levelValue: p.level,
+        age: p.band === 'minor' && this.myBand() === 'minor' ? p.age ?? null : null, role: r.doublesRole ?? 'partner', state: r.state, hitId: r.id });
+    }
+    return members.sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]);
+  }
+  async suggestDoubles(hitId: string | null, _role: DoublesRole): Promise<DoublesSuggestion[]> {
+    await this.load(); await this.wait(160);
+    const me = this.meProfile(); if (!me || !this.s.cohortOpen) return [];
+    let members: SeedPlayer[] = [];
+    if (hitId) {
+      const h = this.find(hitId);
+      if (h.fromId !== ME || h.format !== 'doubles') throw new ApiError('Only the player who set up the doubles game invites the others.');
+      const ids = this.s.requests.filter(r => r.matchId === h.matchId && LIVE.includes(r.state)).map(r => r.toId);
+      members = SEED.filter(p => ids.includes(p.id));
+    }
+    const levels = [me.levelValue ?? 8, ...members.map(m => m.level)];
+    const team = levels.reduce((a, b) => a + b, 0) / levels.length;
+    const mask = members.reduce((m, p) => m & p.avail, me.availabilityMask || 63);
+    const bits = (n: number) => [1, 2, 4, 8, 16, 32].filter(b => n & b).length;
+    return SEED
+      .filter(p => p.band === me.band && !this.s.blocked.includes(p.id) && this.ageOk(p, null) && p.activeHoursAgo < 24 * 30)
+      .filter(p => fmtOf(p) !== 'singles' && !members.some(m => m.id === p.id))
+      .sort((a, b) => Math.abs(a.level - team) - Math.abs(b.level - team) || bits(b.avail & mask) - bits(a.avail & mask) || Number(b.looking) - Number(a.looking))
+      .slice(0, 30)
+      .map(p => ({ ...this.toPlayer(p, me.levelValue), commonTimes: bits(p.avail & mask) }));
+  }
+
+  // ---- tournaments ---------------------------------------------------------------
+  private allTournaments() {
+    const band = this.myBand();
+    const seeded = TOURNAMENTS.filter(t => t.band === band).map(t => ({ id: t.id, name: t.name, startsOn: satPlus(t.startIn), endsOn: satPlus(t.startIn + t.days - 1), location: t.location, url: null as string | null }));
+    return [...seeded, ...(this.s.addedTournaments ?? [])];
+  }
+  private entriesOf(id: string): Record<string, TournamentEntry> {
+    const t = TOURNAMENTS.find(x => x.id === id);
+    return { ...(t ? seedEntries(t) : {}), ...(this.s.entries?.[id] ?? {}) };
+  }
+  async tournaments(childId?: string): Promise<Tournament[]> {
+    await this.load();
+    const who = childId ?? ME;
+    const today = localDate(new Date());
+    return this.allTournaments().filter(t => t.endsOn >= today).sort((a, b) => a.startsOn.localeCompare(b.startsOn)).map(t => {
+      const all = this.entriesOf(t.id); const mine = all[who];
+      const seen = Object.entries(all).filter(([pid]) => pid !== ME && pid !== SIBLING.id && this.visibleSeed(pid));
+      return { ...t, entered: !!mine, division: mine?.division ?? null, singles: !!mine?.singles, doubles: !!mine?.doubles, wantsPartner: !!mine?.wantsPartner,
+        players: seen.length, partnerSeekers: seen.filter(([, e]) => e.wantsPartner).length };
+    });
+  }
+  private visibleSeed(id: string) {
+    const p = SEED.find(x => x.id === id);
+    return !!p && this.s.cohortOpen && p.band === this.myBand() && !this.s.blocked.includes(p.id) && this.ageOk(p, null);
+  }
+  async addTournament(name: string, startsOn: string, endsOn: string, location: string | null, url: string | null) {
+    await this.load(); await this.wait();
+    const n = name.trim().replace(/\s+/g, ' ');
+    if (n.length < 3) throw new ApiError('Give the tournament its name.');
+    const today = localDate(new Date());
+    if (startsOn < today) throw new ApiError("Pick a date that hasn't passed.");
+    if (endsOn < startsOn) throw new ApiError('The last day has to be on or after the first.');
+    if (url && !/^https:\/\//.test(url.trim())) throw new ApiError('A link has to start with https://');
+    const same = this.allTournaments().find(t => t.name.toLowerCase() === n.toLowerCase() && t.startsOn === startsOn);
+    if (same) return same.id;
+    const id = 't-' + uid();
+    this.s.addedTournaments = [...(this.s.addedTournaments ?? []), { id, name: n, startsOn, endsOn, location: location?.trim() || null, url: url?.trim() || null }];
+    this.save(); return id;
+  }
+  async enterTournament(id: string, e: TournamentEntry, childId?: string) {
+    await this.load();
+    if (!e.singles && !e.doubles) throw new ApiError('Pick singles, doubles or both.');
+    const division = e.division?.trim().toUpperCase() || null;
+    if (division && division.length > 12) throw new ApiError('Keep the division short, like 14U or 4.0.');
+    const all = { ...(this.s.entries ?? {}) };
+    all[id] = { ...(all[id] ?? {}), [childId ?? ME]: { division, singles: e.singles, doubles: e.doubles, wantsPartner: e.doubles && e.wantsPartner } };
+    this.s.entries = all; this.save();
+  }
+  async leaveTournament(id: string, childId?: string) {
+    await this.load();
+    const all = { ...(this.s.entries ?? {}) }; const t = { ...(all[id] ?? {}) };
+    delete t[childId ?? ME]; all[id] = t; this.s.entries = all; this.save();
+  }
+  async tournamentPlayers(id: string): Promise<TournamentPlayer[]> {
+    await this.load(); await this.wait(150);
+    const all = this.entriesOf(id); const mine = all[ME]?.division ?? null; const myLevel = this.meProfile()?.levelValue ?? 8;
+    return Object.entries(all).filter(([pid]) => this.visibleSeed(pid)).map(([pid, e]) => {
+      const p = SEED.find(x => x.id === pid)!;
+      return { id: p.id, displayName: p.name, lastInitial: p.initial, photoUrl: null, levelValue: p.level, levelSource: p.verified ? 'utr_verified' as const : 'utr_self' as const,
+        age: p.band === 'minor' ? p.age ?? null : null, division: e.division, singles: e.singles, doubles: e.doubles, wantsPartner: e.wantsPartner,
+        sameDivision: !!mine && e.division === mine, availabilityMask: p.avail, homeCourtId: p.court };
+    }).sort((a, b) => Number(b.sameDivision) - Number(a.sameDivision) || Number(b.wantsPartner) - Number(a.wantsPartner)
+      || Math.abs((a.levelValue ?? 0) - myLevel) - Math.abs((b.levelValue ?? 0) - myLevel) || a.displayName.localeCompare(b.displayName));
+  }
+
   // ---- safety ------------------------------------------------------------------
   async block(profileId: string) {
     await this.load(); if (!this.s.blocked.includes(profileId)) this.s.blocked.push(profileId);
@@ -833,6 +992,7 @@ export class DemoApi implements HitsApi {
       lastActiveAt: hoursAgo(5), lookingToHitUntil: null, responseRate: 1, acceptRate: 0.9, hitsConfirmed: 4,
       phoneVerified: true, guardianVerified: true, guardianPending: false, guardianSentAt: null, guardianOpenedAt: null,
       rosterName: null, prefers: 'Rally & drills', age: SIBLING.age, maxPartnerAgeGap: this.s.siblingGap === undefined ? 2 : this.s.siblingGap,
+      playFormat: 'either',
     };
   }
   // Her one hit this week, with a girl her age. Rebuilt from today so it never goes stale.
@@ -902,6 +1062,9 @@ export class DemoApi implements HitsApi {
     return { request: this.toRequest(r), messages: this.s.messages.filter(m => m.hitId === hitId), child: this.meProfile()! };
   }
 }
+
+const LIVE: HitState[] = ['pending', 'countered', 'accepted', 'confirmed'];
+const ROLE_ORDER: Record<DoublesMember['role'], number> = { organizer: 0, partner: 1, opponent: 2 };
 
 // Next occurrence of an availability slot, starting `fromDays` from now.
 export function nextSlot(mask: number, fromDays = 1): Date {

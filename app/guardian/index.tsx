@@ -27,6 +27,7 @@ import { display as phoneDisplay } from '@/lib/phone';
 import { shareText } from '@/lib/share';
 import { legal } from '@/lib/links';
 import { slotsSummary, type GuardianChild } from '@/data/types';
+import { entryText, tournamentDates } from '@/lib/tournaments';
 
 // The choices a parent has for who their child can be matched with.
 const GAPS: { gap: number | null; label: string }[] = [
@@ -44,6 +45,8 @@ export default function Family() {
   const courts = useAsync(() => api.courts(), []);
   const coachLinks = useAsync(() => api.guardianCoachLinks(), [tick]);
   const [sel, setSel] = useState<string | null>(null);
+  const tourneys = useAsync(() => (sel ? api.tournaments(sel) : Promise.resolve([])), [sel, tick]);
+  const childEntries = (tourneys.data ?? []).filter(x => x.entered);
   const [revoking, setRevoking] = useState<{ id: string; childName: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const all = kids.data ?? [];
@@ -182,6 +185,28 @@ export default function Family() {
                     </Tap>
                   ))}
                 </Card>
+
+                {childEntries.length > 0 && (
+                  <>
+                    <T v="micro" tone="muted" style={st.k}>Tournaments</T>
+                    <Card style={{ paddingVertical: 4 }}>
+                      {childEntries.map((x, i) => (
+                        <View key={x.id} style={[st.row, i > 0 && s.rule]}>
+                          <Icon name="trophy" size={17} color={t.ink} />
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <T v="smallM" numberOfLines={1}>{x.name}</T>
+                            <T v="meta" tone="muted" numberOfLines={2}>{tournamentDates(x)} · {entryText(x)}{x.wantsPartner ? ' · looking for a partner' : ''}</T>
+                          </View>
+                          <Button title="Take off" small kind="ghost" onPress={async () => {
+                            try { await api.leaveTournament(x.id, k.profile.id); await tourneys.reload(); toast(`${k.profile.displayName} is off the list for ${x.name}.`); }
+                            catch (e: any) { toast(e?.message ?? "That didn't go through."); }
+                          }} />
+                        </View>
+                      ))}
+                    </Card>
+                    <T v="meta" tone="muted" style={{ marginTop: 8, lineHeight: 18 }}>Only other players under 18 your age rule allows can see {k.profile.displayName} is playing.</T>
+                  </>
+                )}
 
                 {/* The parent's one setting: how close in age their child's partners are. */}
                 <T v="micro" tone="muted" style={st.k}>Who {k.profile.displayName} can hit with</T>

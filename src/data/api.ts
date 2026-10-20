@@ -1,5 +1,5 @@
 import type {
-  Approval, Assurance, Coaching, CoachPairing, Court, CourtStats, GuardianCoachLink, HitPlan, InboxEntry, MyCoach, Pairing, RosterMember, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
+  Approval, Assurance, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, Coaching, CoachPairing, Court, CourtStats, GuardianCoachLink, HitPlan, InboxEntry, MyCoach, Pairing, RosterMember, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
   Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 
@@ -20,7 +20,7 @@ export interface HitsApi {
   // me
   me(): Promise<Profile | null>;
   createProfile(input: ProfileInput): Promise<Profile>;
-  updateProfile(patch: Partial<Pick<Profile, 'availabilityMask' | 'homeCourtId' | 'displayName' | 'lastInitial' | 'levelValue' | 'levelSource' | 'prefers'>>): Promise<Profile>;
+  updateProfile(patch: Partial<Pick<Profile, 'availabilityMask' | 'homeCourtId' | 'displayName' | 'lastInitial' | 'levelValue' | 'levelSource' | 'prefers' | 'playFormat'>>): Promise<Profile>;
   setLooking(days: number | null): Promise<Profile>;
   setLocation(lat: number, lon: number): Promise<void>;
   touch(): Promise<void>;
@@ -41,7 +41,7 @@ export interface HitsApi {
   // hits
   requests(): Promise<HitRequest[]>;
   hit(id: string): Promise<{ request: HitRequest; messages: Message[] } | null>;
-  sendRequest(toId: string, courtId: string, windowStart: Date, windowEnd: Date, note: string | null): Promise<HitRequest>;
+  sendRequest(toId: string, courtId: string, windowStart: Date, windowEnd: Date, note: string | null, doubles?: SendDoubles): Promise<HitRequest>;
   cancelRequest(id: string): Promise<void>;
   accept(id: string): Promise<HitRequest>;
   decline(id: string, reason: DeclineReason): Promise<HitRequest>;
@@ -101,6 +101,19 @@ export interface HitsApi {
   guardianCoachLinks(): Promise<GuardianCoachLink[]>;
   guardianDecideCoach(childId: string, coachId: string, ok: boolean): Promise<void>;
 
+  // doubles: a game is up to three invitations from one organizer (a partner, two opponents)
+  doublesMatch(matchId: string): Promise<DoublesMember[]>;
+  // For a doubles hit you set up: who could join everyone already in it. Without one: who
+  // is looking for doubles that you could play with.
+  suggestDoubles(hitId: string | null, role: DoublesRole): Promise<DoublesSuggestion[]>;
+
+  // tournaments: entered by players. childId acts for a child, from the family view.
+  tournaments(childId?: string): Promise<Tournament[]>;
+  addTournament(name: string, startsOn: string, endsOn: string, location: string | null, url: string | null): Promise<string>;
+  enterTournament(id: string, entry: TournamentEntry, childId?: string): Promise<void>;
+  leaveTournament(id: string, childId?: string): Promise<void>;
+  tournamentPlayers(id: string): Promise<TournamentPlayer[]>;
+
   // safety
   block(profileId: string): Promise<void>;
   report(profileId: string, reason: string, body: string, hitId?: string): Promise<void>;
@@ -123,6 +136,12 @@ export interface HitsApi {
 
   // subscriptions (lightweight; demo uses a tick)
   onChange(cb: () => void): () => void;
+}
+
+export interface SendDoubles {
+  matchId: string | null;        // null starts a new game
+  role: DoublesRole;
+  tournamentId?: string | null;
 }
 
 export class ApiError extends Error {

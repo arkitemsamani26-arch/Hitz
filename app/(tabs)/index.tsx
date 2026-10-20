@@ -26,8 +26,8 @@ import { useNextWindow, useWindow } from '@/store/window';
 import { useAsync } from '@/store/useAsync';
 import { bestMatch } from '@/lib/defaults';
 import { registerPush } from '@/lib/push';
-import { shareText } from '@/lib/share';
 import { hitShort } from '@/lib/format';
+import { daysUntil, whenText } from '@/lib/tournaments';
 import { haptic } from '@/lib/haptics';
 
 const RADII = [5, 10, 15, 25];
@@ -47,6 +47,9 @@ export default function Discover() {
   const reqs = useAsync(() => api.requests(), [tick]);
   const pairings = useAsync(() => api.myPairings(), [tick]);
   const courtList = useAsync(() => api.courts(), []);
+  const tourneys = useAsync(() => api.tournaments(), [tick]);
+  // A tournament you said you are playing, starting within the week (or on now).
+  const playing = useMemo(() => (tourneys.data ?? []).find(x => x.entered && daysUntil(x) <= 7) ?? null, [tourneys.data]);
   useEffect(() => { void api.touch(); void registerPush(); }, []);
 
   const me = profile?.id;
@@ -109,19 +112,12 @@ export default function Discover() {
     try { const p = await api.setLooking(looking ? null : 7); setProfile(p); haptic.tick(); toast(looking ? "You're off the looking list." : "You're on the looking list for 7 days."); }
     catch (e: any) { toast(e?.message ?? "That didn't save."); }
   };
-  const inviteFriend = async () => {
-    try {
-      const i = await api.issueInvite();
-      const how = await shareText(`Come hit with me on Hits. Use my code ${i.code} when you sign up. Players at your level, on courts near you.`);
-      if (how === 'copied') toast('Invite copied. Paste it to a friend.');
-      else if (how === 'failed') toast(`Your code is ${i.code}. Send it to a friend.`);
-    } catch (e: any) { toast(e?.message ?? "Couldn't make an invite."); }
-  };
   const ACTIONS: { icon: IconName; label: string; a11y: string; onPress: () => void; on?: boolean }[] = [
     { icon: 'search', label: 'Search', a11y: 'Search players and courts', onPress: () => router.push('/search') },
     { icon: 'map', label: 'Courts', a11y: 'Courts near you', onPress: () => router.push('/(tabs)/courts') },
     { icon: 'zap', label: looking ? "I'm free" : 'Free?', a11y: looking ? 'You are looking to hit this week. Turn it off.' : 'Say you are looking to hit this week', onPress: toggleLooking, on: looking },
-    { icon: 'users', label: 'Invite', a11y: 'Invite a friend to Hits', onPress: inviteFriend },
+    { icon: 'users-round', label: 'Doubles', a11y: 'Players looking for doubles', onPress: () => router.push({ pathname: '/looking', params: { format: 'doubles' } }) },
+    { icon: 'trophy', label: 'Events', a11y: 'Tournaments players near you are playing', onPress: () => router.push('/tournaments') },
   ];
 
   return (
@@ -143,7 +139,7 @@ export default function Discover() {
             {ACTIONS.map(a => (
               <Tap key={a.label} onPress={a.onPress} style={[s.action, a.on && s.actionOn]} scaleTo={0.97} accessibilityRole="button" accessibilityLabel={a.a11y} accessibilityState={a.on === undefined ? undefined : { selected: a.on }}>
                 <View style={[s.actionIcon, a.on && s.actionIconOn]}><Glyph name={a.icon} size={19} color={a.on ? t.greenText : t.ink} /></View>
-                <T v="meta" style={{ fontSize: 12 }} numberOfLines={1}>{a.label}</T>
+                <T v="meta" style={{ fontSize: 11.5 }} numberOfLines={1}>{a.label}</T>
               </Tap>
             ))}
           </View>
@@ -159,6 +155,19 @@ export default function Discover() {
                 note: `Coach ${x.coachName.split(' ')[0]} paired us.${x.note ? ` ${x.note}` : ''}`.slice(0, 140),
               } })} />
           ))}
+
+          {playing && (
+            <Tap onPress={() => router.push(`/tournament/${playing.id}`)} style={s.next} scaleTo={0.99} accessibilityRole="button"
+              accessibilityLabel={`You're playing ${playing.name}, ${whenText(playing).toLowerCase()}. ${playing.players} player${playing.players === 1 ? '' : 's'} you know of${playing.partnerSeekers ? `, ${playing.partnerSeekers} looking for a doubles partner` : ''}. Open.`}>
+              <View style={[s.actionIcon, s.actionIconOn]}><Glyph name="trophy" size={19} color={t.greenText} /></View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <T v="micro" tone="muted" style={{ fontSize: 10 }}>{daysUntil(playing) <= 0 ? 'Playing now' : daysUntil(playing) <= 2 ? 'Playing this weekend' : `Playing ${whenText(playing).toLowerCase()}`}</T>
+                <T v="smallM" numberOfLines={1} style={{ marginTop: 2 }}>{playing.name}</T>
+                <T v="meta" tone="muted" numberOfLines={1}>{playing.players} player{playing.players === 1 ? '' : 's'} you know of{playing.partnerSeekers ? ` · ${playing.partnerSeekers} want${playing.partnerSeekers === 1 ? 's' : ''} a partner` : ''}</T>
+              </View>
+              <Glyph name="chevron-right" size={15} color={t.muted} />
+            </Tap>
+          )}
 
           {next && (
             <View style={s.next}>
@@ -251,14 +260,14 @@ export default function Discover() {
 
 const st = StyleSheet.create({
   body: { paddingHorizontal: GUTTER, paddingBottom: GUTTER },
-  actions: { flexDirection: 'row', gap: 8, marginBottom: 18 },
+  actions: { flexDirection: 'row', gap: 6, marginBottom: 18 },
   nextMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
   nextMsg: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   rowHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 26, marginBottom: 10 },
   carousel: { gap: 10, paddingBottom: 6, paddingRight: 4 },
 });
 const useS = makeStyles(c => ({
-  action: { flex: 1, minWidth: 0, alignItems: 'center', gap: 6, paddingVertical: 11, paddingHorizontal: 4, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, minHeight: 76 },
+  action: { flex: 1, minWidth: 0, alignItems: 'center', gap: 6, paddingVertical: 11, paddingHorizontal: 1, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, minHeight: 76 },
   actionOn: { borderColor: c.green },
   actionIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' },
   actionIconOn: { backgroundColor: c.green },

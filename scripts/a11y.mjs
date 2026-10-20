@@ -66,7 +66,23 @@ const seeded = () => ({
     state: 'confirmed', awaitingId: null, expiresAt: iso(day(3, 9)), createdAt: iso(day(-1, 8)),
     confirmedAt: iso(day(-1, 9)), declineReason: null, approvals: [], confirmations: {},
     plan: { ballsById: 'me', format: null, meetAt: null, lateById: null },
+  }, {
+    // A doubles game you set up: a partner who said yes, one opponent invited.
+    id: 'r3', fromId: 'me', toId: 'p-tess', courtId: 'c-mitchell',
+    windowStart: iso(day(5, 10)), windowEnd: iso(day(5, 11)), note: 'Doubles?',
+    state: 'confirmed', awaitingId: null, expiresAt: iso(day(3, 9)), createdAt: iso(day(-1, 8)),
+    confirmedAt: iso(day(-1, 9)), declineReason: null, approvals: [], confirmations: {},
+    plan: { ballsById: 'me', format: null, meetAt: null, lateById: null },
+    format: 'doubles', matchId: 'r3', doublesRole: 'partner', tournamentId: null,
+  }, {
+    id: 'r4', fromId: 'me', toId: 'p-zoe', courtId: 'c-mitchell',
+    windowStart: iso(day(5, 10)), windowEnd: iso(day(5, 11)), note: null,
+    state: 'pending', awaitingId: 'p-zoe', expiresAt: iso(day(3, 9)), createdAt: iso(day(0, 7)),
+    confirmedAt: null, declineReason: null, approvals: [], confirmations: {},
+    plan: { ballsById: 'me', format: null, meetAt: null, lateById: null },
+    format: 'doubles', matchId: 'r3', doublesRole: 'opponent', tournamentId: null,
   }],
+  entries: { 't-pjo': { me: { division: '16U', singles: false, doubles: true, wantsPartner: true } } },
 });
 
 const SCREENS = [
@@ -82,6 +98,13 @@ const SCREENS = [
   ['looking to hit', '/looking'],
   ['join a coach', '/coach/join'],
   ['coach tools', '/coach'],
+  ['looking for doubles', '/looking?format=doubles'],
+  ['doubles hit', '/hit/r3'],
+  ['find opponents', '/doubles/r3?role=opponent'],
+  ['find a partner', '/doubles/new?role=partner'],
+  ['doubles request', '/request/p-nina?doubles=1&match=r3&role=opponent'],
+  ['tournaments', '/tournaments'],
+  ['tournament', '/tournament/t-pjo'],
   ['you', '/(tabs)/you'],
   ['preview', '/preview'],
   ['filters', '/filters'],

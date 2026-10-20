@@ -23,6 +23,7 @@ import { dateLong, rangeText, tzName } from '@/lib/format';
 import { endOf, overlapLine } from '@/lib/match';
 import { haptic } from '@/lib/haptics';
 import { midpointCourt } from '@/lib/courts';
+import type { DoublesRole } from '@/data/types';
 
 const HITS = ['Warm up, then practice sets', 'Rally and drills', 'A match', 'Whatever works on the day'];
 
@@ -30,8 +31,11 @@ export default function Invitation() {
   // `court` comes from a court's page: "invite them to meet here".
   // `pairing`, `start`, `end` and `note` come from a coach's suggestion: the invitation
   // arrives filled in, and sending it tells the coach it went out.
-  const { id, counter, court: atCourt, pairing, start: pStart, end: pEnd, note: pNote } =
-    useLocalSearchParams<{ id: string; counter?: string; court?: string; pairing?: string; start?: string; end?: string; note?: string }>();
+  // `doubles`, `match`, `role` and `tournament` come from doubles: asking a partner (from a
+  // tournament or the doubles list) or an opponent into a game you set up.
+  const { id, counter, court: atCourt, pairing, start: pStart, end: pEnd, note: pNote, doubles: pDoubles, match, role: pRole, tournament } =
+    useLocalSearchParams<{ id: string; counter?: string; court?: string; pairing?: string; start?: string; end?: string; note?: string;
+      doubles?: string; match?: string; role?: string; tournament?: string }>();
   const router = useRouter();
   const toast = useToast();
   const { profile } = useSession();
@@ -52,7 +56,10 @@ export default function Invitation() {
   const [courtId, setCourtId] = useState<string | null>(atCourt ?? null);
   const [kind, setKind] = useState(HITS[0]);
   const [note, setNote] = useState(pNote ?? '');
-  const [editing, setEditing] = useState<null | 'time' | 'court' | 'kind'>(null);
+  const [editing, setEditing] = useState<null | 'time' | 'court' | 'kind' | 'format'>(null);
+  const [format, setFormat] = useState<'singles' | 'doubles'>(pDoubles || match ? 'doubles' : 'singles');
+  const [role, setRole] = useState<DoublesRole>(pRole === 'opponent' ? 'opponent' : 'partner');
+  const doubles = format === 'doubles';
   const [busy, setBusy] = useState(false);
   // A counter starts from what they proposed, so the change you make is the whole message.
   useEffect(() => {
@@ -77,11 +84,16 @@ export default function Invitation() {
     try {
       const start = win.start, end = endOf(win);
       const body = isCounter ? null : [kind, note.trim()].filter(Boolean).join(' · ');
-      const r = isCounter ? await api.counter(counter!, chosenCourt, start, end) : await api.sendRequest(player.id, chosenCourt, start, end, body);
+      const r = isCounter ? await api.counter(counter!, chosenCourt, start, end)
+        : await api.sendRequest(player.id, chosenCourt, start, end, body, doubles ? { matchId: match ?? null, role, tournamentId: tournament ?? null } : undefined);
       if (pairing) await api.pairingSent(pairing, r.id).catch(() => {});
       haptic.sent();
-      toast(isCounter ? `Sent ${player.displayName} your counter.` : `Invitation sent to ${player.displayName}. It's on when they accept.`);
-      router.replace(isCounter ? `/hit/${r.id}` : '/(tabs)/hits');
+      toast(isCounter ? `Sent ${player.displayName} your counter.`
+        : doubles ? `Asked ${player.displayName} ${role === 'partner' ? 'to be your partner' : 'to play against you'}.`
+        : `Invitation sent to ${player.displayName}. It's on when they accept.`);
+      // An opponent joins a game you set up: back to that game. A new doubles game opens on
+      // its own page, where you find opponents next.
+      router.replace(isCounter ? `/hit/${r.id}` : match ? `/hit/${match}` : doubles ? `/hit/${r.id}` : '/(tabs)/hits');
     } catch (e: any) { haptic.warn(); toast(e?.message ?? "Couldn't send that. Your plan is still here."); setBusy(false); }
   };
 
@@ -102,9 +114,11 @@ export default function Invitation() {
     }>
       <Centered>
         <Header backLabel={isCounter ? 'Back' : 'Back to players'} />
-        <T v="eyebrow" tone="muted">{isCounter ? 'A counterproposal' : 'A little more court time'}</T>
+        <T v="eyebrow" tone="muted">{isCounter ? 'A counterproposal' : doubles ? (role === 'partner' ? 'Doubles, as your partner' : 'Doubles, as an opponent') : 'A little more court time'}</T>
         <T v="display" style={{ marginTop: 12, marginBottom: 12 }} accessibilityRole="header">
-          {isCounter ? <>Another time.{'\n'}<T v="display" italic>Same good company.</T></> : <>Same court.{'\n'}<T v="display" italic>Good company.</T></>}
+          {isCounter ? <>Another time.{'\n'}<T v="display" italic>Same good company.</T></>
+            : doubles ? (role === 'partner' ? <>Your side{'\n'}<T v="display" italic>of the net.</T></> : <>The other side{'\n'}<T v="display" italic>of the net.</T></>)
+            : <>Same court.{'\n'}<T v="display" italic>Good company.</T></>}
         </T>
         <T v="small" tone="muted" style={{ marginBottom: 24, lineHeight: 21 }}>
           {isCounter ? `${player.displayName} suggested ${theirs ? `${dateLong(new Date(theirs.windowStart))}, ${rangeText(new Date(theirs.windowStart), new Date(theirs.windowEnd))} at ${theirs.courtName}` : 'a time'}. Suggest what works for you.` : `Your invitation to ${player.displayName} ${player.lastInitial ? player.lastInitial + '.' : ''}`}
@@ -114,6 +128,9 @@ export default function Invitation() {
           { label: dateLong(win.start), values: [`${rangeText(win.start, endOf(win))} · ${tzName()}`], note: when ? (when.known ? when.text : `${when.text}. It is outside what they have said about their week.`) : undefined, onPress: () => setEditing(e => e === 'time' ? null : 'time'), editLabel: 'Change the day or time' },
           { label: 'Suggested court', values: [court?.name ?? 'Pick a court'], note: courtNote, onPress: () => setEditing('court'), editLabel: 'Change the court' },
           ...(isCounter ? [] : [
+            { label: 'Singles or doubles', values: [doubles ? (role === 'partner' ? 'Doubles · they are your partner' : 'Doubles · they play against you') : 'Singles'],
+              note: doubles ? (match ? 'They join the game you set up. Everyone in it has to be someone each of you could invite.' : 'Once they say yes, find two opponents from the hit page.') : undefined,
+              onPress: match ? undefined : () => setEditing('format'), editLabel: 'Change singles or doubles' },
             { label: 'The hit', values: [kind], onPress: () => setEditing('kind'), editLabel: 'Change the kind of hit' },
             { label: 'Balls', values: ['You bring them'], note: 'Whoever asks brings the balls. You can switch it in the plan once it is on.' },
           ]),
@@ -131,6 +148,11 @@ export default function Invitation() {
 
         <OptionSheet open={editing === 'court'} onClose={() => setEditing(null)} title="Where"
           options={courts.map(c => ({ label: c.name, sub: [c.id === player.homeCourtId ? 'Their home court' : c.id === profile.homeCourtId ? 'Your home court' : null, c.access === 'club' ? 'Club' : 'Public', c.indoor ? 'Indoor' : null, c.distanceBucket].filter(Boolean).join(' · '), onPress: () => setCourtId(c.id) }))} />
+        <OptionSheet open={editing === 'format'} onClose={() => setEditing(null)} title="Singles or doubles"
+          options={[
+            { label: 'Singles', sub: 'The two of you', onPress: () => setFormat('singles') },
+            { label: 'Doubles, as your partner', sub: 'You find two opponents together', onPress: () => { setFormat('doubles'); setRole('partner'); } },
+          ]} />
         <OptionSheet open={editing === 'kind'} onClose={() => setEditing(null)} title="What kind of hit"
           options={HITS.map(h => ({ label: h, onPress: () => setKind(h) }))} />
         <View style={{ height: space.lg }} />

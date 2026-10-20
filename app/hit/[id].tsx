@@ -15,6 +15,7 @@ import { PlanPanel } from '@/ui/Plan';
 import { OptionSheet } from '@/ui/Sheet';
 import { Court } from '@/ui/CourtArt';
 import { Avatar } from '@/ui/Avatar';
+import { DoublesCard } from '@/ui/DoublesCard';
 import { ShareCard, shareMoment } from '@/ui/ShareCard';
 import { addToCalendar, directionsTo, placeOf } from '@/lib/handoff';
 import { useToast } from '@/ui/Toast';
@@ -192,6 +193,7 @@ export default function Hit() {
         <Header right={<Tap onPress={() => setMore(true)} style={st.more} accessibilityRole="button" accessibilityLabel="More options for this hit"><Icon name="ellipsis" size={18} color={t.ink} /></Tap>} />
         <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: space.xl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {head}
+          {r.format === 'doubles' && r.matchId && <DoublesCard r={r} me={me} tick={tick} />}
           {canChat && (
             <>
               <T v="micro" tone="muted" style={st.k}>Messages</T>

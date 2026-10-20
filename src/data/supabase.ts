@@ -6,11 +6,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from 'base64-arraybuffer';
-import { ApiError, type HitsApi } from './api';
+import { ApiError, type HitsApi, type SendDoubles } from './api';
 import { toE164 } from '@/lib/phone';
 import { registerCourts } from '@/lib/courts';
 import type {
-  Approval, Assurance, Court, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
+  Approval, Assurance, Court, DoublesMember, DoublesRole, DoublesSuggestion, Tournament, TournamentEntry, TournamentPlayer, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
   Coaching, CoachPairing, GuardianCoachLink, InboxEntry, MarketStatus, Message, MyCoach, Pairing, Player, Profile, ProfileInput,
   RosterMember, Session, UtrClaim, UtrStatus,
 } from './types';
@@ -20,7 +20,7 @@ const MI = 1609.34;
 
 // What other players' rows can be read for. A birthday, an unapproved photo and the rounded
 // location are not on this list; the database refuses them (migration 20261013000100).
-const PEER_COLS = 'id, display_name, last_initial, photo_url, level_value, level_source, home_court_id, availability_mask, prefers, last_active_at, looking_to_hit_until, requests_received, requests_responded, requests_accepted, hits_confirmed';
+const PEER_COLS = 'id, display_name, last_initial, photo_url, level_value, level_source, home_court_id, availability_mask, prefers, play_format, last_active_at, looking_to_hit_until, requests_received, requests_responded, requests_accepted, hits_confirmed';
 
 function ageFrom(dob: string | null | undefined): number | null {
   if (!dob) return null;
@@ -100,6 +100,7 @@ export class SupabaseApi implements HitsApi {
       hitsConfirmed: r.hits_confirmed, phoneVerified: !!r.phone_verified_at, guardianSentAt: null, guardianOpenedAt: null, rosterName: null, photoPendingUrl: r.photo_pending_url ?? null, prefers: r.prefers ?? null,
       age: new Date(r.adult_at) > new Date() ? ageFrom(r.date_of_birth) : null,
       maxPartnerAgeGap: r.max_partner_age_gap ?? null,
+      playFormat: r.play_format ?? 'either',
       ...extras,
     };
   }
@@ -138,6 +139,7 @@ export class SupabaseApi implements HitsApi {
     if (patch.levelValue != null) row.level_value = patch.levelValue;
     if (patch.levelSource != null) row.level_source = patch.levelSource;
     if (patch.prefers !== undefined) row.prefers = patch.prefers?.trim() || null;
+    if (patch.playFormat != null) row.play_format = patch.playFormat;
     const { error } = await this.sb.from('profiles').update(row).eq('id', this.uid!);
     if (error) this.fail(error);
     return (await this.me())!;
@@ -209,6 +211,7 @@ export class SupabaseApi implements HitsApi {
       hitsConfirmed: r.hits_confirmed ?? 0,
       prefers: r.prefers ?? null,
       age: r.age ?? null,
+      playFormat: r.play_format ?? undefined,
     };
   }
   // Ages arrive separately, and only for the people the database says you may know them for.
@@ -225,7 +228,15 @@ export class SupabaseApi implements HitsApi {
     });
     if (error) this.fail(error);
     const courts = await this.courtMap();
-    return (data ?? []).map((r: any) => this.mapPlayer(r, courts));
+    const list: Player[] = (data ?? []).map((r: any) => this.mapPlayer(r, courts));
+    // Discovery's shape is pinned by its callers; what each player is looking for comes
+    // alongside, in one more read of a column every player may see.
+    if (list.length) {
+      const { data: fmts } = await this.sb.from('profiles').select('id, play_format').in('id', list.map(p => p.id));
+      const by = new Map((fmts ?? []).map((f: any) => [f.id, f.play_format]));
+      for (const p of list) p.playFormat = by.get(p.id) ?? 'either';
+    }
+    return list;
   }
   async player(id: string) {
     return (await this.players([id])).get(id) ?? null;
@@ -281,6 +292,8 @@ export class SupabaseApi implements HitsApi {
       plan: { ballsById: r.plan?.ballsById ?? null, format: r.plan?.format ?? null, meetAt: r.plan?.meetAt ?? null, lateById: r.plan?.lateById ?? null },
       myConfirmation: confs.find(c => c.profile_id === viewer)?.did_play ?? null,
       theirConfirmation: confs.find(c => c.profile_id === otherId)?.did_play ?? null,
+      format: r.format === 'doubles' ? 'doubles' : 'singles', matchId: r.match_id ?? null,
+      doublesRole: r.doubles_role ?? null, tournamentId: r.tournament_id ?? null,
     };
   }
   private sel = '*, courts(name), hit_guardian_approvals(*), hit_confirmations(*)';
@@ -300,11 +313,12 @@ export class SupabaseApi implements HitsApi {
     const [request] = await this.mapRequests([data], this.uid!);
     return { request, messages: msgs.map(m => ({ id: m.id, hitId: id, senderId: m.sender_profile_id, body: m.body, createdAt: m.created_at })) };
   }
-  async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null) {
+  async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null, doubles?: SendDoubles) {
     const market = (await this.sb.from('profiles').select('market_id').eq('id', this.uid!).single()).data;
     const { data, error } = await this.sb.from('hit_requests').insert({
       market_id: market?.market_id, from_profile_id: this.uid, to_profile_id: toId, court_id: courtId,
       window_start: start.toISOString(), window_end: end.toISOString(), note, awaiting_profile_id: toId,
+      ...(doubles ? { format: 'doubles', match_id: doubles.matchId, doubles_role: doubles.role, tournament_id: doubles.tournamentId ?? null } : {}),
     }).select(this.sel).single();
     if (error) this.fail(error, "You can't reach this player.");
     return (await this.mapRequests([data], this.uid!))[0];
@@ -563,6 +577,57 @@ export class SupabaseApi implements HitsApi {
   }
 
   // ---- safety ------------------------------------------------------------------
+  // ---- doubles -------------------------------------------------------------------
+  async doublesMatch(matchId: string): Promise<DoublesMember[]> {
+    const { data, error } = await this.sb.rpc('doubles_match', { p_match: matchId });
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.profile_id, displayName: r.display_name, lastInitial: r.last_initial, photoUrl: r.photo_url,
+      levelValue: r.level_value == null ? null : Number(r.level_value), age: r.age ?? null,
+      role: r.role, state: r.state ?? null, hitId: r.hit_id ?? null,
+    }));
+  }
+  async suggestDoubles(hitId: string | null, role: DoublesRole): Promise<DoublesSuggestion[]> {
+    const { data, error } = await this.sb.rpc('suggest_doubles', { p_hit: hitId, p_role: role });
+    if (error) this.fail(error);
+    const courts = await this.courtMap();
+    return (data ?? []).map((r: any) => ({ ...this.mapPlayer(r, courts), commonTimes: r.common_times ?? 0 }));
+  }
+
+  // ---- tournaments ---------------------------------------------------------------
+  async tournaments(childId?: string): Promise<Tournament[]> {
+    const { data, error } = await this.sb.rpc('upcoming_tournaments', { p_child: childId ?? null });
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.id, name: r.name, startsOn: r.starts_on, endsOn: r.ends_on, location: r.location, url: r.url,
+      entered: r.entered, division: r.division, singles: r.singles, doubles: r.doubles, wantsPartner: r.wants_partner,
+      players: r.players ?? 0, partnerSeekers: r.partner_seekers ?? 0,
+    }));
+  }
+  async addTournament(name: string, startsOn: string, endsOn: string, location: string | null, url: string | null) {
+    const { data, error } = await this.sb.rpc('add_tournament', { p_name: name, p_starts_on: startsOn, p_ends_on: endsOn, p_location: location, p_url: url });
+    if (error) this.fail(error);
+    return data as string;
+  }
+  async enterTournament(id: string, e: TournamentEntry, childId?: string) {
+    const { error } = await this.sb.rpc('enter_tournament', { p_tournament: id, p_division: e.division, p_singles: e.singles, p_doubles: e.doubles, p_wants_partner: e.wantsPartner, p_child: childId ?? null });
+    if (error) this.fail(error);
+  }
+  async leaveTournament(id: string, childId?: string) {
+    const { error } = await this.sb.rpc('leave_tournament', { p_tournament: id, p_child: childId ?? null });
+    if (error) this.fail(error);
+  }
+  async tournamentPlayers(id: string): Promise<TournamentPlayer[]> {
+    const { data, error } = await this.sb.rpc('tournament_players', { p_tournament: id });
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.profile_id, displayName: r.display_name, lastInitial: r.last_initial, photoUrl: r.photo_url,
+      levelValue: r.level_value == null ? null : Number(r.level_value), levelSource: r.level_source, age: r.age ?? null,
+      division: r.division, singles: r.singles, doubles: r.doubles, wantsPartner: r.wants_partner,
+      sameDivision: r.same_division, availabilityMask: r.availability_mask ?? 0, homeCourtId: r.home_court_id,
+    }));
+  }
+
   async block(profileId: string) { const { error } = await this.sb.from('blocks').insert({ blocker_id: this.uid, blocked_id: profileId }); if (error) this.fail(error); }
   async report(profileId: string, reason: string, body: string, hitId?: string) {
     const { error } = await this.sb.from('reports').insert({ reporter_profile_id: this.uid, reported_profile_id: profileId, reason, body, hit_request_id: hitId ?? null });

@@ -3,7 +3,7 @@
 // suit you, and invite straight from the list.
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen, Centered, Card } from '@/ui/Screen';
 import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
@@ -24,13 +24,18 @@ import { useAsync } from '@/store/useAsync';
 import { SLOTS, slotsSummary } from '@/data/types';
 import { name } from '@/ui/Player';
 import { haptic } from '@/lib/haptics';
+import { FORMAT_LABEL } from '@/lib/tournaments';
+import type { PlayFormat } from '@/data/types';
 
 export default function Looking() {
   const router = useRouter();
   const toast = useToast();
   const t = useTheme();
   const s = useS();
+  const { format: pFormat } = useLocalSearchParams<{ format?: string }>();
   const { profile, setProfile, tick } = useSession();
+  // From Discover's Doubles shortcut the list opens on doubles players.
+  const [onlyDoubles, setOnlyDoubles] = useState(pFormat === 'doubles');
   const { filters } = useFilters();
   const players = useAsync(() => api.discover({ radiusMi: 25, levelLo: null, levelHi: null, availability: 0, onlyLooking: true, ageGap: filters.ageGap, limit: 1000 }), [tick, filters.ageGap]);
   const mine = profile?.availabilityMask ?? 0;
@@ -42,11 +47,17 @@ export default function Looking() {
 
   const list = useMemo(() => (players.data ?? [])
     .filter(p => !mask || (p.availabilityMask & mask))
+    .filter(p => !onlyDoubles || p.playFormat === 'doubles' || p.playFormat === 'either')
     .sort((a, b) => {
       const ov = (x: typeof a) => SLOTS.filter(sl => x.availabilityMask & mine & sl.bit).length;
       return ov(b) - ov(a) || (a.levelDelta ?? 9) - (b.levelDelta ?? 9);
-    }), [players.data, mask, mine]);
+    }), [players.data, mask, mine, onlyDoubles]);
 
+  const myFormat = profile?.playFormat ?? 'either';
+  const setFormat = async (f: PlayFormat) => {
+    try { const p = await api.updateProfile({ playFormat: f }); setProfile(p); haptic.tick(); }
+    catch (e: any) { toast(e?.message ?? "That didn't save."); }
+  };
   const toggle = async () => {
     try { const p = await api.setLooking(looking ? null : 7); setProfile(p); haptic.tick(); toast(looking ? "You're off the list." : "You're on the list for 7 days."); }
     catch (e: any) { toast(e?.message ?? "That didn't save."); }
@@ -57,7 +68,7 @@ export default function Looking() {
       <Centered>
         <Header backLabel="Discover" />
         <T v="eyebrow" tone="muted">This week</T>
-        <T v="display" style={st.h} accessibilityRole="header">Who's free{'\n'}<T v="display" italic>to hit.</T></T>
+        <T v="display" style={st.h} accessibilityRole="header">Who's free{'\n'}<T v="display" italic>{onlyDoubles ? 'for doubles.' : 'to hit.'}</T></T>
 
         <View style={[s.me, looking && s.meOn]}>
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -67,7 +78,17 @@ export default function Looking() {
           <Button title={looking ? 'Take me off' : "I'm free this week"} small kind={looking ? 'line' : 'primary'} onPress={toggle} />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filters}>
+        <View style={st.fmt}>
+          <T v="meta" tone="muted">You play</T>
+          {(['singles', 'doubles', 'either'] as const).map(f => <Pill key={f} label={f === 'either' ? 'Either' : FORMAT_LABEL[f]} on={myFormat === f} onPress={() => setFormat(f)} />)}
+        </View>
+        {onlyDoubles && (
+          <Button title="Set up a doubles game" small kind="line" icon="users-round" onPress={() => router.push({ pathname: '/doubles/[id]', params: { id: 'new', role: 'partner' } })}
+            style={{ alignSelf: 'flex-start', marginTop: space.md }} disabled={!canInvite} />
+        )}
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={st.filters}>
+          <Pill label="Doubles players" icon="users-round" on={onlyDoubles} onPress={() => setOnlyDoubles(v => !v)} />
           {mine ? <Pill label="When I'm free" on={want === -1} onPress={() => setWant(-1)} /> : null}
           <Pill label="Any time" on={want === 0 || (want === -1 && !mine)} onPress={() => setWant(0)} />
           {SLOTS.map(sl => <Pill key={sl.bit} label={`${sl.label} ${sl.part.toLowerCase()}s`} on={want === sl.bit} onPress={() => setWant(sl.bit)} />)}
@@ -81,7 +102,7 @@ export default function Looking() {
         {players.loading && !players.data ? <Loading label="Finding who's free" /> : list.length === 0 ? (
           <Card style={{ gap: space.sm }}>
             <T v="h2">Nobody yet.</T>
-            <T v="small" tone="muted">{mask ? 'No one looking this week is free then. Try "Any time".' : 'No one nearby has said they are looking this week. Put yourself on the list and they will see you.'}</T>
+            <T v="small" tone="muted">{onlyDoubles ? 'No one looking this week plays doubles then. Try "Any time", or turn off "Doubles players".' : mask ? 'No one looking this week is free then. Try "Any time".' : 'No one nearby has said they are looking this week. Put yourself on the list and they will see you.'}</T>
           </Card>
         ) : (
           <Card style={{ paddingVertical: 2, paddingHorizontal: 0 }}>
@@ -98,7 +119,7 @@ export default function Looking() {
                         <Score value={p.levelValue} source={p.levelSource} verified={p.levelVerified} sans align="left" style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }} />
                       </View>
                       <T v="meta" tone={both ? 'green' : 'muted'} style={both ? { fontFamily: font.medium } : undefined} numberOfLines={2}>
-                        {[p.age != null ? `Age ${p.age}` : null, both ? `Both free ${slotsSummary(both).toLowerCase()}` : p.availabilityMask ? `Free ${slotsSummary(p.availabilityMask).toLowerCase()}` : 'Ask when they play'].filter(Boolean).join(' · ')}
+                        {[p.age != null ? `Age ${p.age}` : null, p.playFormat === 'doubles' ? 'Doubles' : null, both ? `Both free ${slotsSummary(both).toLowerCase()}` : p.availabilityMask ? `Free ${slotsSummary(p.availabilityMask).toLowerCase()}` : 'Ask when they play'].filter(Boolean).join(' · ')}
                       </T>
                     </View>
                   </Tap>
@@ -117,10 +138,11 @@ export default function Looking() {
 }
 const st = StyleSheet.create({
   h: { marginTop: 12, marginBottom: 16 },
-  filters: { gap: 7, paddingVertical: space.md },
+  filters: { gap: 7, paddingVertical: space.md, alignItems: 'center' },
+  fmt: { flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: space.md },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space.md },
   who: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 11, minHeight: hit.min },
-  line: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  line: { flexDirection: 'row', alignItems: 'baseline', columnGap: 8, flexWrap: 'wrap' },
 });
 const useS = makeStyles(c => ({
   me: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: 14, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },

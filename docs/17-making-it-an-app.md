@@ -15,7 +15,7 @@ The tab bar went from three tabs to five, the shape of a sports app:
 
 | Tab | What it is for |
 | --- | --- |
-| Discover | Shortcuts (Search, Courts, "I'm free", Invite), your next hit, the player we would hand you, everyone free this week in a row you can swipe, then everyone nearby. |
+| Discover | Shortcuts (Search, Courts, "I'm free", Doubles, Events), your next hit, the player we would hand you, everyone free this week in a row you can swipe, then everyone nearby. |
 | Courts | Every court in the area, how far from yours, and how many players you could invite call it home. Your home court sits on top. |
 | My hits | Unchanged in purpose: what is waiting on you, on them, coming up, and past. |
 | Messages | Every conversation, newest first, with unread counts. The tab shows a red badge with the number. |
@@ -197,3 +197,54 @@ to stop exposing `public` to the API:
 The remaining "RLS enabled, no policy" notes are informational and intended: those tables
 (coaches, pairings, notifications, private profile fields and so on) are reachable only
 through the app's checked functions, never read directly.
+
+## Doubles and tournaments
+
+Asked for next: "a tournament this weekend" feature for kids, like USTA, that spots another
+kid playing the same doubles tournament; and, for everyone, a way to say singles or doubles
+and find a partner and opponents in your age range.
+
+**Singles or doubles.** Every profile now says `singles`, `doubles` or `either`
+(`profiles.play_format`, default `either`). It is set from Profile or from the top of
+Looking to hit, which also has a "Doubles players" filter. Discover has a Doubles shortcut
+that opens Looking to hit on doubles players.
+
+**A doubles game is four people and three invitations.** Rather than a new kind of hit,
+a game is up to three ordinary invitations from one organizer that share a `match_id`: one
+partner and two opponents (`hit_requests.format`, `match_id`, `doubles_role`). Each one
+keeps everything a hit already has: its own conversation, its own parent approvals, phone
+sharing, blocks. The first doubles invitation starts the game; its id is the game's id.
+
+The rule that matters is in the database (`app.guard_doubles`, a BEFORE INSERT trigger):
+nobody joins a game unless **every** player already in it could have invited them: same
+side of 18, nobody blocked, and every parent's age rule (`app.pair_ok`). So a 16-year-old
+whose parent allows two years cannot end up across the net from a 13-year-old just because
+the organizer has no rule of their own. One partner, two opponents at most; only the
+organizer invites; a sent invitation cannot change format.
+
+On the hit page a doubles hit shows the court: your side, the net, across the net, each
+spot's state, and "Find opponents" / "Find a partner" for the organizer. That opens
+`/doubles/[id]`: players who said doubles or either, who fit everyone in the game, closest
+to the team's average level, then most usual times in common (`app.suggest_doubles`, built
+on `app.discover`, so it inherits every discovery rule). `app.doubles_match` returns the
+four for anyone in the game or a parent of one.
+
+**Tournaments** (`/tournaments`, from Discover's Events shortcut and Profile). A player
+adds the tournament they are playing (name, first day, how many days, optional place and
+https link; the same name and day is the same tournament), then enters it: division (free
+text: 14U, B16, 4.0), singles and/or doubles, and "still looking for a doubles partner".
+The tournament page lists the other players in it **that you could already find on Hits**
+(`app.tournament_players`), your division and partner seekers first, with "Ask to partner"
+(a doubles invitation, filled in with "Partner for <name>?" and a practice the evening
+before) or "Practise". Discover shows "Playing this weekend" when you are entered in one
+within the week. In the family view a parent sees their child's entries and can take them
+off.
+
+Nothing here comes from USTA or any tournament site; the screens say so ("Added by a player
+on Hits. Check entries and the draw with the organizer."). Juniors only ever see juniors,
+adults only adults, and a parent's age rule hides their child from older players at the
+tournament too.
+
+Migration `20261020000100_doubles_and_tournaments.sql` (applied live in four parts); 36
+tests in `supabase/tests/23_doubles_and_tournaments.sql`. The demo has three made-up local
+tournaments dated from today and a mix of singles and doubles players.

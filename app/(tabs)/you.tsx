@@ -20,6 +20,7 @@ import { AvailabilityGrid } from '@/ui/Availability';
 import { useToast } from '@/ui/Toast';
 import { hit, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
+import { FORMAT_LABEL } from '@/lib/tournaments';
 import { api, demo } from '@/data';
 import { pickPhoto } from '@/lib/photo';
 import { useSession } from '@/store/session';
@@ -56,12 +57,14 @@ export default function ClubCard() {
   const utrClaim = useAsync(() => api.myUtrClaim(), [tick]);
   const coaches = useAsync(() => api.myCoaches(), [tick]);
   const coaching = useAsync(() => api.myCoaching(), [tick]);
+  const tourneys = useAsync(() => api.tournaments(), [tick]);
+  const entered = (tourneys.data ?? []).filter(x => x.entered).map(x => x.name).slice(0, 2).join(', ');
   const [leaving, setLeaving] = useState<{ coachId: string; name: string } | null>(null);
   const [editingAvail, setEditingAvail] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [first, setFirst] = useState('');
   const [initial, setInitial] = useState('');
-  const [sheet, setSheet] = useState<null | 'prefers' | 'court' | 'photo'>(null);
+  const [sheet, setSheet] = useState<null | 'prefers' | 'court' | 'photo' | 'format'>(null);
   const [teamName, setTeamName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -130,6 +133,8 @@ export default function ClubCard() {
         <Row icon="calendar" k="Usually free" v={availText} onPress={() => setEditingAvail(e => !e)} expanded={editingAvail} />
         {editingAvail && <View style={{ paddingVertical: space.lg }}><AvailabilityGrid mask={profile.availabilityMask} onToggle={toggleSlot} /></View>}
         <Row icon="sparkles" k="Looking for" v={profile.prefers ?? 'Not set'} onPress={() => setSheet('prefers')} />
+        <Row icon="users-round" k="Singles or doubles" v={FORMAT_LABEL[profile.playFormat ?? 'either']} onPress={() => setSheet('format')} />
+        <Row icon="trophy" k="Tournaments" v={entered ? `Playing ${entered}` : 'Say which you are playing'} onPress={() => router.push('/tournaments')} />
         <Row icon="house" k="Home court" v={court} onPress={() => setSheet('court')} />
         <ToggleRow icon="zap" k="Looking to hit this week" v={looking} onChange={setLooking} note="Puts you at the top for players near your level. Expires on its own." />
         <Row icon="camera" k="Photo" v={profile.photoUrl ? 'Added' : profile.photoPendingUrl ? 'Waiting on your parent' : 'None'} onPress={() => setSheet('photo')} />
@@ -225,6 +230,10 @@ export default function ClubCard() {
           ...PREFERS.map(p => ({ label: p, onPress: () => guard(() => api.updateProfile({ prefers: p })) })),
           ...(profile.prefers ? [{ label: 'Clear it', danger: true, onPress: () => guard(() => api.updateProfile({ prefers: null })) }] : []),
         ]} />
+        <OptionSheet open={sheet === 'format'} onClose={() => setSheet(null)} title="Singles or doubles?" options={(['singles', 'doubles', 'either'] as const).map(f => ({
+          label: FORMAT_LABEL[f], sub: f === 'doubles' ? 'You show up when players look for a partner or opponents' : f === 'either' ? 'Both lists' : 'Doubles players won\'t be pointed to you',
+          onPress: () => guard(() => api.updateProfile({ playFormat: f })),
+        }))} />
         <OptionSheet open={sheet === 'court'} onClose={() => setSheet(null)} title="Your home court. Never an address."
           options={(courts ?? []).map(c => ({ label: c.name, sub: [c.access === 'club' ? 'Club' : 'Public', c.indoor ? 'Indoor' : 'Outdoor', c.distanceBucket].filter(Boolean).join(' · '), onPress: () => guard(() => api.updateProfile({ homeCourtId: c.id })) }))} />
         <OptionSheet open={!!leaving} onClose={() => setLeaving(null)} title={leaving ? `Coach ${leaving.name}` : ''} options={[
