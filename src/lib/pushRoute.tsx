@@ -18,6 +18,10 @@ export function routeFor(data: Record<string, unknown> | null | undefined, isGua
   if (typeof data.pairing === 'string') return '/(tabs)';
   if (data.coach) return isGuardian ? '/guardian' : '/coach';
   if (typeof data.code === 'string') return '/(tabs)/you';
+  // Plus: a child asked for it, a saved search found someone, an auto-match has news.
+  if (data.plus) return '/plus';
+  if (typeof data.search === 'string') return `/filters?saved=${data.search}`;
+  if (typeof data.automatch === 'string') return '/automatch';
   return null;
 }
 

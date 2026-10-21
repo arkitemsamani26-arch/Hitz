@@ -248,3 +248,69 @@ tournament too.
 Migration `20261020000100_doubles_and_tournaments.sql` (applied live in four parts); 36
 tests in `supabase/tests/23_doubles_and_tournaments.sql`. The demo has three made-up local
 tournaments dated from today and a mix of singles and doubles players.
+
+## Hits Plus
+
+One paid plan, **$4.99 a month**, and one rule above it: a free player still gets a hit
+every week. Nothing about receiving or answering invitations, messages, phone sharing,
+parent approvals, safety, blocking, reporting, tournaments, doubles partners, the family
+view or the coach tools is behind it. Nobody pays to be safe or to be found.
+
+**What free keeps, and where Plus starts.** Enforced in the database (migration
+`20261021000100_plus.sql`), not hidden in the app; each limit raises an error whose message
+starts `plus_required:<why>`, which the app turns into the paywall (`src/lib/plus.ts`).
+
+| Free | Plus |
+| --- | --- |
+| Three invitations waiting on a reply at once (a doubles game counts once) | As many as you like |
+| Distance, level, when you are free, a junior's age range, "looking this week" | Also playing style, hand, reply rate, indoor courts, singles or doubles players |
+| The five best fits on Looking to hit | Everyone, with their week next to yours |
+| "I'm free" for three days | Seven |
+| Your last five hits | Every hit, plus `/stats`: hits per month, who you play most, your level over time |
+| | Saved searches (up to five) with a daily push when a new player who fits joins |
+| | Private notes on partners, only you see |
+| | A fuller card: style, hand, a line about you, an action photo, the Plus badge |
+| | **Auto-match**: say when, who and how far; Hits invites the best fit, and if they pass, the next, until one says yes or the time passes |
+
+Auto-match sends ordinary invitations as you (`app.auto_match_next` runs as the owner, so
+`can_request_hit`, the age gap, blocks, the court rule and every trigger apply), one at a
+time, each expiring within a day; `app.advance_auto_matches` runs every ten minutes. Saved
+searches run once a day (`app.run_saved_searches`), only for new players. Both jobs are
+scheduled by pg_cron with the others.
+
+**Juniors never buy.** A child's Plus comes through a linked, verified parent who has it
+(`app.is_plus` checks the guardian), and one plan on the parent's sign-in covers every child
+they manage. Where an adult sees the paywall, a child sees "Ask your parent", which sends the
+parent a push and shows in the family view; `app.begin_purchase` refuses a minor outright.
+
+**Subscriptions** live in `app.subscriptions`, keyed by the auth user (a parent may have no
+player profile), with no client access at all. The only writer is the RevenueCat webhook
+(`supabase/functions/revenuecat`, deployed; it refuses every call until its secret is set)
+through `app.apply_subscription`, which only the service role may call. The app uses
+`react-native-purchases` on a phone and a stub on the web (`src/lib/purchases*.ts`); the
+RevenueCat app user id is the Supabase user id, so the webhook needs no lookup.
+
+The demo has no store: a switch on `/plus` stands in for a purchase and says so.
+
+Checks: 42 tests in `supabase/tests/24_plus.sql` (366 in all); accessibility clean on 32
+screens; the button crawl clean on the new and changed screens; web, Android and iOS exports
+build.
+
+**Owner tasks before Plus can be sold**
+
+1. App Store Connect: accept the Paid Apps agreement and add banking and tax details. Play
+   Console: set up a merchant account.
+2. Create the subscription in both stores: product id `hits_plus_monthly`, $4.99 a month,
+   one subscription group. Add the App Store product to a RevenueCat offering as the
+   `monthly` package, with an entitlement called `plus`.
+3. RevenueCat: one project, Apple and Google apps, and the public SDK keys. Put them in the
+   build as `EXPO_PUBLIC_REVENUECAT_IOS` and `EXPO_PUBLIC_REVENUECAT_ANDROID` (eas.json
+   `env`, or EAS secrets). With neither set, the paywall says Plus is not for sale yet.
+4. RevenueCat → Integrations → Webhooks: URL
+   `https://pvkzcbgpbebllnzmxxwg.supabase.co/functions/v1/revenuecat`, and an Authorization
+   header value of your choosing. Put the same value in Supabase → Edge Functions →
+   Secrets as `REVENUECAT_WEBHOOK_SECRET`. Never in a file.
+5. To give someone Plus by hand (a tester, a promo): from the SQL editor,
+   `select app.grant_plus_promo('<auth user id>', 30);`.
+6. Fill in the Terms (the Money section now describes the subscription) and the privacy
+   policy brackets, and publish them: the paywall links to both, as Apple requires.

@@ -18,9 +18,12 @@ import { MemberCard, cardStats } from '@/ui/MemberCard';
 import { OptionSheet } from '@/ui/Sheet';
 import { AvailabilityGrid } from '@/ui/Availability';
 import { useToast } from '@/ui/Toast';
-import { hit, space } from '@/theme/tokens';
+import { fixed, font, hit, radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { FORMAT_LABEL } from '@/lib/tournaments';
+import { HAND_LABEL, PLAY_STYLE_LABEL, PLUS_PRICE, isPlusError, plusLine } from '@/lib/plus';
+import type { Handedness, PlayStyle } from '@/data/types';
+import { dateLong } from '@/lib/format';
 import { api, demo } from '@/data';
 import { pickPhoto } from '@/lib/photo';
 import { useSession } from '@/store/session';
@@ -64,7 +67,10 @@ export default function ClubCard() {
   const [editingName, setEditingName] = useState(false);
   const [first, setFirst] = useState('');
   const [initial, setInitial] = useState('');
-  const [sheet, setSheet] = useState<null | 'prefers' | 'court' | 'photo' | 'format'>(null);
+  const [sheet, setSheet] = useState<null | 'prefers' | 'court' | 'photo' | 'format' | 'style' | 'hand' | 'action'>(null);
+  const [editingBio, setEditingBio] = useState(false);
+  const [bio, setBio] = useState('');
+  const autoMatch = useAsync(() => api.myAutoMatch(), [tick]);
   const [teamName, setTeamName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -77,8 +83,15 @@ export default function ClubCard() {
   // explanation, which reads as the app being broken.
   const guard = async (fn: () => Promise<Profile | null>) => {
     try { const p = await fn(); if (p) setProfile(p); }
-    catch (e: any) { haptic.warn(); toast(e?.message ?? "That didn't save. Try again."); }
+    catch (e: any) {
+      haptic.warn();
+      if (isPlusError(e)) { router.push('/plus?why=card'); return; }
+      toast(e?.message ?? "That didn't save. Try again.");
+    }
   };
+  const plus = profile.plus;
+  // The fuller card is Plus. On the free plan each row is the way to the paywall.
+  const plusRow = (fn: () => void) => (plus ? fn : () => router.push('/plus?why=card'));
   const said = (how: 'shared' | 'copied' | 'failed') => { if (how === 'copied') toast('Copied. Paste it to whoever you are inviting.'); else if (how === 'failed') toast("Couldn't share from here. The code is on this screen."); };
   const setLooking = (v: boolean) => guard(() => api.setLooking(v ? 7 : null));
   const toggleSlot = (bit: number) => guard(() => api.updateProfile({ availabilityMask: profile.availabilityMask ^ bit }));
@@ -108,7 +121,19 @@ export default function ClubCard() {
         <MemberCard name={`${profile.displayName} ${profile.lastInitial ?? ''}.`.trim()} lastInitial={profile.lastInitial} photo={profile.photoUrl}
           level={profile.levelValue} source={profile.levelSource} verified={verified} area={area} court={courts?.find(c => c.id === profile.homeCourtId)?.name ?? null}
           age={profile.age} looking={looking} stats={cardStats(profile)}
+          plus={plus} bio={profile.bio} styleLine={plusLine(profile)} actionPhoto={profile.actionPhotoUrl}
           line={[profile.prefers ? `Here for ${profile.prefers.toLowerCase()}` : 'Here for a good hit', availText !== 'Not set' ? `plays ${availText.toLowerCase()}` : null].filter(Boolean).join(', ') + '.'} />
+
+        {/* Hits Plus: the one paid plan. A junior's comes through their parent. */}
+        <Tap onPress={() => router.push('/plus')} style={[s.plusRow, plus && s.plusRowOn]} accessibilityRole="button"
+          accessibilityLabel={plus ? `Hits Plus is on${profile.plusViaParent ? ', through your parent' : profile.plusUntil ? `, renews ${dateLong(new Date(profile.plusUntil))}` : ''}. Open.` : `Hits Plus, ${PLUS_PRICE} a month: auto-match, unlimited invitations, every filter, your stats. See it.`}>
+          <View style={s.plusBadge}><T v="micro" style={st.plusText}>Plus</T></View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T v="smallM">{plus ? 'Hits Plus is on' : profile.band === 'minor' ? 'Hits Plus' : `Hits Plus · ${PLUS_PRICE} a month`}</T>
+            <T v="meta" tone="muted" numberOfLines={2}>{plus ? (profile.plusViaParent ? 'Through your parent. Auto-match, every filter, your stats and more.' : profile.plusUntil ? `Renews ${dateLong(new Date(profile.plusUntil))}.` : 'Everything on.') : profile.band === 'minor' ? 'Auto-match, every filter, your stats. Your parent gets it for the family.' : 'Auto-match, unlimited invitations, every filter, your stats.'}</T>
+          </View>
+          <Icon name="chevron-right" size={15} color={t.muted} />
+        </Tap>
 
         <View style={st.quick}>
           <Button title={profile.photoUrl ? 'Change photo' : 'Add a photo'} kind="line" small icon="camera" onPress={() => setSheet('photo')} style={{ flexGrow: 1 }} />
@@ -138,6 +163,23 @@ export default function ClubCard() {
         <Row icon="house" k="Home court" v={court} onPress={() => setSheet('court')} />
         <ToggleRow icon="zap" k="Looking to hit this week" v={looking} onChange={setLooking} note="Puts you at the top for players near your level. Expires on its own." />
         <Row icon="camera" k="Photo" v={profile.photoUrl ? 'Added' : profile.photoPendingUrl ? 'Waiting on your parent' : 'None'} onPress={() => setSheet('photo')} />
+
+        <T v="micro" tone="muted" style={st.k}>Your fuller card{plus ? '' : ' · Plus'}</T>
+        <Row icon="sparkles" k="Playing style" v={profile.playStyle ? PLAY_STYLE_LABEL[profile.playStyle] : plus ? 'Not set' : 'Plus'} onPress={plusRow(() => setSheet('style'))} />
+        <Row icon="users" k="Hand" v={profile.handedness ? HAND_LABEL[profile.handedness] : plus ? 'Not set' : 'Plus'} onPress={plusRow(() => setSheet('hand'))} />
+        <Row icon="pencil" k="A line about you" v={profile.bio ?? (plus ? 'Not set' : 'Plus')} expanded={editingBio} onPress={plusRow(() => { setBio(profile.bio ?? ''); setEditingBio(e => !e); })} />
+        {editingBio && (
+          <View style={{ paddingVertical: space.lg, gap: space.sm }}>
+            <Field value={bio} onChangeText={setBio} placeholder="Big forehand, happy to drill first." maxLength={160} multiline accessibilityLabel="A line about you" />
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <Button title="Save" small onPress={() => void guard(async () => { const p = await api.updateProfile({ bio: bio.trim() || null }); setEditingBio(false); toast(bio.trim() ? 'Saved.' : 'Cleared.'); return p; })} />
+              <Button title="Cancel" kind="ghost" small onPress={() => setEditingBio(false)} />
+            </View>
+          </View>
+        )}
+        <Row icon="camera" k="Action photo" v={profile.actionPhotoUrl ? 'Added' : profile.actionPhotoPendingUrl ? 'Waiting on your parent' : plus ? 'None' : 'Plus'} onPress={plusRow(() => setSheet('action'))} />
+        <Row icon="trophy" k="Your stats" v={plus ? 'Hits, partners, your level' : 'Plus'} onPress={() => router.push(plus ? '/stats' : '/plus?why=stats')} />
+        <Row icon="zap" k="Auto-match" v={autoMatch.data?.state === 'active' ? 'Finding you a partner' : plus ? 'Hits asks around for you' : 'Plus'} onPress={() => router.push(plus ? '/automatch' : '/plus?why=automatch')} />
 
         {profile.band === 'minor' && (
           <>
@@ -234,6 +276,19 @@ export default function ClubCard() {
           label: FORMAT_LABEL[f], sub: f === 'doubles' ? 'You show up when players look for a partner or opponents' : f === 'either' ? 'Both lists' : 'Doubles players won\'t be pointed to you',
           onPress: () => guard(() => api.updateProfile({ playFormat: f })),
         }))} />
+        <OptionSheet open={sheet === 'style'} onClose={() => setSheet(null)} title="How do you play?" options={[
+          ...(Object.keys(PLAY_STYLE_LABEL) as PlayStyle[]).map(k => ({ label: PLAY_STYLE_LABEL[k], onPress: () => guard(() => api.updateProfile({ playStyle: k })) })),
+          ...(profile.playStyle ? [{ label: 'Clear it', danger: true, onPress: () => guard(() => api.updateProfile({ playStyle: null })) }] : []),
+        ]} />
+        <OptionSheet open={sheet === 'hand'} onClose={() => setSheet(null)} title="Which hand?" options={[
+          ...(Object.keys(HAND_LABEL) as Handedness[]).map(k => ({ label: HAND_LABEL[k], onPress: () => guard(() => api.updateProfile({ handedness: k })) })),
+          ...(profile.handedness ? [{ label: 'Clear it', danger: true, onPress: () => guard(() => api.updateProfile({ handedness: null })) }] : []),
+        ]} />
+        <OptionSheet open={sheet === 'action'} onClose={() => setSheet(null)} title={profile.band === 'minor' ? 'An action photo. Your parent sees it before anyone else does.' : 'An action photo for your card'} options={[
+          { label: 'Take a photo', onPress: () => guard(async () => { const r = await pickPhoto('camera'); return r ? api.setActionPhoto(r.base64) : null; }) },
+          { label: 'Choose from library', onPress: () => guard(async () => { const r = await pickPhoto('library'); return r ? api.setActionPhoto(r.base64) : null; }) },
+          ...(profile.actionPhotoUrl || profile.actionPhotoPendingUrl ? [{ label: 'Remove it', danger: true, onPress: () => guard(() => api.setActionPhoto(null)) }] : []),
+        ]} />
         <OptionSheet open={sheet === 'court'} onClose={() => setSheet(null)} title="Your home court. Never an address."
           options={(courts ?? []).map(c => ({ label: c.name, sub: [c.access === 'club' ? 'Club' : 'Public', c.indoor ? 'Indoor' : 'Outdoor', c.distanceBucket].filter(Boolean).join(' · '), onPress: () => guard(() => api.updateProfile({ homeCourtId: c.id })) }))} />
         <OptionSheet open={!!leaving} onClose={() => setLeaving(null)} title={leaving ? `Coach ${leaving.name}` : ''} options={[
@@ -402,9 +457,13 @@ const st = StyleSheet.create({
   quick: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
   utrRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
   danger: { minHeight: hit.min, alignItems: 'center', justifyContent: 'center' },
+  plusText: { color: '#173D2B', fontFamily: font.bold, fontSize: 10, lineHeight: 13, letterSpacing: 1.4 },
 });
 const useS = makeStyles(c => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 17, minHeight: 56, borderBottomWidth: 1, borderBottomColor: c.line },
+  plusRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginTop: space.md, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, minHeight: hit.row },
+  plusRowOn: { borderColor: c.green },
+  plusBadge: { paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, backgroundColor: fixed.dot },
   flatRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: hit.min },
   rowIcon: { width: 32, height: 32, borderRadius: 9, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 56, paddingVertical: space.sm },

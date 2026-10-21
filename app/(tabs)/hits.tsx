@@ -8,13 +8,14 @@ import { T } from '@/ui/Text';
 import { Tap } from '@/ui/Tap';
 import { Button } from '@/ui/Button';
 import { Pill } from '@/ui/Pill';
+import { Icon } from '@/ui/Icon';
 import { Loading } from '@/ui/Loading';
 import { PlanPanel } from '@/ui/Plan';
 import { WeekStrip } from '@/ui/WeekStrip';
 import { OptionSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { space } from '@/theme/tokens';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
 import { useAsync } from '@/store/useAsync';
@@ -27,6 +28,7 @@ export default function MyHits() {
   const router = useRouter();
   const toast = useToast();
   const { profile, tick } = useSession();
+  const t = useTheme();
   const sx = useS();
   const reqs = useAsync(() => api.requests(), [tick]);
   const [passing, setPassing] = useState<HitRequest | null>(null);
@@ -120,9 +122,15 @@ export default function MyHits() {
             )}
             {groups.past.length > 0 && (
               <>
-                <T v="micro" tone="muted" style={s.k}>Past</T>
+                <View style={s.pastHead}>
+                  <T v="micro" tone="muted">Past</T>
+                  <Tap onPress={() => router.push(profile?.plus ? '/stats' : '/plus?why=stats')} style={{ minHeight: 44, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 5 }} accessibilityRole="button" accessibilityLabel={profile?.plus ? 'Your stats' : 'Your stats, part of Plus'}>
+                    {!profile?.plus && <Icon name="lock" size={12} color={t.green} />}
+                    <T v="smallM" tone="green">Your stats</T>
+                  </Tap>
+                </View>
                 <Card style={{ paddingVertical: 4 }}>
-                  {groups.past.slice(0, 12).map((r, i) => {
+                  {groups.past.slice(0, profile?.plus ? 12 : 5).map((r, i) => {
                     const st = statusOf(r, me); const start = new Date(r.windowStart);
                     return (
                       <Tap key={r.id} onPress={() => router.push(`/hit/${r.id}`)} style={[s.pastRow, i > 0 && sx.rule]} accessibilityRole="button" accessibilityLabel={`${st.label}. ${r.other.displayName}, ${dateLong(start)}.`}>
@@ -135,6 +143,11 @@ export default function MyHits() {
                     );
                   })}
                 </Card>
+                {!profile?.plus && groups.past.length > 5 && (
+                  <Tap onPress={() => router.push('/plus?why=stats')} style={{ minHeight: 44, justifyContent: 'center', marginTop: 4 }} accessibilityRole="button" accessibilityLabel={`See all ${groups.past.length} past hits and your stats with Plus`}>
+                    <T v="small" tone="muted">Your last five. See all {groups.past.length}, and your stats, with Plus.</T>
+                  </Tap>
+                )}
               </>
             )}
             {live === 0 && <Button title="Find your next partner" arrow onPress={() => router.push('/(tabs)')} style={{ marginTop: 24 }} />}
@@ -150,6 +163,7 @@ const s = StyleSheet.create({
   h: { marginTop: 12, marginBottom: 12 },
   sub: { marginBottom: 24, lineHeight: 21 },
   k: { marginTop: 14, marginBottom: 12 },
+  pastHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 2 },
   actions: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   pastRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 12, minHeight: 56 },
 });

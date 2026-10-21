@@ -32,6 +32,14 @@ import { DECLINE_COPY, type DeclineReason, type HitPlan, type HitRequest, type P
 
 const SEEN = new Set<string>();
 
+// Rematch: the same court, the same weekday and time, the next time it comes round.
+function rematchWindow(r: HitRequest): { start: string; end: string } {
+  const start = new Date(r.windowStart), end = new Date(r.windowEnd);
+  const len = end.getTime() - start.getTime();
+  while (start.getTime() < Date.now() + 3600000) { start.setDate(start.getDate() + 7); }
+  return { start: start.toISOString(), end: new Date(start.getTime() + len).toISOString() };
+}
+
 export default function Hit() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -161,7 +169,7 @@ export default function Hit() {
             <Button title={`Message ${r.other.displayName}`} kind="line" small icon="message-circle" onPress={openChat} />
           </View>
         ) : (
-          <Button title={`Hit with ${r.other.displayName} again`} arrow onPress={() => router.push(`/request/${r.other.id}`)} style={{ marginTop: space.md }} />
+          <Button title={`Hit with ${r.other.displayName} again`} arrow onPress={() => router.push({ pathname: '/request/[id]', params: { id: r.other.id, court: r.courtId, ...rematchWindow(r) } })} style={{ marginTop: space.md }} />
         )}
         {!over && <Logistics r={r} me={profile} setPlan={setPlan} onTheDay />}
       </View>

@@ -62,7 +62,10 @@ export function CompactRow({ p, onPress, first, note }: { p: Player; onPress: ()
     <Tap onPress={onPress} style={[s.row, !first && s.rowRule]} accessibilityRole="button" accessibilityLabel={`${name(p)}, ${p.levelValue != null ? `rating ${p.levelValue.toFixed(1)}` : 'no rating yet'}. ${note ? `${note}. ` : ''}${line}. ${note ? 'Open the hit.' : 'Open profile.'}`}>
       <Avatar name={p.displayName} lastInitial={p.lastInitial} photo={p.photoUrl} size={42} dot={p.lookingToHit} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <T v="smallM" numberOfLines={1}>{name(p)}</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <T v="smallM" numberOfLines={1} style={{ flexShrink: 1 }}>{name(p)}</T>
+          {p.plus && <View style={s.plus}><T v="micro" style={st.plusText}>Plus</T></View>}
+        </View>
         {note ? <T v="meta" tone="green" numberOfLines={1} style={{ fontFamily: font.medium }}>{note}</T>
           : <T v="meta" tone="muted" numberOfLines={1}>{line || activeText(p.lastActiveAt)}</T>}
       </View>
@@ -101,6 +104,7 @@ export function PlayerCard({ p, anonymous, me }: { p: Player; anonymous?: boolea
 const st = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: space.lg },
+  plusText: { color: fixed.member, fontFamily: font.bold, fontSize: 8, lineHeight: 11, letterSpacing: 1.2 },
 });
 const useS = makeStyles(c => ({
   card: { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.xl, overflow: 'hidden', ...shadow({ y: 7, blur: 14, color: c.shadow, opacity: 0.035 }) },
@@ -111,4 +115,5 @@ const useS = makeStyles(c => ({
   invite: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 48, paddingVertical: 13, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.green },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 13, paddingHorizontal: 2, minHeight: hit.row },
   rowRule: { borderTopWidth: 1, borderTopColor: c.line },
+  plus: { paddingVertical: 1, paddingHorizontal: 6, borderRadius: 999, backgroundColor: fixed.dot },
 }));

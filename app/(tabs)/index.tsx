@@ -48,6 +48,8 @@ export default function Discover() {
   const pairings = useAsync(() => api.myPairings(), [tick]);
   const courtList = useAsync(() => api.courts(), []);
   const tourneys = useAsync(() => api.tournaments(), [tick]);
+  // Plus: an auto-match in progress, or one that just finished.
+  const autoMatch = useAsync(() => api.myAutoMatch(), [tick]);
   // A tournament you said you are playing, starting within the week (or on now).
   const playing = useMemo(() => (tourneys.data ?? []).find(x => x.entered && daysUntil(x) <= 7) ?? null, [tourneys.data]);
   useEffect(() => { void api.touch(); void registerPush(); }, []);
@@ -155,6 +157,24 @@ export default function Discover() {
                 note: `Coach ${x.coachName.split(' ')[0]} paired us.${x.note ? ` ${x.note}` : ''}`.slice(0, 140),
               } })} />
           ))}
+
+          {autoMatch.data && (autoMatch.data.state === 'active' || autoMatch.data.state === 'done') && (() => {
+            const a = autoMatch.data;
+            const hitOf = (reqs.data ?? []).find(r => r.id === (a.currentRequestId ?? a.matchedRequestId)) ?? null;
+            const label = a.state === 'active' ? `Hits is finding you a partner for ${hitShort(a.windowStart)}` : `Matched for ${hitShort(a.windowStart)}${hitOf ? ` with ${hitOf.other.displayName}` : ''}`;
+            const sub = a.state === 'active' ? `${a.tried === 1 ? 'Asked one player' : `Asked ${a.tried} players`}${hitOf ? ` · waiting on ${hitOf.other.displayName}` : ''}` : 'Auto-match found someone who said yes.';
+            return (
+              <Tap onPress={() => router.push(a.state === 'done' && hitOf ? `/hit/${hitOf.id}` : '/automatch')} style={s.next} scaleTo={0.99} accessibilityRole="button" accessibilityLabel={`${label}. ${sub}. Open.`}>
+                <View style={[s.actionIcon, s.actionIconOn]}><Glyph name="zap" size={19} color={t.greenText} /></View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T v="micro" tone="muted" style={{ fontSize: 10 }}>Auto-match · Plus</T>
+                  <T v="smallM" numberOfLines={2} style={{ marginTop: 2 }}>{label}</T>
+                  <T v="meta" tone="muted" numberOfLines={1}>{sub}</T>
+                </View>
+                <Glyph name="chevron-right" size={15} color={t.muted} />
+              </Tap>
+            );
+          })()}
 
           {playing && (
             <Tap onPress={() => router.push(`/tournament/${playing.id}`)} style={s.next} scaleTo={0.99} accessibilityRole="button"

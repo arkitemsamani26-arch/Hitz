@@ -54,6 +54,9 @@ const seeded = () => ({
   rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null,
   messages: [{ id: 'm1', hitId: 'r2', senderId: 'p-ruby', body: 'See you there. Court 2?', createdAt: iso(day(0, 7)) }],
   blocked: [], cohortOpen: true, listMode: null, seenConfirmed: [],
+  // Hits Plus on, so the Plus screens render their real content rather than the paywall.
+  plus: { until: iso(day(30, 9)), source: 'promo' },
+  notes: { 'p-maya': 'Big forehand, likes long sets.' },
   requests: [{
     id: 'r1', fromId: 'p-maya', toId: 'me', courtId: 'c-stanford',
     windowStart: iso(day(2, 9)), windowEnd: iso(day(2, 10)), note: 'Sets?',
@@ -106,6 +109,10 @@ const SCREENS = [
   ['tournaments', '/tournaments'],
   ['tournament', '/tournament/t-pjo'],
   ['you', '/(tabs)/you'],
+  ['plus', '/plus'],
+  ['plus, locked', '/plus?why=invites'],
+  ['auto-match', '/automatch'],
+  ['stats', '/stats'],
   ['preview', '/preview'],
   ['filters', '/filters'],
   ['player', '/player/p-maya'],

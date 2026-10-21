@@ -1,5 +1,5 @@
 import type {
-  Approval, Assurance, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, Coaching, CoachPairing, Court, CourtStats, GuardianCoachLink, HitPlan, InboxEntry, MyCoach, Pairing, RosterMember, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
+  Approval, Assurance, AutoMatch, PlusRequest, PlusStatus, SavedSearch, Stats, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, Coaching, CoachPairing, Court, CourtStats, GuardianCoachLink, HitPlan, InboxEntry, MyCoach, Pairing, RosterMember, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
   Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
 } from './types';
 
@@ -20,7 +20,7 @@ export interface HitsApi {
   // me
   me(): Promise<Profile | null>;
   createProfile(input: ProfileInput): Promise<Profile>;
-  updateProfile(patch: Partial<Pick<Profile, 'availabilityMask' | 'homeCourtId' | 'displayName' | 'lastInitial' | 'levelValue' | 'levelSource' | 'prefers' | 'playFormat'>>): Promise<Profile>;
+  updateProfile(patch: Partial<Pick<Profile, 'availabilityMask' | 'homeCourtId' | 'displayName' | 'lastInitial' | 'levelValue' | 'levelSource' | 'prefers' | 'playFormat' | 'playStyle' | 'handedness' | 'bio'>>): Promise<Profile>;
   setLooking(days: number | null): Promise<Profile>;
   setLocation(lat: number, lon: number): Promise<void>;
   touch(): Promise<void>;
@@ -113,6 +113,24 @@ export interface HitsApi {
   enterTournament(id: string, entry: TournamentEntry, childId?: string): Promise<void>;
   leaveTournament(id: string, childId?: string): Promise<void>;
   tournamentPlayers(id: string): Promise<TournamentPlayer[]>;
+
+  // Hits Plus. Every limit is the server's; these just ask.
+  myPlus(): Promise<PlusStatus>;
+  // Before the store opens. A junior is refused: their parent buys it.
+  beginPurchase(): Promise<string>;
+  requestPlusFromParent(): Promise<void>;
+  guardianPlusRequests(): Promise<PlusRequest[]>;
+  setActionPhoto(base64: string | null): Promise<Profile>;
+  guardianApproveActionPhoto(childId: string, approve: boolean): Promise<void>;
+  myStats(): Promise<Stats>;
+  partnerNote(playerId: string): Promise<string | null>;
+  setPartnerNote(playerId: string, text: string | null): Promise<void>;
+  savedSearches(): Promise<SavedSearch[]>;
+  saveSearch(name: string, filters: DiscoverFilters): Promise<string>;
+  deleteSearch(id: string): Promise<void>;
+  myAutoMatch(): Promise<AutoMatch | null>;
+  autoMatch(start: Date, end: Date, levelLo: number | null, levelHi: number | null, radiusMi: number, format: 'singles' | 'doubles', courtId: string | null): Promise<string>;
+  cancelAutoMatch(id: string): Promise<void>;
 
   // safety
   block(profileId: string): Promise<void>;

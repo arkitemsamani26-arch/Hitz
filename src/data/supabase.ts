@@ -10,7 +10,7 @@ import { ApiError, type HitsApi, type SendDoubles } from './api';
 import { toE164 } from '@/lib/phone';
 import { registerCourts } from '@/lib/courts';
 import type {
-  Approval, Assurance, Court, DoublesMember, DoublesRole, DoublesSuggestion, Tournament, TournamentEntry, TournamentPlayer, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
+  Approval, Assurance, AutoMatch, PlusRequest, PlusStatus, SavedSearch, Stats, Court, DoublesMember, DoublesRole, DoublesSuggestion, Tournament, TournamentEntry, TournamentPlayer, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
   Coaching, CoachPairing, GuardianCoachLink, InboxEntry, MarketStatus, Message, MyCoach, Pairing, Player, Profile, ProfileInput,
   RosterMember, Session, UtrClaim, UtrStatus,
 } from './types';
@@ -20,7 +20,7 @@ const MI = 1609.34;
 
 // What other players' rows can be read for. A birthday, an unapproved photo and the rounded
 // location are not on this list; the database refuses them (migration 20261013000100).
-const PEER_COLS = 'id, display_name, last_initial, photo_url, level_value, level_source, home_court_id, availability_mask, prefers, play_format, last_active_at, looking_to_hit_until, requests_received, requests_responded, requests_accepted, hits_confirmed';
+const PEER_COLS = 'id, display_name, last_initial, photo_url, level_value, level_source, home_court_id, availability_mask, prefers, play_format, play_style, handedness, bio, action_photo_url, last_active_at, looking_to_hit_until, requests_received, requests_responded, requests_accepted, hits_confirmed';
 
 function ageFrom(dob: string | null | undefined): number | null {
   if (!dob) return null;
@@ -88,7 +88,8 @@ export class SupabaseApi implements HitsApi {
   }
 
   // ---- me ----------------------------------------------------------------------
-  private mapProfile(r: any, extras: { guardianVerified: boolean; guardianPending: boolean; guardianSentAt?: string | null; guardianOpenedAt?: string | null; rosterName?: string | null }): Profile {
+  private mapProfile(r: any, extras: { guardianVerified: boolean; guardianPending: boolean; guardianSentAt?: string | null; guardianOpenedAt?: string | null; rosterName?: string | null; plus?: PlusStatus | null }): Profile {
+    const { plus, ...rest } = extras;
     return {
       id: r.id, displayName: r.display_name, lastInitial: r.last_initial, photoUrl: r.photo_url,
       band: new Date(r.adult_at) <= new Date() ? 'adult' : 'minor',
@@ -101,7 +102,10 @@ export class SupabaseApi implements HitsApi {
       age: new Date(r.adult_at) > new Date() ? ageFrom(r.date_of_birth) : null,
       maxPartnerAgeGap: r.max_partner_age_gap ?? null,
       playFormat: r.play_format ?? 'either',
-      ...extras,
+      plus: plus?.plus ?? false, plusUntil: plus?.plusUntil ?? null, plusViaParent: plus?.viaParent ?? false,
+      playStyle: r.play_style ?? null, handedness: r.handedness ?? null, bio: r.bio ?? null,
+      actionPhotoUrl: r.action_photo_url ?? null, actionPhotoPendingUrl: r.action_photo_pending_url ?? null,
+      ...rest,
     };
   }
   async me() {
@@ -111,9 +115,12 @@ export class SupabaseApi implements HitsApi {
     const data = Array.isArray(rows) ? rows[0] : rows;
     if (!data) return null;
     const links = (await this.sb.from('guardian_links').select('verified_at, revoked_at, invited_at, opened_at').eq('minor_profile_id', this.uid).is('revoked_at', null)).data ?? [];
-    const roster = data.roster_id ? (await this.sb.from('rosters').select('name').eq('id', data.roster_id).maybeSingle()).data : null;
+    const [roster, plus] = await Promise.all([
+      data.roster_id ? this.sb.from('rosters').select('name').eq('id', data.roster_id).maybeSingle().then(r => r.data) : Promise.resolve(null),
+      this.myPlus().catch(() => null),
+    ]);
     return this.mapProfile(data, { guardianVerified: links.some(l => l.verified_at), guardianPending: links.length > 0 && !links.some(l => l.verified_at),
-      guardianSentAt: links[0]?.invited_at ?? null, guardianOpenedAt: links[0]?.opened_at ?? null, rosterName: roster?.name ?? null });
+      guardianSentAt: links[0]?.invited_at ?? null, guardianOpenedAt: links[0]?.opened_at ?? null, rosterName: roster?.name ?? null, plus });
   }
   async createProfile(input: ProfileInput) {
     if (!this.uid) throw new ApiError('not signed in');
@@ -140,6 +147,9 @@ export class SupabaseApi implements HitsApi {
     if (patch.levelSource != null) row.level_source = patch.levelSource;
     if (patch.prefers !== undefined) row.prefers = patch.prefers?.trim() || null;
     if (patch.playFormat != null) row.play_format = patch.playFormat;
+    if (patch.playStyle !== undefined) row.play_style = patch.playStyle;
+    if (patch.handedness !== undefined) row.handedness = patch.handedness;
+    if (patch.bio !== undefined) row.bio = patch.bio?.trim().slice(0, 160) || null;
     const { error } = await this.sb.from('profiles').update(row).eq('id', this.uid!);
     if (error) this.fail(error);
     return (await this.me())!;
@@ -212,6 +222,7 @@ export class SupabaseApi implements HitsApi {
       prefers: r.prefers ?? null,
       age: r.age ?? null,
       playFormat: r.play_format ?? undefined,
+      playStyle: r.play_style ?? null, handedness: r.handedness ?? null, bio: r.bio ?? null, actionPhotoUrl: r.action_photo_url ?? null,
     };
   }
   // Ages arrive separately, and only for the people the database says you may know them for.
@@ -221,20 +232,37 @@ export class SupabaseApi implements HitsApi {
     return new Map((data ?? []).map((a: any) => [a.profile_id, a.age]));
   }
   private async courtMap() { return new Map((await this.courts()).map(c => [c.id, c.name])); }
+  // Who among these has the Plus badge. A set of ids, nothing about anyone's plan.
+  private async plusOf(ids: string[]): Promise<Set<string>> {
+    if (!ids.length) return new Set();
+    const { data } = await this.sb.rpc('plus_of', { p_ids: ids });
+    return new Set((data ?? []) as string[]);
+  }
   async discover(f: DiscoverFilters) {
     const { data, error } = await this.sb.rpc('discover', {
       p_radius_m: Math.round(f.radiusMi * MI), p_level_lo: f.levelLo, p_level_hi: f.levelHi,
       p_availability: f.availability, p_only_looking: f.onlyLooking, p_age_gap: f.ageGap ?? null, p_limit: f.limit ?? 50,
+      p_play_style: f.playStyle ?? null, p_handedness: f.handedness ?? null, p_min_reply_rate: f.minReplyRate ?? null,
+      p_indoor_only: !!f.indoorOnly, p_format: f.format ?? null,
     });
     if (error) this.fail(error);
     const courts = await this.courtMap();
     const list: Player[] = (data ?? []).map((r: any) => this.mapPlayer(r, courts));
-    // Discovery's shape is pinned by its callers; what each player is looking for comes
-    // alongside, in one more read of a column every player may see.
+    // Discovery's shape is pinned by its callers; what each player is looking for, and the
+    // fuller card, come alongside in one more read of columns every player may see.
     if (list.length) {
-      const { data: fmts } = await this.sb.from('profiles').select('id, play_format').in('id', list.map(p => p.id));
-      const by = new Map((fmts ?? []).map((f: any) => [f.id, f.play_format]));
-      for (const p of list) p.playFormat = by.get(p.id) ?? 'either';
+      const ids = list.map(p => p.id);
+      const [{ data: more }, badges] = await Promise.all([
+        this.sb.from('profiles').select('id, play_format, play_style, handedness, bio, action_photo_url').in('id', ids),
+        this.plusOf(ids),
+      ]);
+      const by = new Map((more ?? []).map((f: any) => [f.id, f]));
+      for (const p of list) {
+        const x = by.get(p.id);
+        p.playFormat = x?.play_format ?? 'either';
+        p.playStyle = x?.play_style ?? null; p.handedness = x?.handedness ?? null; p.bio = x?.bio ?? null; p.actionPhotoUrl = x?.action_photo_url ?? null;
+        p.plus = badges.has(p.id);
+      }
     }
     return list;
   }
@@ -246,12 +274,13 @@ export class SupabaseApi implements HitsApi {
   private async players(ids: string[]): Promise<Map<string, Player>> {
     const want = [...new Set(ids)].filter(Boolean);
     if (!want.length) return new Map();
-    const [{ data }, courts, ages] = await Promise.all([
+    const [{ data }, courts, ages, badges] = await Promise.all([
       this.sb.from('profiles').select(PEER_COLS).in('id', want),
       this.courtMap(),
       this.agesOf(want),
+      this.plusOf(want),
     ]);
-    return new Map((data ?? []).map((r: any) => [r.id, { ...this.mapPlayer(r, courts), age: ages.get(r.id) ?? null }]));
+    return new Map((data ?? []).map((r: any) => [r.id, { ...this.mapPlayer(r, courts), age: ages.get(r.id) ?? null, plus: badges.has(r.id) }]));
   }
 
   // ---- hits --------------------------------------------------------------------
@@ -627,6 +656,92 @@ export class SupabaseApi implements HitsApi {
       sameDivision: r.same_division, availabilityMask: r.availability_mask ?? 0, homeCourtId: r.home_court_id,
     }));
   }
+
+  // ---- Hits Plus ------------------------------------------------------------------
+  async myPlus(): Promise<PlusStatus> {
+    const { data, error } = await this.sb.rpc('my_plus');
+    if (error) this.fail(error);
+    const r = this.one<any>(data);
+    return { plus: !!r?.plus, plusUntil: r?.plus_until ?? null, viaParent: !!r?.via_parent, source: r?.source ?? null };
+  }
+  async beginPurchase(): Promise<string> {
+    const { data, error } = await this.sb.rpc('begin_purchase');
+    if (error) this.fail(error);
+    return String(data);
+  }
+  async requestPlusFromParent() { const { error } = await this.sb.rpc('request_plus_from_parent'); if (error) this.fail(error); }
+  async guardianPlusRequests(): Promise<PlusRequest[]> {
+    const { data } = await this.sb.rpc('guardian_plus_requests');
+    return (data ?? []).map((r: any) => ({ childId: r.child_id, childName: r.child_name, requestedAt: r.requested_at }));
+  }
+  async setActionPhoto(base64: string | null) {
+    if (!base64) { const { error } = await this.sb.rpc('set_my_action_photo', { p_url: null }); if (error) this.fail(error); return (await this.me())!; }
+    const path = `${this.uid}/action-${Date.now()}.jpg`;
+    const { error } = await this.sb.storage.from('avatars').upload(path, decode(base64), { contentType: 'image/jpeg', upsert: true });
+    if (error) this.fail(error as any);
+    const url = this.sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const { error: e2 } = await this.sb.rpc('set_my_action_photo', { p_url: url });
+    if (e2) this.fail(e2);
+    return (await this.me())!;
+  }
+  async guardianApproveActionPhoto(childId: string, approve: boolean) {
+    const { error } = await this.sb.rpc('guardian_approve_action_photo', { p_child: childId, p_approve: approve }); if (error) this.fail(error);
+  }
+  async myStats(): Promise<Stats> {
+    const { data, error } = await this.sb.rpc('my_stats');
+    if (error) this.fail(error);
+    const r: any = data ?? {};
+    return {
+      months: (r.months ?? []).map((m: any) => ({ month: m.month, hits: Number(m.hits) })),
+      partners: (r.partners ?? []).map((x: any) => ({ id: x.id, name: x.name, initial: x.initial ?? null, photo: x.photo ?? null, hits: Number(x.hits), last: x.last })),
+      levels: (r.levels ?? []).map((l: any) => ({ at: l.at, level: Number(l.level) })),
+      total: Number(r.total ?? 0), invited: Number(r.invited ?? 0), received: Number(r.received ?? 0),
+    };
+  }
+  async partnerNote(playerId: string): Promise<string | null> {
+    const { data, error } = await this.sb.rpc('get_partner_note', { p_player: playerId });
+    if (error) this.fail(error);
+    return (data as string | null) ?? null;
+  }
+  async setPartnerNote(playerId: string, text: string | null) {
+    const { error } = await this.sb.rpc('set_partner_note', { p_player: playerId, p_text: text }); if (error) this.fail(error);
+  }
+  // Filters travel as the server's own names, so the daily job reads them without a map.
+  private static filtersOut(f: DiscoverFilters) {
+    return { radius_m: Math.round(f.radiusMi * MI), level_lo: f.levelLo, level_hi: f.levelHi, availability: f.availability, age_gap: f.ageGap ?? null,
+      play_style: f.playStyle ?? null, handedness: f.handedness ?? null, min_reply_rate: f.minReplyRate ?? null, indoor_only: !!f.indoorOnly, format: f.format ?? null };
+  }
+  private static filtersIn(j: any): DiscoverFilters {
+    return { radiusMi: Math.round((Number(j?.radius_m) || 16093) / MI), levelLo: j?.level_lo ?? null, levelHi: j?.level_hi ?? null, availability: Number(j?.availability) || 0,
+      onlyLooking: false, ageGap: j?.age_gap ?? null, playStyle: j?.play_style ?? null, handedness: j?.handedness ?? null,
+      minReplyRate: j?.min_reply_rate ?? null, indoorOnly: !!j?.indoor_only, format: j?.format ?? null };
+  }
+  async savedSearches(): Promise<SavedSearch[]> {
+    const { data, error } = await this.sb.rpc('my_searches');
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, filters: SupabaseApi.filtersIn(r.filters), createdAt: r.created_at, lastRunAt: r.last_run_at ?? null }));
+  }
+  async saveSearch(name: string, filters: DiscoverFilters): Promise<string> {
+    const { data, error } = await this.sb.rpc('save_search', { p_name: name, p_filters: SupabaseApi.filtersOut(filters) });
+    if (error) this.fail(error);
+    return String(data);
+  }
+  async deleteSearch(id: string) { const { error } = await this.sb.rpc('remove_search', { p_id: id }); if (error) this.fail(error); }
+  async myAutoMatch(): Promise<AutoMatch | null> {
+    const { data, error } = await this.sb.rpc('my_auto_match');
+    if (error) this.fail(error);
+    const r = this.one<any>(data); if (!r) return null;
+    return { id: r.id, windowStart: r.window_start, windowEnd: r.window_end, levelLo: r.level_lo == null ? null : Number(r.level_lo), levelHi: r.level_hi == null ? null : Number(r.level_hi),
+      radiusMi: Math.round(Number(r.radius_m) / MI), format: r.format, courtId: r.court_id ?? null, state: r.state, tried: Number(r.tried ?? 0),
+      currentRequestId: r.current_request_id ?? null, matchedRequestId: r.matched_request_id ?? null, createdAt: r.created_at };
+  }
+  async autoMatch(start: Date, end: Date, levelLo: number | null, levelHi: number | null, radiusMi: number, format: 'singles' | 'doubles', courtId: string | null): Promise<string> {
+    const { data, error } = await this.sb.rpc('auto_match', { p_start: start.toISOString(), p_end: end.toISOString(), p_level_lo: levelLo, p_level_hi: levelHi,
+      p_radius_m: Math.round(radiusMi * MI), p_format: format, p_court: courtId });
+    if (error) this.fail(error);
+    return String(data);
+  }
+  async cancelAutoMatch(id: string) { const { error } = await this.sb.rpc('cancel_auto_match', { p_id: id }); if (error) this.fail(error); }
 
   async block(profileId: string) { const { error } = await this.sb.from('blocks').insert({ blocker_id: this.uid, blocked_id: profileId }); if (error) this.fail(error); }
   async report(profileId: string, reason: string, body: string, hitId?: string) {

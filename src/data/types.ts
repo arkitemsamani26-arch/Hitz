@@ -34,6 +34,69 @@ export interface Profile {
   maxPartnerAgeGap: number | null;
   // Singles, doubles, or either. What the "Looking to hit" list shows next to your name.
   playFormat: PlayFormat;
+  // Hits Plus. A junior's comes through a linked parent who has it.
+  plus: boolean;
+  plusUntil: string | null;
+  plusViaParent: boolean;
+  // The fuller card, written with Plus and kept afterwards.
+  playStyle: PlayStyle | null;
+  handedness: Handedness | null;
+  bio: string | null;
+  actionPhotoUrl: string | null;
+  actionPhotoPendingUrl?: string | null;
+}
+
+export type PlayStyle = 'baseliner' | 'all_court' | 'serve_volley' | 'counterpuncher';
+export type Handedness = 'left' | 'right';
+
+// Your plan, as the server sees it. A parent with no player profile has one too.
+export interface PlusStatus {
+  plus: boolean;
+  plusUntil: string | null;
+  viaParent: boolean;
+  source: 'apple' | 'google' | 'promo' | null;
+}
+
+// A child who tapped "Ask your parent" and is still without Plus.
+export interface PlusRequest {
+  childId: string;
+  childName: string;
+  requestedAt: string;
+}
+
+// Plus: what your hitting looks like over time.
+export interface Stats {
+  months: { month: string; hits: number }[];
+  partners: { id: string; name: string; initial: string | null; photo: string | null; hits: number; last: string }[];
+  levels: { at: string; level: number }[];
+  total: number;
+  invited: number;
+  received: number;
+}
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  filters: DiscoverFilters;
+  createdAt: string;
+  lastRunAt: string | null;
+}
+
+// Plus: Hits invites players for you, one at a time, until one says yes.
+export interface AutoMatch {
+  id: string;
+  windowStart: string;
+  windowEnd: string;
+  levelLo: number | null;
+  levelHi: number | null;
+  radiusMi: number;
+  format: 'singles' | 'doubles';
+  courtId: string | null;
+  state: 'active' | 'done' | 'expired' | 'cancelled';
+  tried: number;
+  currentRequestId: string | null;
+  matchedRequestId: string | null;
+  createdAt: string;
 }
 
 export type PlayFormat = 'singles' | 'doubles' | 'either';
@@ -100,6 +163,12 @@ export interface Player {
   // In years, and only when both of you are under 18.
   age: number | null;
   playFormat?: PlayFormat;
+  playStyle?: PlayStyle | null;
+  handedness?: Handedness | null;
+  bio?: string | null;
+  actionPhotoUrl?: string | null;
+  // The badge: they have Hits Plus. Nothing more about their plan is ever shown.
+  plus?: boolean;
 }
 
 export interface Court {
@@ -255,6 +324,17 @@ export interface DiscoverFilters {
   // How many to bring back. Discover shows the closest 50; a court's page and search look
   // through everyone in range, because they filter afterwards.
   limit?: number;
+  // Plus. The server refuses them on the free plan.
+  playStyle?: PlayStyle | null;
+  handedness?: Handedness | null;
+  minReplyRate?: number | null;
+  indoorOnly?: boolean;
+  format?: 'singles' | 'doubles' | null;
+}
+
+// True when any Plus filter is set.
+export function hasPlusFilters(f: DiscoverFilters): boolean {
+  return !!(f.playStyle || f.handedness || f.minReplyRate != null || f.indoorOnly || f.format);
 }
 
 // What UTR says about you, minus everything that must stay on the server. Absent means

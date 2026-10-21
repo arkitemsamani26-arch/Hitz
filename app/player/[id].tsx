@@ -24,6 +24,7 @@ import { gapLine, overlapLine } from '@/lib/match';
 import { dateLong } from '@/lib/format';
 import { statusOf } from '@/lib/status';
 import { slotsOf, slotsSummary } from '@/data/types';
+import { isPlusError, plusLine } from '@/lib/plus';
 
 const REASONS = [
   { k: 'fake_profile', l: 'Fake profile' }, { k: 'inappropriate_messages', l: 'Inappropriate messages' },
@@ -47,6 +48,18 @@ export default function PlayerScreen() {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const canRequest = !!profile && (profile.band === 'adult' || profile.guardianVerified);
+  // Plus: a private note on this player. Only you ever see it.
+  const plus = !!profile?.plus;
+  const note = useAsync(() => (plus ? api.partnerNote(id) : Promise.resolve(null)), [id, plus]);
+  const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const saveNote = async () => {
+    if (noteDraft == null) return;
+    setSavingNote(true);
+    try { await api.setPartnerNote(id, noteDraft.trim() || null); await note.reload(); setNoteDraft(null); toast(noteDraft.trim() ? 'Saved. Only you see it.' : 'Note removed.'); }
+    catch (e: any) { if (isPlusError(e)) router.push('/plus?why=notes'); else toast(e?.message ?? "Couldn't save that."); }
+    finally { setSavingNote(false); }
+  };
   if (loading && !p) return <Screen><Centered><Header backLabel="Back to players" /><Loading /></Centered></Screen>;
   if (!p) return <Screen><Centered><Header backLabel="Back to players" /><Card><T v="body" tone="muted">Can't find them.</T></Card></Centered></Screen>;
 
@@ -70,7 +83,37 @@ export default function PlayerScreen() {
         <Header backLabel="Back to players" right={<Tap onPress={() => setMore(true)} style={{ minWidth: hit.min, minHeight: hit.min, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="More options for this player"><Icon name="ellipsis" size={18} color={t.ink} /></Tap>} />
         <MemberCard name={nameOf(p)} lastInitial={p.lastInitial} photo={p.photoUrl} level={p.levelValue} source={p.levelSource} verified={p.levelVerified}
           area={p.distanceBucket ? `${p.distanceBucket} away` : market.data?.marketName ?? 'Palo Alto'} court={p.homeCourtName} age={p.age} looking={p.lookingToHit}
-          stats={cardStats(p)} line={[p.prefers ? `Here for ${p.prefers.toLowerCase()}` : null, p.availabilityMask ? `plays ${slotsSummary(p.availabilityMask).toLowerCase()}` : null].filter(Boolean).join(', ') + (p.prefers || p.availabilityMask ? '.' : '')} />
+          stats={cardStats(p)} line={[p.prefers ? `Here for ${p.prefers.toLowerCase()}` : null, p.availabilityMask ? `plays ${slotsSummary(p.availabilityMask).toLowerCase()}` : null].filter(Boolean).join(', ') + (p.prefers || p.availabilityMask ? '.' : '')}
+          plus={p.plus} bio={p.bio} styleLine={plusLine(p)} actionPhoto={p.actionPhotoUrl} />
+
+        {/* Your note on them. Plus; on the free plan the row is the way to the paywall. */}
+        {plus ? (
+          <Card style={{ marginTop: space.md, gap: space.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="pencil" size={15} color={t.ink} />
+              <T v="micro" tone="muted" style={{ flex: 1 }}>Your note · only you see it</T>
+            </View>
+            {noteDraft == null ? (
+              <Tap onPress={() => setNoteDraft(note.data ?? '')} style={{ minHeight: hit.min, justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={note.data ? `Your note: ${note.data}. Edit.` : `Add a note about ${p.displayName}`}>
+                <T v="small" tone={note.data ? 'ink' : 'muted'}>{note.data ?? `"Big forehand, likes two-hour sets." A line to remember ${p.displayName} by.`}</T>
+              </Tap>
+            ) : (
+              <>
+                <Field value={noteDraft} onChangeText={setNoteDraft} placeholder={`About ${p.displayName}`} maxLength={280} multiline accessibilityLabel={`Your note about ${p.displayName}`} />
+                <View style={{ flexDirection: 'row', gap: space.sm }}>
+                  <Button title="Cancel" kind="ghost" small onPress={() => setNoteDraft(null)} />
+                  <Button title="Save" small onPress={saveNote} loading={savingNote} style={{ flex: 1 }} />
+                </View>
+              </>
+            )}
+          </Card>
+        ) : (
+          <Tap onPress={() => router.push('/plus?why=notes')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: hit.min, marginTop: space.sm }} accessibilityRole="button" accessibilityLabel={`A private note about ${p.displayName}, part of Plus. See Plus.`}>
+            <Icon name="pencil" size={14} color={t.muted} />
+            <T v="meta" tone="muted" style={{ flex: 1 }}>Keep a private note on {p.displayName} with Plus.</T>
+            <Icon name="lock" size={13} color={t.muted} />
+          </Tap>
+        )}
 
         {live && (
           <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, flexWrap: 'wrap' }}>

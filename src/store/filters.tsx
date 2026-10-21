@@ -28,5 +28,6 @@ export function useFilters() {
   const c = useContext(Ctx); if (!c) throw new Error('useFilters outside provider'); return c;
 }
 export function activeFilterCount(f: DiscoverFilters): number {
-  return (f.radiusMi !== 10 ? 1 : 0) + (f.levelLo != null || f.levelHi != null ? 1 : 0) + (f.availability ? 1 : 0) + (f.onlyLooking ? 1 : 0);
+  return (f.radiusMi !== 10 ? 1 : 0) + (f.levelLo != null || f.levelHi != null ? 1 : 0) + (f.availability ? 1 : 0) + (f.onlyLooking ? 1 : 0)
+    + (f.playStyle ? 1 : 0) + (f.handedness ? 1 : 0) + (f.minReplyRate != null ? 1 : 0) + (f.indoorOnly ? 1 : 0) + (f.format ? 1 : 0);
 }

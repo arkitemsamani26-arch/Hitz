@@ -24,6 +24,7 @@ import { endOf, overlapLine } from '@/lib/match';
 import { haptic } from '@/lib/haptics';
 import { midpointCourt } from '@/lib/courts';
 import type { DoublesRole } from '@/data/types';
+import { isPlusError, plainMessage } from '@/lib/plus';
 
 const HITS = ['Warm up, then practice sets', 'Rally and drills', 'A match', 'Whatever works on the day'];
 
@@ -94,7 +95,12 @@ export default function Invitation() {
       // An opponent joins a game you set up: back to that game. A new doubles game opens on
       // its own page, where you find opponents next.
       router.replace(isCounter ? `/hit/${r.id}` : match ? `/hit/${match}` : doubles ? `/hit/${r.id}` : '/(tabs)/hits');
-    } catch (e: any) { haptic.warn(); toast(e?.message ?? "Couldn't send that. Your plan is still here."); setBusy(false); }
+    } catch (e: any) {
+      haptic.warn(); setBusy(false);
+      // The fourth open invitation on the free plan: the paywall says why.
+      if (isPlusError(e)) { router.push('/plus?why=invites'); return; }
+      toast(plainMessage(e) || "Couldn't send that. Your plan is still here.");
+    }
   };
 
   if (!player || !courts || (isCounter && !original) || !profile) return <Screen><Centered><Header backLabel="Back to players" /><Loading /></Centered></Screen>;

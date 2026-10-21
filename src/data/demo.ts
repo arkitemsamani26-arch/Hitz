@@ -7,11 +7,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, type HitsApi, type SendDoubles } from './api';
 import type {
-  Approval, Assurance, Coaching, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, CoachPairing, CoachStatus, Court, CourtStats, GuardianCoachLink, HitPlan, Roster, DeclineReason,
+  Approval, Assurance, AutoMatch, Handedness, PlayStyle, PlusRequest, PlusStatus, SavedSearch, Stats, Coaching, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, CoachPairing, CoachStatus, Court, CourtStats, GuardianCoachLink, HitPlan, Roster, DeclineReason,
   DiscoverFilters, GuardianChild, HitRequest, HitState, InboxEntry, Invite, MarketStatus, Message, MyCoach, Pairing, Player,
   Profile, ProfileInput, RosterMember, Session, UtrClaim,
 } from './types';
-import { DECLINE_COPY } from './types';
+import { DECLINE_COPY, hasPlusFilters } from './types';
+import { slotBit } from '@/lib/match';
 import { notifyLocal } from '@/lib/push';
 import { midpointCourt } from '@/lib/courts';
 
@@ -89,6 +90,18 @@ const SEED: SeedPlayer[] = [
 // doubles list is never empty and never everyone.
 const FORMATS: PlayFormat[] = ['either', 'doubles', 'singles'];
 function fmtOf(p: SeedPlayer): PlayFormat { return p.fmt ?? FORMATS[SEED.indexOf(p) % 3]; }
+// The fuller card, for the seeded players who would have filled it in: a steady spread of
+// styles, one lefty in five, so the Plus filters find someone and not everyone.
+const STYLES: (PlayStyle | null)[] = ['baseliner', 'all_court', null, 'serve_volley', 'counterpuncher', null, 'baseliner'];
+function styleOf(p: SeedPlayer): PlayStyle | null { return STYLES[SEED.indexOf(p) % STYLES.length]; }
+function handOf(p: SeedPlayer): Handedness | null { const i = SEED.indexOf(p); return i % 5 === 1 ? 'left' : i % 3 === 0 ? null : 'right'; }
+function bioOf(p: SeedPlayer): string | null {
+  const i = SEED.indexOf(p);
+  const lines = ['Big forehand, long rallies.', 'Happy to drill for an hour first.', 'Up for sets, any surface.', 'Working on my serve. Patient with yours.'];
+  return i % 4 === 2 ? lines[(i >> 2) % lines.length] : null;
+}
+// A free player keeps three invitations waiting at once; Plus keeps as many as they like.
+const FREE_CAP = 3;
 
 // Tournaments in the demo: made up, local-sounding, and dated from today so they never go
 // stale. Not real events; on Hits, players add the tournaments they are playing.
@@ -158,7 +171,16 @@ type State = {
     guardianSentAt: string | null; guardianOpenedAt: string | null; rosterName: string | null; photo?: string | null; photoPending?: string | null; prefers?: string | null;
     maxPartnerAgeGap?: number | null;
     playFormat?: PlayFormat;
+    playStyle?: PlayStyle | null; handedness?: Handedness | null; bio?: string | null;
+    actionPhoto?: string | null; actionPhotoPending?: string | null;
   };
+  // Hits Plus in the demo: a switch on the paywall stands in for the store.
+  plus?: { until: string; source: 'promo' } | null;
+  plusAsked?: string | null;
+  notes?: Record<string, string>;
+  searches?: SavedSearch[];
+  levels?: { at: string; level: number }[];
+  autoMatch?: (Omit<AutoMatch, 'tried'> & { tried: string[] }) | null;
   // Tournaments players added in this demo, and your entries (and your sister's), by id.
   addedTournaments?: { id: string; name: string; startsOn: string; endsOn: string; location: string | null; url: string | null }[];
   entries?: Record<string, Record<string, TournamentEntry>>;
@@ -232,6 +254,7 @@ export class DemoApi implements HitsApi {
   private heartbeat: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<() => void>();
   private timers: ReturnType<typeof setTimeout>[] = [];
+  private advancing = false;
 
   // ---- plumbing ----------------------------------------------------------------
   // A cold start from a deep link calls this three times in the same tick. The promise
@@ -275,6 +298,18 @@ export class DemoApi implements HitsApi {
           if (a.minorId !== ME && a.decision == null && age(a.createdAt ?? r.createdAt) > 12000) { a.decision = true; a.decidedAt = iso(new Date()); changed = true; }
         }
         const before = r.state; this.maybeConfirm(r); if (r.state !== before) changed = true;
+      }
+    }
+    // Auto-match moves along the way the server's job does: a yes finishes it, a pass or
+    // an expiry moves to the next player, a window that has passed ends it.
+    const am = this.s.autoMatch;
+    if (am && am.state === 'active') {
+      const cur = this.s.requests.find(r => r.id === am.currentRequestId);
+      if (cur && ['accepted', 'confirmed', 'completed'].includes(cur.state)) { am.state = 'done'; am.matchedRequestId = cur.id; changed = true; }
+      else if (new Date(am.windowStart).getTime() < now + 30 * 60000) { am.state = 'expired'; if (cur && (cur.state === 'pending' || cur.state === 'countered')) { cur.state = 'cancelled'; cur.awaitingId = null; } changed = true; }
+      else if ((!cur || ['declined', 'cancelled', 'expired'].includes(cur.state)) && !this.advancing) {
+        this.advancing = true;
+        void this.autoMatchNext().then(ok => { if (!ok && this.s.autoMatch?.state === 'active') this.s.autoMatch.state = 'expired'; this.save(); }).finally(() => { this.advancing = false; });
       }
     }
     // Coaching, settled the same way so a reload does not strand anything halfway.
@@ -357,6 +392,9 @@ export class DemoApi implements HitsApi {
       age: bandOf(p.dateOfBirth) === 'minor' ? ageOf(p.dateOfBirth) : null,
       maxPartnerAgeGap: p.maxPartnerAgeGap ?? null,
       playFormat: p.playFormat ?? 'either',
+      plus: this.isPlus(), plusUntil: this.isPlus() ? this.s.plus!.until : null, plusViaParent: this.isPlus() && bandOf(p.dateOfBirth) === 'minor',
+      playStyle: p.playStyle ?? null, handedness: p.handedness ?? null, bio: p.bio ?? null,
+      actionPhotoUrl: p.actionPhoto ?? null, actionPhotoPendingUrl: p.actionPhotoPending ?? null,
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
@@ -364,14 +402,19 @@ export class DemoApi implements HitsApi {
     };
   }
   async me() { await this.load(); return this.meProfile(); }
+  private isPlus(): boolean { return !!this.s.plus && new Date(this.s.plus.until).getTime() > Date.now(); }
+  private needPlus(why: string, msg: string) { if (!this.isPlus()) throw new ApiError(`plus_required:${why} ${msg}`); }
+  // The demo's store: a switch on the paywall. Says "demo" everywhere it shows.
+  setDemoPlus(on: boolean) { this.s.plus = on ? { until: iso(new Date(Date.now() + 30 * 86400000)), source: 'promo' } : null; if (on) this.s.plusAsked = null; this.save(); }
 
   async createProfile(input: ProfileInput) {
     await this.load(); await this.wait();
     const code = input.joinCode?.trim().toLowerCase() ?? null;
     const roster = code ? [...DEMO_ROSTERS, ...this.s.rosters].find(r => r.code.toLowerCase() === code) : null;
     if (roster) roster.joined += 1;
+    this.s.levels = [{ at: iso(new Date()), level: input.levelValue }];
     this.s.profile = {
-      ...input, lookingToHitUntil: iso(new Date(Date.now() + 7 * 86400000)),
+      ...input, lookingToHitUntil: iso(new Date(Date.now() + 3 * 86400000)),
       lastActiveAt: iso(new Date()), guardianEmail: null, guardianVerified: false,
       guardianSentAt: null, guardianOpenedAt: null, rosterName: roster?.name ?? null,
     };
@@ -392,12 +435,18 @@ export class DemoApi implements HitsApi {
   }
   async updateProfile(patch: Partial<Profile>) {
     await this.load(); if (!this.s.profile) throw new ApiError('no profile');
+    if ((patch.playStyle != null || patch.handedness != null || patch.bio) && !this.isPlus()) {
+      throw new ApiError('plus_required:card Your playing style, hand and a line about you are part of Plus.');
+    }
+    if (patch.levelValue != null && patch.levelValue !== this.s.profile.levelValue) this.s.levels = [...(this.s.levels ?? []), { at: iso(new Date()), level: patch.levelValue }];
     Object.assign(this.s.profile, patch);
     this.save(); return this.meProfile()!;
   }
+  // Three days free, seven on Plus: the same clamp the server applies.
   async setLooking(days: number | null) {
     await this.load(); if (!this.s.profile) throw new ApiError('no profile');
-    this.s.profile.lookingToHitUntil = days ? iso(new Date(Date.now() + days * 86400000)) : null;
+    const max = this.isPlus() ? 7 : 3;
+    this.s.profile.lookingToHitUntil = days ? iso(new Date(Date.now() + Math.min(days, max) * 86400000)) : null;
     this.save(); return this.meProfile()!;
   }
   async setLocation() { /* demo: always Wellesley */ }
@@ -441,6 +490,8 @@ export class DemoApi implements HitsApi {
       responseRate: p.response, acceptRate: p.accept, hitsConfirmed: p.hits, prefers: p.prefers ?? null,
       age: p.band === 'minor' && this.myBand() === 'minor' ? p.age ?? null : null,
       playFormat: fmtOf(p),
+      playStyle: styleOf(p), handedness: handOf(p), bio: bioOf(p), actionPhotoUrl: null,
+      plus: SEED.indexOf(p) % 6 === 1,
     };
   }
   // The age rule as the database applies it: the parent's limit always, the junior's own
@@ -455,8 +506,9 @@ export class DemoApi implements HitsApi {
     await this.load(); await this.wait(180);
     const me = this.meProfile(); if (!me) return [];
     if (!this.s.cohortOpen) return [];
+    if (hasPlusFilters(f)) this.needPlus('filters', 'Playing style, hand, reply rate, indoor and singles-or-doubles filters are part of Plus.');
     const myLevel = me.levelValue ?? 8;
-    return SEED
+    const list = SEED
       .filter(p => p.band === me.band)
       .filter(p => !this.s.blocked.includes(p.id))
       .filter(p => p.miles <= f.radiusMi)
@@ -466,8 +518,15 @@ export class DemoApi implements HitsApi {
       .filter(p => !f.onlyLooking || p.looking)
       .filter(p => this.ageOk(p, f.ageGap ?? null))
       .filter(p => p.activeHoursAgo < 24 * 30)
+      .filter(p => !f.playStyle || styleOf(p) === f.playStyle)
+      .filter(p => !f.handedness || handOf(p) === f.handedness)
+      .filter(p => f.minReplyRate == null || (p.response ?? 0) >= f.minReplyRate)
+      .filter(p => !f.indoorOnly || COURTS.find(c => c.id === p.court)?.indoor)
+      .filter(p => !f.format || fmtOf(p) === f.format || fmtOf(p) === 'either')
       .sort((a, b) => (Math.abs(a.level - myLevel) - Math.abs(b.level - myLevel)) || (a.miles - b.miles))
       .map(p => this.toPlayer(p, myLevel));
+    // The whole "looking this week" list is Plus; free sees the top five.
+    return f.onlyLooking && !this.isPlus() ? list.slice(0, 5) : list;
   }
   async player(id: string) {
     await this.load();
@@ -500,7 +559,7 @@ export class DemoApi implements HitsApi {
       homeCourtName: COURTS.find(c => c.id === m.homeCourtId)?.name ?? null,
       availabilityMask: m.availabilityMask, lookingToHit: !!m.lookingToHitUntil,
       lastActiveAt: m.lastActiveAt, responseRate: m.responseRate, acceptRate: m.acceptRate, hitsConfirmed: m.hitsConfirmed, prefers: m.prefers,
-      age: m.age, playFormat: m.playFormat,
+      age: m.age, playFormat: m.playFormat, playStyle: m.playStyle, handedness: m.handedness, bio: m.bio, actionPhotoUrl: m.actionPhotoUrl, plus: m.plus,
     };
   }
   private find(id: string) { const r = this.s.requests.find(x => x.id === id); if (!r) throw new ApiError('Not found'); return r; }
@@ -549,6 +608,10 @@ export class DemoApi implements HitsApi {
     const seed = SEED.find(p => p.id === toId);
     if (!seed || seed.band !== this.myBand()) throw new ApiError("You can't reach this player.");
     if (!this.ageOk(seed, null)) throw new ApiError('Your parent has set an age range, and this player is outside it.');
+    // Three open invitations on the free plan; a doubles game counts once.
+    const joining = !!doubles?.matchId && this.s.requests.some(x => x.matchId === doubles.matchId);
+    const open = new Set(this.s.requests.filter(x => x.fromId === ME && (x.state === 'pending' || x.state === 'countered')).map(x => x.matchId ?? x.id));
+    if (!joining && open.size >= FREE_CAP) this.needPlus('invites', 'You have three invitations waiting on a reply. Plus sends as many as you like.');
     const r = row(ME, toId, courtId, start, note, toId, end);
     if (doubles) {
       // The same rules the database enforces on a doubles game.
@@ -952,6 +1015,126 @@ export class DemoApi implements HitsApi {
   }
 
   // ---- safety ------------------------------------------------------------------
+  // ---- Hits Plus -----------------------------------------------------------------
+  async myPlus(): Promise<PlusStatus> {
+    await this.load();
+    return { plus: this.isPlus(), plusUntil: this.isPlus() ? this.s.plus!.until : null, viaParent: this.isPlus() && this.myBand() === 'minor', source: this.isPlus() ? 'promo' : null };
+  }
+  async beginPurchase() {
+    await this.load();
+    if (this.myBand() === 'minor') throw new ApiError('Your parent buys Plus for you. Ask them from Profile.');
+    return ME;
+  }
+  async requestPlusFromParent() {
+    await this.load();
+    if (this.myBand() !== 'minor') throw new ApiError('Only a junior asks a parent.');
+    this.s.plusAsked = iso(new Date()); this.save();
+  }
+  async guardianPlusRequests(): Promise<PlusRequest[]> {
+    await this.load();
+    return this.s.plusAsked && !this.isPlus() && this.s.profile ? [{ childId: ME, childName: this.s.profile.displayName, requestedAt: this.s.plusAsked }] : [];
+  }
+  async setActionPhoto(base64: string | null) {
+    await this.load(); if (!this.s.profile) throw new ApiError('no profile');
+    if (base64) this.needPlus('card', 'An action photo is part of Plus.');
+    const url = base64 ? `data:image/jpeg;base64,${base64}` : null;
+    if (!url) { this.s.profile.actionPhoto = null; this.s.profile.actionPhotoPending = null; }
+    else if (this.myBand() === 'minor') this.s.profile.actionPhotoPending = url;
+    else this.s.profile.actionPhoto = url;
+    this.save(); return this.meProfile()!;
+  }
+  async guardianApproveActionPhoto(_child: string, approve: boolean) {
+    await this.load(); if (!this.s.profile) return;
+    if (approve && this.s.profile.actionPhotoPending) this.s.profile.actionPhoto = this.s.profile.actionPhotoPending;
+    else if (!approve) this.s.profile.actionPhoto = null;
+    this.s.profile.actionPhotoPending = null; this.save();
+  }
+  async myStats(): Promise<Stats> {
+    await this.load();
+    this.needPlus('stats', 'Your hitting history and stats are part of Plus.');
+    const done = this.s.requests.filter(r => r.state === 'completed');
+    const months: Stats['months'] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months.push({ month: key, hits: done.filter(r => r.windowStart.slice(0, 7) === key).length });
+    }
+    const by = new Map<string, { n: number; last: string }>();
+    for (const r of done) { const o = r.fromId === ME ? r.toId : r.fromId; const x = by.get(o) ?? { n: 0, last: r.windowStart }; x.n += 1; if (r.windowStart > x.last) x.last = r.windowStart; by.set(o, x); }
+    const partners = [...by.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 5).map(([id, x]) => { const p = SEED.find(q => q.id === id); return { id, name: p?.name ?? 'Player', initial: p?.initial ?? null, photo: null, hits: x.n, last: x.last }; });
+    const levels = this.s.levels?.length ? this.s.levels : this.s.profile ? [{ at: this.s.profile.lastActiveAt, level: this.s.profile.levelValue }] : [];
+    return { months, partners, levels, total: done.length, invited: this.s.requests.filter(r => r.fromId === ME).length, received: this.s.requests.filter(r => r.toId === ME).length };
+  }
+  async partnerNote(playerId: string) {
+    await this.load();
+    this.needPlus('notes', 'Private notes on your partners are part of Plus.');
+    return this.s.notes?.[playerId] ?? null;
+  }
+  async setPartnerNote(playerId: string, text: string | null) {
+    await this.load();
+    this.needPlus('notes', 'Private notes on your partners are part of Plus.');
+    const notes = { ...(this.s.notes ?? {}) };
+    if (text?.trim()) notes[playerId] = text.trim().slice(0, 280); else delete notes[playerId];
+    this.s.notes = notes; this.save();
+  }
+  async savedSearches() { await this.load(); return this.s.searches ?? []; }
+  async saveSearch(name: string, filters: DiscoverFilters) {
+    await this.load();
+    this.needPlus('searches', 'Saved searches, and a push when someone new fits, are part of Plus.');
+    if ((this.s.searches ?? []).length >= 5) throw new ApiError('Five saved searches is the most; delete one first.');
+    const x: SavedSearch = { id: uid(), name: name.trim().slice(0, 40) || 'Search', filters: { ...filters, onlyLooking: false }, createdAt: iso(new Date()), lastRunAt: null };
+    this.s.searches = [...(this.s.searches ?? []), x]; this.save();
+    return x.id;
+  }
+  async deleteSearch(id: string) { await this.load(); this.s.searches = (this.s.searches ?? []).filter(x => x.id !== id); this.save(); }
+  async myAutoMatch(): Promise<AutoMatch | null> {
+    await this.load(); const a = this.s.autoMatch; if (!a) return null;
+    if (a.state !== 'active' && Date.now() - new Date(a.createdAt).getTime() > 2 * 86400000) return null;
+    return { ...a, tried: a.tried.length };
+  }
+  async autoMatch(start: Date, end: Date, levelLo: number | null, levelHi: number | null, radiusMi: number, format: 'singles' | 'doubles', courtId: string | null) {
+    await this.load();
+    this.needPlus('automatch', 'Auto-match is part of Plus: Hits invites players for you, one at a time, until one says yes.');
+    if (start.getTime() < Date.now() + 3600000) throw new ApiError('Pick a time at least an hour away.');
+    if (this.s.autoMatch?.state === 'active') throw new ApiError('One auto-match at a time; cancel the other first.');
+    const a: NonNullable<State['autoMatch']> = { id: uid(), windowStart: iso(start), windowEnd: iso(end), levelLo, levelHi, radiusMi, format, courtId,
+      state: 'active', tried: [], currentRequestId: null, matchedRequestId: null, createdAt: iso(new Date()) };
+    this.s.autoMatch = a;
+    if (!(await this.autoMatchNext())) { this.s.autoMatch = null; throw new ApiError('Nobody near your level is free then. Widen the level or the distance.'); }
+    this.save();
+    return a.id;
+  }
+  // The next invitation for the auto-match, through the same path a hand-sent one takes.
+  private async autoMatchNext(): Promise<boolean> {
+    const a = this.s.autoMatch; if (!a || a.state !== 'active' || !this.s.profile) return false;
+    const start = new Date(a.windowStart), end = new Date(a.windowEnd);
+    const open = new Set(this.s.requests.filter(r => LIVE.includes(r.state) && new Date(r.windowEnd) > new Date()).map(r => (r.fromId === ME ? r.toId : r.fromId)));
+    const cands = (await this.discover({ radiusMi: a.radiusMi, levelLo: a.levelLo, levelHi: a.levelHi, availability: slotBit(start), onlyLooking: false, ageGap: null, limit: 1000, format: a.format }))
+      .filter(p => !a.tried.includes(p.id) && !open.has(p.id))
+      .sort((x, y) => Number(y.lookingToHit) - Number(x.lookingToHit) || (x.levelDelta ?? 9) - (y.levelDelta ?? 9));
+    const next = cands[0]; if (!next) return false;
+    const r = row(ME, next.id, a.courtId ?? this.s.profile.homeCourtId, start, 'Hits matched us: I am free then and we are close in level. Up for it?', next.id, end);
+    r.expiresAt = iso(new Date(Math.min(Date.now() + 24 * 3600000, start.getTime())));
+    if (a.format === 'doubles') { r.format = 'doubles'; r.matchId = r.id; r.doublesRole = 'partner'; }
+    this.s.requests.push(r);
+    a.tried = [...a.tried, next.id]; a.currentRequestId = r.id;
+    // They answer the way anyone in the demo does; auto-match moves on in reconcile().
+    const declines = (SEED.find(p => p.id === next.id)?.accept ?? 0.7) < 0.5;
+    this.later(4000 + Math.random() * 3000, () => {
+      if (r.state !== 'pending') return;
+      if (declines) { r.state = 'declined'; r.declineReason = DECLINE_COPY.not_this_week; r.awaitingId = null; }
+      else this.onAccepted(r);
+    });
+    return true;
+  }
+  async cancelAutoMatch(id: string) {
+    await this.load(); const a = this.s.autoMatch; if (!a || a.id !== id || a.state !== 'active') return;
+    a.state = 'cancelled';
+    const r = this.s.requests.find(x => x.id === a.currentRequestId);
+    if (r && (r.state === 'pending' || r.state === 'countered')) { r.state = 'cancelled'; r.awaitingId = null; }
+    this.save();
+  }
+
   async block(profileId: string) {
     await this.load(); if (!this.s.blocked.includes(profileId)) this.s.blocked.push(profileId);
     this.s.requests.filter(r => r.fromId === profileId || r.toId === profileId).forEach(r => { if (!['completed'].includes(r.state)) r.state = 'cancelled'; });
@@ -992,7 +1175,8 @@ export class DemoApi implements HitsApi {
       lastActiveAt: hoursAgo(5), lookingToHitUntil: null, responseRate: 1, acceptRate: 0.9, hitsConfirmed: 4,
       phoneVerified: true, guardianVerified: true, guardianPending: false, guardianSentAt: null, guardianOpenedAt: null,
       rosterName: null, prefers: 'Rally & drills', age: SIBLING.age, maxPartnerAgeGap: this.s.siblingGap === undefined ? 2 : this.s.siblingGap,
-      playFormat: 'either',
+      playFormat: 'either', plus: this.isPlus(), plusUntil: this.isPlus() ? this.s.plus!.until : null, plusViaParent: this.isPlus(),
+      playStyle: null, handedness: null, bio: null, actionPhotoUrl: null,
     };
   }
   // Her one hit this week, with a girl her age. Rebuilt from today so it never goes stale.

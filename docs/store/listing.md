@@ -35,6 +35,8 @@ Hits finds you tennis partners at your level, on courts near you, at times you c
 
 **Coaches pair their players.** Run an academy or a team? Turn on coach tools, share your code, and pair your players to hit with each other between lessons. They get your suggestion with your note, one of them sends the invite, and you see how it went.
 
+**Hits Plus, if you want more.** Everything above is free. Plus ($4.99 a month) adds auto-match, where Hits sends the invitations for you until someone says yes; unlimited open invitations; every filter; the whole free-this-week list; saved searches with alerts; your stats; private notes on partners; and a fuller card. A parent's Plus covers their children.
+
 **Private by default.** Your phone number is your login and is never shown. Hits uses approximate location only, rounds it to about two kilometres, and never stores the precise point. There is no advertising and no third-party analytics.
 
 Hits does not book courts or check court availability. Check each court's own rules before you go.
@@ -52,6 +54,7 @@ what ratings you can enter, is fine.
 - **Category:** Sports. Secondary: Health & Fitness.
 - **Age rating:** answer the questionnaire honestly. The app has user-to-user messaging between matched players, and meetups in person, which puts it at **13+** on the App Store's current scale and **Teen** on Google Play. Say yes to "user-generated content" and describe the moderation: report and block on every profile and hit, a person reads every report, parents approve every junior meetup.
 - **Made for Kids:** no. Hits is 13 and up.
+- **In-app purchases:** one auto-renewing subscription, `hits_plus_monthly`, $4.99 a month. The paywall shows the price, the term, Restore Purchases and links to the Terms and Privacy Policy (guideline 3.1.2). Players under 18 are never shown a purchase; a parent buys it on their own account.
 
 ## Review notes (for the App Review team)
 

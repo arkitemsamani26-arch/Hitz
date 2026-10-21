@@ -44,6 +44,9 @@ export default function Family() {
   const links = useAsync(() => api.guardianLinks(), [tick]);
   const courts = useAsync(() => api.courts(), []);
   const coachLinks = useAsync(() => api.guardianCoachLinks(), [tick]);
+  // Plus: the parent's one plan covers every child; a child who asked for it shows here.
+  const plus = useAsync(() => api.myPlus(), [tick]);
+  const plusAsks = useAsync(() => api.guardianPlusRequests(), [tick]);
   const [sel, setSel] = useState<string | null>(null);
   const tourneys = useAsync(() => (sel ? api.tournaments(sel) : Promise.resolve([])), [sel, tick]);
   const childEntries = (tourneys.data ?? []).filter(x => x.entered);
@@ -72,6 +75,11 @@ export default function Family() {
   const decidePhoto = async (approve: boolean) => {
     if (!k) return;
     try { await api.guardianApprovePhoto(k.profile.id, approve); toast(approve ? 'Photo approved.' : 'Photo removed.'); await refresh(); await kids.reload(); }
+    catch (e: any) { toast(e?.message ?? "That didn't go through. Try again."); }
+  };
+  const decideActionPhoto = async (approve: boolean) => {
+    if (!k) return;
+    try { await api.guardianApproveActionPhoto(k.profile.id, approve); toast(approve ? 'Action photo approved.' : 'Action photo removed.'); await refresh(); await kids.reload(); }
     catch (e: any) { toast(e?.message ?? "That didn't go through. Try again."); }
   };
   const shareSteps = async () => {
@@ -116,6 +124,21 @@ export default function Family() {
               </Tap>
             </ScrollView>
 
+            {/* Hits Plus for the family: one plan on this sign-in covers every child here. */}
+            {plus.data?.plus ? (
+              <Tap onPress={() => router.push('/plus')} style={[s.plusRow, s.plusRowOn]} accessibilityRole="button" accessibilityLabel="Hits Plus is on and covers your children. Open.">
+                <View style={s.plusBadge}><T v="micro" style={st.plusText}>Plus</T></View>
+                <View style={{ flex: 1 }}><T v="smallM">Plus covers your children</T><T v="meta" tone="muted">Auto-match, every filter and their stats, on every account you manage.</T></View>
+                <Icon name="chevron-right" size={15} color={t.muted} />
+              </Tap>
+            ) : (plusAsks.data ?? []).length > 0 ? (
+              <Card stripe style={{ gap: space.sm, marginTop: 4 }}>
+                <T v="smallM">{(plusAsks.data ?? []).map(x => x.childName).join(' and ')} asked for Hits Plus</T>
+                <T v="meta" tone="muted">$4.99 a month on your account covers every child you manage: auto-match, every filter, unlimited invitations, their stats. Nothing about safety or who they can reach changes.</T>
+                <Button title="See Plus" arrow onPress={() => router.push('/plus')} />
+              </Card>
+            ) : null}
+
             {waiting > 0 && (
               <View style={s.alert}>
                 <Icon name="clock-3" size={15} color={t.ink} />
@@ -138,6 +161,17 @@ export default function Family() {
                     <View style={{ gap: space.xs }}>
                       <Button title="Approve" small onPress={() => void decidePhoto(true)} />
                       <Button title="Remove" kind="line" small onPress={() => void decidePhoto(false)} />
+                    </View>
+                  </Card>
+                )}
+
+                {k.profile.actionPhotoPendingUrl && (
+                  <Card stripe style={{ marginTop: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                    <Avatar name={k.profile.displayName} photo={k.profile.actionPhotoPendingUrl} size={52} />
+                    <View style={{ flex: 1 }}><T v="smallM">{k.profile.displayName} added an action photo</T><T v="meta" tone="muted">For their card. Nobody sees it until you say so.</T></View>
+                    <View style={{ gap: space.xs }}>
+                      <Button title="Approve" small onPress={() => void decideActionPhoto(true)} />
+                      <Button title="Remove" kind="line" small onPress={() => void decideActionPhoto(false)} />
                     </View>
                   </Card>
                 )}
@@ -308,6 +342,7 @@ const st = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: 12, gap: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   remove: { minHeight: hit.min, justifyContent: 'center', alignItems: 'center', marginTop: space.md },
+  plusText: { color: '#173D2B', fontFamily: font.bold, fontSize: 10, lineHeight: 13, letterSpacing: 1.4 },
 });
 const useS = makeStyles(c => ({
   rule: { borderTopWidth: 1, borderTopColor: c.line },
@@ -316,5 +351,8 @@ const useS = makeStyles(c => ({
   add: { borderStyle: 'dashed' },
   addIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -4, right: -6, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: '#A8371B', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.card },
+  plusRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginBottom: space.md, borderRadius: radius.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, minHeight: hit.row },
+  plusRowOn: { borderColor: c.green },
+  plusBadge: { paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, backgroundColor: '#DFFF4F' },
   alert: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: c.soft, borderRadius: radius.xs, paddingVertical: 10, paddingHorizontal: 12, minHeight: 44 },
 }));

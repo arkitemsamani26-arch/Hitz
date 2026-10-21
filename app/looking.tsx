@@ -11,6 +11,7 @@ import { Button } from '@/ui/Button';
 import { Header } from '@/ui/Header';
 import { Pill } from '@/ui/Pill';
 import { Avatar } from '@/ui/Avatar';
+import { Icon } from '@/ui/Icon';
 import { Score } from '@/ui/Score';
 import { Loading } from '@/ui/Loading';
 import { WeekGrid } from '@/ui/WeekGrid';
@@ -132,6 +133,17 @@ export default function Looking() {
             })}
           </Card>
         )}
+        {/* Free sees the five best fits; the rest of the list is Plus. */}
+        {!profile?.plus && (players.data?.length ?? 0) >= 5 && (
+          <Tap onPress={() => router.push('/plus?why=looking')} style={s.more} accessibilityRole="button" accessibilityLabel="These are the five best fits. See everyone looking this week with Plus.">
+            <Icon name="lock" size={15} color={t.ink} />
+            <View style={{ flex: 1 }}>
+              <T v="smallM">These are your five best fits</T>
+              <T v="meta" tone="muted">See everyone looking this week with Plus.</T>
+            </View>
+            <Icon name="chevron-right" size={15} color={t.muted} />
+          </Tap>
+        )}
       </Centered>
     </Screen>
   );
@@ -152,4 +164,5 @@ const useS = makeStyles(c => ({
   key: { width: 14, height: 10, borderRadius: 3, marginLeft: 4 },
   keyBoth: { backgroundColor: c.green },
   keyTheirs: { borderWidth: 1.5, borderColor: c.green, backgroundColor: c.card },
+  more: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginTop: space.md, borderRadius: radius.lg, backgroundColor: c.soft, minHeight: hit.row },
 }));

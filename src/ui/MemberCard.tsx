@@ -3,7 +3,7 @@
 // rating, how many hits you have played here, and how reliably you reply. The same card is
 // what other players see when they open your profile.
 import React from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { T } from './Text';
 import { Wordmark } from './Wordmark';
 import { Court } from './CourtArt';
@@ -16,9 +16,11 @@ import type { LevelSource } from '@/data/types';
 
 export type CardStat = { value: string; label: string };
 
-export function MemberCard({ name, lastInitial, photo, level, source, verified, area = 'Palo Alto', court, age, looking, line, stats, style, typing, eyebrow = 'Player card' }:
+export function MemberCard({ name, lastInitial, photo, level, source, verified, area = 'Palo Alto', court, age, looking, line, stats, style, typing, eyebrow = 'Player card', plus, bio, styleLine, actionPhoto }:
   { name: string; lastInitial?: string | null; photo?: string | null; level: number | null; source?: LevelSource | null; verified?: boolean;
     area?: string; court?: string | null; age?: number | null; looking?: boolean; line?: string | null;
+    // Plus: the badge, a line about them in their words, style and hand, and an action photo.
+    plus?: boolean; bio?: string | null; styleLine?: string | null; actionPhoto?: string | null;
     // The numbers beside the rating. Two is right; three fits.
     stats?: CardStat[];
     style?: StyleProp<ViewStyle>;
@@ -31,11 +33,14 @@ export function MemberCard({ name, lastInitial, photo, level, source, verified, 
   const all: CardStat[] = [{ value: levelBig(level), label: sourceLabel(source, verified) }, ...(stats ?? [])];
   return (
     <View style={[s.card, style]} accessible
-      accessibilityLabel={`Player card. ${(name || 'No name yet').replace(/\.$/, '')}${age != null ? `, ${age}` : ''}. ${where}. ${all.map(x => `${x.label} ${x.value}`).join(', ')}.${looking ? ' Looking to hit this week.' : ''}${line ? ` ${line}` : ''}`}>
+      accessibilityLabel={`Player card. ${(name || 'No name yet').replace(/\.$/, '')}${age != null ? `, ${age}` : ''}${plus ? ', Hits Plus' : ''}. ${where}. ${all.map(x => `${x.label} ${x.value}`).join(', ')}.${styleLine ? ` ${styleLine}.` : ''}${bio ? ` "${bio}"` : ''}${looking ? ' Looking to hit this week.' : ''}${line ? ` ${line}` : ''}`}>
       <View style={s.art} pointerEvents="none"><Court width={150} height={280} color={fixed.art} /></View>
       <View style={s.top}>
         <Wordmark size={22} tone="light" />
-        <T v="micro" tone="memberMeta" style={{ letterSpacing: 1.8, fontSize: 10 }}>{eyebrow}</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {plus && <View style={s.plus}><T v="micro" style={s.plusText}>Plus</T></View>}
+          <T v="micro" tone="memberMeta" style={{ letterSpacing: 1.8, fontSize: 10 }}>{eyebrow}</T>
+        </View>
       </View>
 
       <View style={s.who}>
@@ -46,8 +51,10 @@ export function MemberCard({ name, lastInitial, photo, level, source, verified, 
           {age != null && (
             <View style={s.age}><T v="meta" tone="memberText" style={{ fontFamily: font.medium, fontSize: 11, lineHeight: 14 }}>Age {age}</T></View>
           )}
+          {!!styleLine && <T v="meta" tone="memberMeta" numberOfLines={1} style={{ marginTop: 4 }}>{styleLine}</T>}
         </View>
       </View>
+      {!!actionPhoto && <Image source={{ uri: actionPhoto }} style={s.action} accessible accessibilityRole="image" accessibilityLabel={`${name}'s action photo`} />}
 
       <View style={s.stats}>
         {all.slice(0, 3).map((x, i) => (
@@ -58,8 +65,9 @@ export function MemberCard({ name, lastInitial, photo, level, source, verified, 
         ))}
       </View>
 
-      {(looking || line) && (
+      {(looking || line || bio) && (
         <View style={s.foot}>
+          {!!bio && <T v="small" tone="memberText" style={{ fontFamily: font.serifItalic, fontSize: 15, lineHeight: 20 }} numberOfLines={3}>"{bio}"</T>}
           {looking && (
             <View style={s.looking}>
               <View style={s.dot} />
@@ -77,6 +85,9 @@ const s = StyleSheet.create({
   art: { position: 'absolute', right: -20, top: -6, opacity: 0.55 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   who: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 22 },
+  plus: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, backgroundColor: fixed.dot },
+  plusText: { color: fixed.member, fontFamily: font.bold, fontSize: 9, lineHeight: 12, letterSpacing: 1.4 },
+  action: { width: '100%', height: 120, borderRadius: 12, marginTop: 16, backgroundColor: fixed.memberLine },
   age: { alignSelf: 'flex-start', marginTop: 7, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999, backgroundColor: 'rgba(223,255,79,0.16)', borderWidth: 1, borderColor: 'rgba(223,255,79,0.35)' },
   stats: { flexDirection: 'row', marginTop: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: fixed.memberRule },
   stat: { flex: 1, minWidth: 0 },
