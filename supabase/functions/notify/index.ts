@@ -49,6 +49,11 @@ Deno.serve(async () => {
     .select('profile_id, push_token').in('profile_id', ids).not('push_token', 'is', null);
   if (tokErr) return fail([...problems, `read tokens: ${tokErr.message}`]);
   const byUser = new Map((tokens ?? []).map(t => [t.profile_id, t.push_token as string]));
+  // Tokens by login (migration 20261022000100): a parent with no player profile, and the
+  // pushes for any child they run, which the database addresses to the parent.
+  const { data: devices, error: devErr } = await sb.from('device_tokens').select('user_id, push_token').in('user_id', ids);
+  if (devErr) problems.push(`read device tokens: ${devErr.message}`);
+  for (const d of devices ?? []) byUser.set(d.user_id, d.push_token as string);
 
   // Anyone with no token has nothing to receive. Their rows are still settled, or they
   // pile up forever and every run re-reads the same hundred.
@@ -88,6 +93,8 @@ Deno.serve(async () => {
           const { error } = await sb.from('profiles_private')
             .update({ push_token: null }).in('push_token', [...new Set(dead)]);
           if (error) problems.push(`clear dead tokens: ${error.message}`);
+          const { error: e2 } = await sb.from('device_tokens').delete().in('push_token', [...new Set(dead)]);
+          if (e2) problems.push(`clear dead device tokens: ${e2.message}`);
         }
       }
     } catch (e) {

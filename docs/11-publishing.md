@@ -59,8 +59,18 @@ identity checks.
 
 ### 2. Fill in and host `legal/`
 
-About twenty `[brackets]`, listed in `legal/README.md`, then GitHub Pages gives you real
-URLs in ten minutes. Then set `EXPO_PUBLIC_LEGAL_URL` and the rows appear in the app.
+The brackets are filled in (Penelope Joye, October 21, 2026). Turn on GitHub Pages
+(Settings → Pages → branch `claude/hits-tennis-matchmaking-7wi3q9`, folder `/ (root)`) and the
+pages are at `https://arkitemsamani26-arch.github.io/Hitz/legal/privacy.html` (and
+`support.html`, `terms.html`). Then set the link for the TestFlight build, alongside the
+Supabase URL and key:
+
+```
+eas env:create --name EXPO_PUBLIC_LEGAL_URL --value https://arkitemsamani26-arch.github.io/Hitz/legal --environment production --visibility plaintext
+```
+
+`.env.example` already carries the same value, and the Privacy, Terms and Help rows appear in
+the app once it is set.
 
 **Get the privacy policy read by someone qualified.** I wrote it against the actual
 behaviour — the rounded location and the precise one, the per-hit phone sharing, the

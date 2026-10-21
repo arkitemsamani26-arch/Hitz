@@ -10,6 +10,9 @@ type Ctx = {
   setSession: (s: Session | null) => void;
   setProfile: (p: Profile | null) => void;
   tick: number;   // bumps when the backend reports a change
+  // A child the signed-in parent runs, when the app is being used as them. Null is you.
+  acting: string | null;
+  setActing: (childId: string | null) => Promise<void>;
 };
 
 const SessionCtx = createContext<Ctx | null>(null);
@@ -19,11 +22,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tick, setTick] = useState(0);
+  const [acting, setActingState] = useState<string | null>(api.actingAs());
 
   const refresh = useCallback(async () => {
     const s = await api.restore();
     setSession(s);
-    setProfile(s && !s.isGuardian ? await api.me() : null);
+    setProfile(s && (!s.isGuardian || api.actingAs()) ? await api.me() : null);
+  }, []);
+
+  // Switching who the app is being used as. Every screen keyed off `tick` refetches, so
+  // nothing from the last person's week is left on screen.
+  const setActing = useCallback(async (childId: string | null) => {
+    api.actAs(childId);
+    setActingState(api.actingAs());
+    try { setProfile(await api.me()); } catch { setProfile(null); }
+    setTick(t => t + 1);
   }, []);
 
   // Whatever happens, the app has to become interactive. Restore is two network calls,
@@ -60,14 +73,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { if (timer) clearTimeout(timer); stop(); };
   }, []);
   useEffect(() => {
-    if (!session || session.isGuardian) return;
+    if (!session || (session.isGuardian && !acting)) return;
     let alive = true;
     void api.me().then(p => { if (alive) setProfile(p); }, () => { /* keep what we have */ });
     return () => { alive = false; };
-  }, [tick, session]);
+  }, [tick, session, acting]);
 
-  const value = useMemo(() => ({ ready, session, profile, refresh, setSession, setProfile, tick }),
-    [ready, session, profile, refresh, tick]);
+  const value = useMemo(() => ({ ready, session, profile, refresh, setSession, setProfile, tick, acting, setActing }),
+    [ready, session, profile, refresh, tick, acting, setActing]);
   return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>;
 }
 

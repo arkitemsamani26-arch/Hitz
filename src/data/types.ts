@@ -44,6 +44,8 @@ export interface Profile {
   bio: string | null;
   actionPhotoUrl: string | null;
   actionPhotoPendingUrl?: string | null;
+  // A child whose parent set the account up and runs it. The parent uses the app as them.
+  runByParent?: boolean;
 }
 
 export type PlayStyle = 'baseliner' | 'all_court' | 'serve_volley' | 'counterpuncher';
@@ -371,6 +373,29 @@ export interface ProfileInput {
   homeCourtId: string;
   availabilityMask: number;
   joinCode?: string | null;
+}
+
+// A child a parent set up and runs: the "acting as" switcher lists these.
+export interface RunChild {
+  id: string;
+  displayName: string;
+  lastInitial: string | null;
+  photoUrl: string | null;
+  age: number;
+  // A sign-in handed to the child, waiting for them to use it.
+  handoffLast4: string | null;
+  handoffExpiresAt: string | null;
+}
+
+export interface ChildInput {
+  displayName: string;
+  lastInitial: string | null;
+  dateOfBirth: string;           // YYYY-MM-DD
+  levelValue: number | null;
+  levelSource: LevelSource | null;
+  homeCourtId: string | null;
+  availabilityMask: number;
+  playFormat: PlayFormat;
 }
 
 export interface GuardianChild {

@@ -31,7 +31,7 @@ Hits finds you tennis partners at your level, on courts near you, at times you c
 
 **It's on.** Once you both agree, add it to your calendar, get directions to the court, and sort out the plan: balls, sets or drills, where to meet.
 
-**Built for juniors and their parents.** Players under 18 only ever see other players under 18, and they see each other's ages, so two 13-year-olds find each other first. A parent links once, by text, and approves each meetup before it is confirmed. One family view covers every child: what needs an OK, what's on the calendar, and how close in age their partners must be. Parents see every invitation and message in full. No adult can find or message a junior on Hits; the database enforces it, not a setting. The one exception is a coach the parent approves by name, and even they can only suggest partners.
+**Built for juniors and their parents.** Players under 18 only ever see other players under 18, and they see each other's ages, so two 13-year-olds find each other first. A parent links once, by text, and approves each meetup before it is confirmed. One family view covers every child: what needs an OK, what's on the calendar, and how close in age their partners must be. Parents see every invitation and message in full. No adult can find or message a junior on Hits; the database enforces it, not a setting. The one exception is a coach the parent approves by name, and even they can only suggest partners. For younger kids, a parent sets up the account on their own phone and runs it: they find the hit with their child, send it, and see every message. From 13, they can hand it over with everything in it.
 
 **Coaches pair their players.** Run an academy or a team? Turn on coach tools, share your code, and pair your players to hit with each other between lessons. They get your suggestion with your note, one of them sends the invite, and you see how it went.
 
@@ -52,7 +52,7 @@ what ratings you can enter, is fine.
 ## Category and rating
 
 - **Category:** Sports. Secondary: Health & Fitness.
-- **Age rating:** answer the questionnaire honestly. The app has user-to-user messaging between matched players, and meetups in person, which puts it at **13+** on the App Store's current scale and **Teen** on Google Play. Say yes to "user-generated content" and describe the moderation: report and block on every profile and hit, a person reads every report, parents approve every junior meetup.
+- **Age rating:** answer the questionnaire honestly. The app has user-to-user messaging between matched players, and meetups in person, which puts it at **13+** on the App Store's current scale and **Teen** on Google Play. Children under 13 are on Hits only through an account a parent sets up and runs from the parent's own sign-in; mention this in the review notes, and do not opt into the Kids category (the app is used by the parent, not the child). Say yes to "user-generated content" and describe the moderation: report and block on every profile and hit, a person reads every report, parents approve every junior meetup.
 - **Made for Kids:** no. Hits is 13 and up.
 - **In-app purchases:** one auto-renewing subscription, `hits_plus_monthly`, $4.99 a month. The paywall shows the price, the term, Restore Purchases and links to the Terms and Privacy Policy (guideline 3.1.2). Players under 18 are never shown a purchase; a parent buys it on their own account.
 

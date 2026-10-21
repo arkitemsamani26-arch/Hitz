@@ -30,8 +30,10 @@ export default function DeleteAccount() {
   const router = useRouter();
   const goBack = useGoBack();
   const toast = useToast();
-  const { profile, session, setSession, setProfile } = useSession();
-  const isParent = !!session?.isGuardian;
+  const { profile, session, setSession, setProfile, acting, setActing } = useSession();
+  // Switched to a child the parent runs: this removes the child's account, not the parent's.
+  const child = acting && profile?.runByParent ? profile : null;
+  const isParent = !!session?.isGuardian && !child;
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -39,6 +41,16 @@ export default function DeleteAccount() {
 
   const go = async () => {
     setBusy(true);
+    if (child && acting) {
+      try {
+        await api.removeChild(acting);
+        haptic.warn();
+        await setActing(null);
+        router.replace(session?.isGuardian ? '/guardian' : '/(tabs)/you');
+        toast(`${child.displayName}'s account is gone.`);
+      } catch (e: any) { haptic.warn(); toast(e?.message ?? "We couldn't remove that account. Nothing was changed."); setBusy(false); }
+      return;
+    }
     try {
       await api.deleteAccount();
       haptic.warn();
@@ -56,13 +68,18 @@ export default function DeleteAccount() {
   return (
     <Screen extraBottom={space.xl} bottom={
       <Centered>
-        <Button title="Delete my account" kind="danger" onPress={go} loading={busy} disabled={!ready} />
+        <Button title={child ? `Remove ${child.displayName}'s account` : 'Delete my account'} kind="danger" onPress={go} loading={busy} disabled={!ready} />
       </Centered>
     }>
       <Centered>
         <Header />
-        <T v="eyebrow" tone="muted" style={{ marginTop: space.md }}>Your account</T>
-        <T v="display" style={{ marginTop: 12, marginBottom: 18 }}>Delete your{'\n'}<T v="display" italic>account.</T></T>
+        <T v="eyebrow" tone="muted" style={{ marginTop: space.md }}>{child ? `${child.displayName}'s account` : 'Your account'}</T>
+        <T v="display" style={{ marginTop: 12, marginBottom: 18 }}>{child ? <>Remove {child.displayName}'s{'\n'}<T v="display" italic>account.</T></> : <>Delete your{'\n'}<T v="display" italic>account.</T></>}</T>
+        {child && (
+          <T v="small" tone="muted" style={{ marginBottom: space.md, lineHeight: 21 }}>
+            Their profile, hits, messages and entries go, the same way a player's own account does. Your account, and any other child you run, stay as they are.
+          </T>
+        )}
 
         <Sheet style={{ gap: space.md, marginBottom: space.md }}>
           <T v="h2">This cannot be undone.</T>
@@ -76,6 +93,7 @@ export default function DeleteAccount() {
           {isParent ? (<>
             <Line text="Your phone number and email, and your sign-in" />
             <Line text="Your link to each child, and your view of their account" />
+            <Line text="Every child account you run, and everything in it" />
             <Line text="Any hit of theirs that has not happened yet is cancelled, because it no longer has a parent's approval. They are told why." />
           </>) : (<>
             <Line text="Your name, photo, level and home court" />

@@ -12,7 +12,7 @@ import { registerCourts } from '@/lib/courts';
 import type {
   Approval, Assurance, AutoMatch, PlusRequest, PlusStatus, SavedSearch, Stats, Court, DoublesMember, DoublesRole, DoublesSuggestion, Tournament, TournamentEntry, TournamentPlayer, CourtStats, HitPlan, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest, HitState,
   Coaching, CoachPairing, GuardianCoachLink, InboxEntry, MarketStatus, Message, MyCoach, Pairing, Player, Profile, ProfileInput,
-  RosterMember, Session, UtrClaim, UtrStatus,
+  ChildInput, RosterMember, RunChild, Session, UtrClaim, UtrStatus,
 } from './types';
 import { DECLINE_COPY } from './types';
 
@@ -33,12 +33,27 @@ function ageFrom(dob: string | null | undefined): number | null {
 export class SupabaseApi implements HitsApi {
   readonly mode = 'supabase' as const;
   private sb: SupabaseClient<any, 'app', any>;
+  // The login, and the profile it is (the same id, unless a parent handed this login a
+  // profile they used to run).
   private uid: string | null = null;
+  private pid: string | null = null;
+  // A child this parent runs, when switched to them. Sent with every database call; the
+  // server checks it is a child this login runs on each one and refuses anything else.
+  private acting: string | null = null;
+  private get me_(): string { return this.acting ?? this.pid ?? this.uid!; }
 
   constructor(url: string, anonKey: string) {
     this.sb = createClient<any, 'app', any>(url, anonKey, {
       db: { schema: 'app' },
       auth: { storage: AsyncStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      global: {
+        fetch: (input: any, init?: any) => {
+          if (!this.acting) return fetch(input, init);
+          const headers = new Headers(init?.headers);
+          headers.set('x-hits-as', this.acting);
+          return fetch(input, { ...init, headers });
+        },
+      },
     });
   }
 
@@ -60,9 +75,20 @@ export class SupabaseApi implements HitsApi {
     const { data } = await this.sb.auth.getSession();
     const u = data.session?.user; if (!u) return null;
     this.uid = u.id;
-    const isGuardian = (await this.sb.from('guardian_links').select('id').eq('guardian_user_id', u.id).not('verified_at', 'is', null).limit(1)).data?.length ? true : false;
-    const hasProfile = (await this.sb.from('profiles').select('id').eq('id', u.id).maybeSingle()).data != null;
-    return { userId: u.id, phone: u.phone ?? '', isGuardian: isGuardian && !hasProfile };
+    // Your own row, never a child's, so ask without the switch.
+    const was = this.acting; this.acting = null;
+    try {
+      const isGuardian = (await this.sb.from('guardian_links').select('id').eq('guardian_user_id', u.id).not('verified_at', 'is', null).limit(1)).data?.length ? true : false;
+      let own = (await this.sb.rpc('my_profile')).data;
+      let row = Array.isArray(own) ? own[0] : own;
+      // A parent may have handed this number a profile they ran. Take it over if so.
+      if (!row) {
+        const claimed = (await this.sb.rpc('claim_handoff')).data;
+        if (claimed) { own = (await this.sb.rpc('my_profile')).data; row = Array.isArray(own) ? own[0] : own; }
+      }
+      this.pid = row?.id ?? null;
+      return { userId: u.id, phone: u.phone ?? '', isGuardian: isGuardian && !row };
+    } finally { this.acting = was; }
   }
   async sendCode(phone: string) {
     const e164 = toE164(phone);
@@ -76,14 +102,16 @@ export class SupabaseApi implements HitsApi {
     this.uid = data.user.id;
     return (await this.restore())!;
   }
-  async signOut() { await this.sb.auth.signOut(); this.uid = null; }
+  async signOut() { await this.sb.auth.signOut(); this.uid = null; this.pid = null; this.acting = null; }
 
   // The RPC deletes the auth user, but the access token in memory stays valid until it
   // expires -- so the sign-out is not politeness, it is the second half of the delete.
   // It runs even if the RPC throws: a half-deleted session is worse than a signed-out one.
   async deleteAccount() {
+    // Never while switched to a child: that would delete the child, not you.
+    this.acting = null;
     const { error } = await this.sb.rpc('delete_account');
-    try { await this.sb.auth.signOut(); } finally { this.uid = null; }
+    try { await this.sb.auth.signOut(); } finally { this.uid = null; this.pid = null; }
     if (error) this.fail(error, "We couldn't delete your account. Nothing was changed.");
   }
 
@@ -105,6 +133,7 @@ export class SupabaseApi implements HitsApi {
       plus: plus?.plus ?? false, plusUntil: plus?.plusUntil ?? null, plusViaParent: plus?.viaParent ?? false,
       playStyle: r.play_style ?? null, handedness: r.handedness ?? null, bio: r.bio ?? null,
       actionPhotoUrl: r.action_photo_url ?? null, actionPhotoPendingUrl: r.action_photo_pending_url ?? null,
+      runByParent: r.managed_by != null,
       ...rest,
     };
   }
@@ -114,7 +143,8 @@ export class SupabaseApi implements HitsApi {
     const { data: rows } = await this.sb.rpc('my_profile');
     const data = Array.isArray(rows) ? rows[0] : rows;
     if (!data) return null;
-    const links = (await this.sb.from('guardian_links').select('verified_at, revoked_at, invited_at, opened_at').eq('minor_profile_id', this.uid).is('revoked_at', null)).data ?? [];
+    if (!this.acting) this.pid = data.id;
+    const links = (await this.sb.from('guardian_links').select('verified_at, revoked_at, invited_at, opened_at').eq('minor_profile_id', data.id).is('revoked_at', null)).data ?? [];
     const [roster, plus] = await Promise.all([
       data.roster_id ? this.sb.from('rosters').select('name').eq('id', data.roster_id).maybeSingle().then(r => r.data) : Promise.resolve(null),
       this.myPlus().catch(() => null),
@@ -150,12 +180,12 @@ export class SupabaseApi implements HitsApi {
     if (patch.playStyle !== undefined) row.play_style = patch.playStyle;
     if (patch.handedness !== undefined) row.handedness = patch.handedness;
     if (patch.bio !== undefined) row.bio = patch.bio?.trim().slice(0, 160) || null;
-    const { error } = await this.sb.from('profiles').update(row).eq('id', this.uid!);
+    const { error } = await this.sb.from('profiles').update(row).eq('id', this.me_);
     if (error) this.fail(error);
     return (await this.me())!;
   }
   async setLooking(days: number | null) {
-    const { error } = await this.sb.from('profiles').update({ looking_to_hit_until: days ? new Date(Date.now() + days * 86400000).toISOString() : null }).eq('id', this.uid!);
+    const { error } = await this.sb.from('profiles').update({ looking_to_hit_until: days ? new Date(Date.now() + days * 86400000).toISOString() : null }).eq('id', this.me_);
     if (error) this.fail(error);
     return (await this.me())!;
   }
@@ -333,24 +363,24 @@ export class SupabaseApi implements HitsApi {
   }
   async requests() {
     const { data } = await this.sb.from('hit_requests').select(this.sel).order('created_at', { ascending: false });
-    return this.mapRequests(data ?? [], this.uid!);
+    return this.mapRequests(data ?? [], this.me_);
   }
   async hit(id: string) {
     const { data } = await this.sb.from('hit_requests').select(this.sel).eq('id', id).maybeSingle();
     if (!data) return null;
     const msgs = (await this.sb.from('hit_messages').select('*').eq('hit_request_id', id).order('created_at')).data ?? [];
-    const [request] = await this.mapRequests([data], this.uid!);
+    const [request] = await this.mapRequests([data], this.me_);
     return { request, messages: msgs.map(m => ({ id: m.id, hitId: id, senderId: m.sender_profile_id, body: m.body, createdAt: m.created_at })) };
   }
   async sendRequest(toId: string, courtId: string, start: Date, end: Date, note: string | null, doubles?: SendDoubles) {
-    const market = (await this.sb.from('profiles').select('market_id').eq('id', this.uid!).single()).data;
+    const market = (await this.sb.from('profiles').select('market_id').eq('id', this.me_).single()).data;
     const { data, error } = await this.sb.from('hit_requests').insert({
-      market_id: market?.market_id, from_profile_id: this.uid, to_profile_id: toId, court_id: courtId,
+      market_id: market?.market_id, from_profile_id: this.me_, to_profile_id: toId, court_id: courtId,
       window_start: start.toISOString(), window_end: end.toISOString(), note, awaiting_profile_id: toId,
       ...(doubles ? { format: 'doubles', match_id: doubles.matchId, doubles_role: doubles.role, tournament_id: doubles.tournamentId ?? null } : {}),
     }).select(this.sel).single();
     if (error) this.fail(error, "You can't reach this player.");
-    return (await this.mapRequests([data], this.uid!))[0];
+    return (await this.mapRequests([data], this.me_))[0];
   }
   async cancelRequest(id: string) { await this.sb.from('hit_requests').update({ state: 'cancelled', awaiting_profile_id: null }).eq('id', id); }
   async accept(id: string) {
@@ -444,7 +474,7 @@ export class SupabaseApi implements HitsApi {
     return { id: r.id, name: r.name, code: r.code, cap: r.cap, joined: (await this.rosterCounts()).get(r.id) ?? 0, createdAt: r.created_at };
   }
   async myRosters(): Promise<Roster[]> {
-    const { data } = await this.sb.from('rosters').select('*').eq('created_by', this.uid!);
+    const { data } = await this.sb.from('rosters').select('*').eq('created_by', this.me_);
     const counts = await this.rosterCounts();
     return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, code: r.code, cap: r.cap, joined: counts.get(r.id) ?? 0, createdAt: r.created_at }));
   }
@@ -465,7 +495,7 @@ export class SupabaseApi implements HitsApi {
   async myInvites() {
     const { data } = await this.sb.from('invites')
       .select('code, redeemed_at, expires_at, created_at')
-      .eq('issued_by_profile_id', this.uid!)
+      .eq('issued_by_profile_id', this.me_)
       .order('created_at', { ascending: false });
     return (data ?? []).map((r: any) => ({
       code: r.code, redeemed: r.redeemed_at != null, expiresAt: r.expires_at ?? null, createdAt: r.created_at,
@@ -485,6 +515,54 @@ export class SupabaseApi implements HitsApi {
   async guardianLinks() {
     const { data } = await this.sb.from('guardian_links').select('id, minor_profile_id, verified_at, profiles:minor_profile_id(display_name)').eq('guardian_user_id', this.uid!).is('revoked_at', null);
     return (data ?? []).map((l: any) => ({ id: l.id, childId: l.minor_profile_id ?? null, childName: l.profiles?.display_name ?? 'your kid', verifiedAt: l.verified_at }));
+  }
+
+  // ---- parent-run accounts --------------------------------------------------------
+  async runChildren(): Promise<RunChild[]> {
+    const { data, error } = await this.sb.rpc('my_run_children');
+    if (error) this.fail(error);
+    return ((data ?? []) as any[]).map(r => ({
+      id: r.id, displayName: r.display_name, lastInitial: r.last_initial, photoUrl: r.photo_url, age: r.age,
+      handoffLast4: r.handoff_phone_last4 ?? null, handoffExpiresAt: r.handoff_expires_at ?? null,
+    }));
+  }
+  async addChild(input: ChildInput) {
+    const was = this.acting; this.acting = null;
+    try {
+      const { data, error } = await this.sb.rpc('add_child', {
+        p_name: input.displayName, p_last_initial: input.lastInitial || null, p_dob: input.dateOfBirth,
+        p_level: input.levelValue, p_level_source: input.levelSource, p_court: input.homeCourtId,
+        p_availability: input.availabilityMask, p_format: input.playFormat,
+      });
+      if (error) this.fail(error, "Couldn't add them.");
+      return data as string;
+    } finally { this.acting = was; }
+  }
+  actAs(childId: string | null) { this.acting = childId && childId !== this.pid && childId !== this.uid ? childId : null; }
+  actingAs() { return this.acting; }
+  async removeChild(childId: string) {
+    // Deleting an account is always "the account you are using", so switch to the child for
+    // this one call. The server checks the child is one you run before anything happens.
+    const was = this.acting; this.acting = childId;
+    try {
+      const { error } = await this.sb.rpc('delete_account');
+      if (error) this.fail(error, "We couldn't remove that account. Nothing was changed.");
+    } finally { this.acting = was === childId ? null : was; }
+  }
+  async startHandoff(childId: string, phone: string) {
+    const e164 = toE164(phone);
+    if (!e164) throw new ApiError('That number does not look complete. Include the area code.');
+    const { error } = await this.sb.rpc('start_handoff', { p_child: childId, p_phone: e164 });
+    if (error) this.fail(error);
+  }
+  async cancelHandoff(childId: string) {
+    const { error } = await this.sb.rpc('cancel_handoff', { p_child: childId });
+    if (error) this.fail(error);
+  }
+  async parentRun(ids: string[]) {
+    if (!ids.length) return [];
+    const { data } = await this.sb.rpc('parent_run', { p_ids: ids });
+    return ((data ?? []) as any[]).map(x => (typeof x === 'string' ? x : x.parent_run ?? x.id)).filter(Boolean);
   }
   // Magic-link sign-in for a parent arriving from the SMS/email. The link carries a
   // token_hash from Supabase auth; after this the user is signed in as the parent.
@@ -509,14 +587,14 @@ export class SupabaseApi implements HitsApi {
     const cur = (await this.hit(id))!.request;
     const { error } = await this.sb.from('hit_requests').update({
       court_id: courtId, window_start: start.toISOString(), window_end: end.toISOString(), state: 'countered',
-      awaiting_profile_id: cur.fromId === this.uid ? cur.toId : cur.fromId,
+      awaiting_profile_id: cur.fromId === this.me_ ? cur.toId : cur.fromId,
     }).eq('id', id);
     if (error) this.fail(error);
-    await this.sb.from('hit_request_revisions').insert({ hit_request_id: id, by_profile_id: this.uid, court_id: courtId, window_start: start.toISOString(), window_end: end.toISOString() });
+    await this.sb.from('hit_request_revisions').insert({ hit_request_id: id, by_profile_id: this.me_, court_id: courtId, window_start: start.toISOString(), window_end: end.toISOString() });
     return (await this.hit(id))!.request;
   }
   async sendMessage(id: string, body: string) {
-    const { data, error } = await this.sb.from('hit_messages').insert({ hit_request_id: id, sender_profile_id: this.uid, body }).select().single();
+    const { data, error } = await this.sb.from('hit_messages').insert({ hit_request_id: id, sender_profile_id: this.me_, body }).select().single();
     if (error) this.fail(error);
     return { id: data.id, hitId: id, senderId: data.sender_profile_id, body: data.body, createdAt: data.created_at };
   }
@@ -530,7 +608,7 @@ export class SupabaseApi implements HitsApi {
     // Answerable twice: tapping again, or changing your mind, used to raise a raw
     // duplicate-key error in the user's face.
     const { error } = await this.sb.from('hit_confirmations')
-      .upsert({ hit_request_id: id, profile_id: this.uid, did_play: didPlay }, { onConflict: 'hit_request_id,profile_id' });
+      .upsert({ hit_request_id: id, profile_id: this.me_, did_play: didPlay }, { onConflict: 'hit_request_id,profile_id' });
     if (error) this.fail(error);
     return (await this.hit(id))!.request;
   }
@@ -743,9 +821,9 @@ export class SupabaseApi implements HitsApi {
   }
   async cancelAutoMatch(id: string) { const { error } = await this.sb.rpc('cancel_auto_match', { p_id: id }); if (error) this.fail(error); }
 
-  async block(profileId: string) { const { error } = await this.sb.from('blocks').insert({ blocker_id: this.uid, blocked_id: profileId }); if (error) this.fail(error); }
+  async block(profileId: string) { const { error } = await this.sb.from('blocks').insert({ blocker_id: this.me_, blocked_id: profileId }); if (error) this.fail(error); }
   async report(profileId: string, reason: string, body: string, hitId?: string) {
-    const { error } = await this.sb.from('reports').insert({ reporter_profile_id: this.uid, reported_profile_id: profileId, reason, body, hit_request_id: hitId ?? null });
+    const { error } = await this.sb.from('reports').insert({ reporter_profile_id: this.me_, reported_profile_id: profileId, reason, body, hit_request_id: hitId ?? null });
     if (error) this.fail(error);
   }
 
@@ -753,7 +831,7 @@ export class SupabaseApi implements HitsApi {
   async inviteGuardian(email: string, phone: string) {
     const e164 = toE164(phone);
     if (!e164) throw new ApiError("Your parent's number does not look complete. Include the area code.");
-    const { error } = await this.sb.from('guardian_links').insert({ minor_profile_id: this.uid, guardian_email: email, guardian_phone: e164, relationship: 'parent' });
+    const { error } = await this.sb.from('guardian_links').insert({ minor_profile_id: this.me_, guardian_email: email, guardian_phone: e164, relationship: 'parent' });
     if (error) this.fail(error);
   }
   // Every child, whole, in one call; then each child's hits side by side rather than in turn.

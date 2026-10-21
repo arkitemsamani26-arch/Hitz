@@ -314,3 +314,73 @@ build.
    `select app.grant_plus_promo('<auth user id>', 30);`.
 6. Fill in the Terms (the Money section now describes the subscription) and the privacy
    policy brackets, and publish them: the paywall links to both, as Apple requires.
+
+## Parent-run accounts
+
+Asked for after Plus: "the parents are the ones that create the account for the kid, and it
+goes to their number... if the kid is really young. At other ages you can make your own
+account, but there'll be an option at the start: this is for my kid, or this is for me."
+
+**The first screen asks.** *This is for me* is the flow as it was (an adult, or a teen of 13
+or more with their own number who links a parent). *This is for my kid* signs the parent in
+with their own number and goes straight to **Add your child** (`/family/add`): first name,
+last initial, birthday, level, home court, usual times, singles or doubles. The child needs no
+phone and no sign-in. A parent can add up to six.
+
+**Under 13 is parent-run only.** The database refuses a self-made profile with a birthday
+under 13 (`profiles_self_signup` trigger, error `under_13:`); the birthday step says why and
+tells the child to ask a parent to choose "This is for my kid".
+
+**Using the app as the child.** The family view has *Use Hits as Mia* on each child the parent
+runs; Profile shows a "Use Hits as" row, and while switched a green bar on Discover and
+Profile says *Using Hits as Mia* with a Switch button. Everything (Discover, invitations,
+messages, doubles, tournaments, coaches) is then the child's.
+
+How the server knows: every rule asks `app.uid()` who the player is. It now resolves an
+`x-hits-as` request header, sent by the app while switched, to the named child **only if**
+`profiles.managed_by` is the signed-in login and the child is active; anything else is
+refused with 42501. Being a parent is about the login, so every guardian check
+(`is_guardian_of`, approvals, links) asks `auth.uid()` directly and works whether or not the
+parent is switched. `managed_by` cannot be read by other players or written by any client.
+
+**Safety is unchanged.** A run child is a minor like any other: same band, same age rule
+(the parent sets it in the family view), same discovery. The parent is the child's verified
+guardian from the start. Sending or accepting a hit *as* the child counts as the parent's
+approval for that child at that court and time (`hit_requests.owner_approved`, set only by a
+trigger); a counter to a new time clears it, as it clears any approval. The other family's
+parent still approves their own child. In a conversation the other side is told *A parent
+runs Mia's account*; the parent sees *You're writing as Mia*.
+
+**Pushes** for a run child go to the parent's phone, titled with the child's name
+("Mia: Theo wants to hit"), and tapping one opens the app as that child. Tokens now live by
+login (`app.device_tokens`), which also fixes pushes for parents who never made a player
+profile; the notify function reads those first.
+
+**Plus** bought by the parent covers every child they run. Switched to a child, the paywall
+says to switch back and buy as yourself.
+
+**Their own sign-in at 13.** *Give Theo his own sign-in* takes the child's number. When the
+child signs in with it, `claim_handoff` moves the profile (with its hits, messages, entries
+and rating) to that login (`app.profile_logins`), and the parent stays linked as their
+parent, approving their hits, but no longer runs the account.
+
+**Removing a child** (family view, or *Remove Mia's account* on her Profile while switched)
+deletes the child's account exactly as a player's own deletion does. Deleting the parent's
+account deletes every child account they run (`managed_by` cascades from the login).
+
+Migration `20261022000100_parent_run_accounts.sql`; 48 tests in
+`supabase/tests/25_parent_run.sql`. Known gap: a child who was handed their own sign-in and
+later deletes their account leaves an empty login row (their profile and everything in it are
+gone). To clear those by hand:
+
+```sql
+select u.id, u.phone, u.created_at from auth.users u
+ where not exists (select 1 from app.profiles p where p.id = u.id)
+   and not exists (select 1 from app.profile_logins l where l.user_id = u.id)
+   and not exists (select 1 from app.guardian_links g where g.guardian_user_id = u.id);
+```
+
+The privacy policy has a new section, *Accounts a parent runs*. As with the rest of it,
+have someone qualified read it before launch: an under-13 account run by a parent is
+collecting a child's information with the parent's consent, which is the part of children's
+privacy law (COPPA in the US) a reviewer will look at most closely.

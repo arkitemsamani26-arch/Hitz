@@ -21,6 +21,7 @@ import { radius, space } from '@/theme/tokens';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { api } from '@/data';
 import { useSession } from '@/store/session';
+import { ActingSwitcher } from '@/ui/ActingSwitcher';
 import { useFilters, activeFilterCount } from '@/store/filters';
 import { useNextWindow, useWindow } from '@/store/window';
 import { useAsync } from '@/store/useAsync';
@@ -37,7 +38,7 @@ export default function Discover() {
   const toast = useToast();
   const t = useTheme();
   const s = useS();
-  const { profile, setProfile, tick } = useSession();
+  const { profile, setProfile, tick, acting } = useSession();
   const { filters, set } = useFilters();
   const { setWin } = useWindow();
   const win = useNextWindow(profile?.availabilityMask ?? 0);
@@ -126,6 +127,7 @@ export default function Discover() {
     <Screen flush pad={false} onRefresh={async () => { await Promise.all([players.reload(), reqs.reload(), market.reload(), api.touch().catch(() => {})]); }}>
       <Centered>
         <DiscoverHeader initials={profile ? initialsOf(profile.displayName, profile.lastInitial) : '·'} area={market.data?.marketName ?? 'Palo Alto'} onAccount={() => router.push('/(tabs)/you')} />
+        {acting && <View style={{ paddingHorizontal: GUTTER, paddingTop: space.sm }}><ActingSwitcher onlyWhenActing /></View>}
         <Hero />
         <View style={st.body}>
           {/* Your next window, floating up over the hero's bottom edge. */}

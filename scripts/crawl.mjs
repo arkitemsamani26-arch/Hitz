@@ -121,11 +121,37 @@ const SCREENS = [
   ['verify utr', '/verify-utr'],
   ['delete account', '/delete-account'],
   ['guardian link', '/guardian/link'],
+  ['who is this for', '/onboarding/phone'],
 ];
+
+// CRAWL_PARENT=1: a parent with no player profile who runs one child's account (Mia, 11).
+const PARENT_SCREENS = [
+  ['family view, a child you run', '/guardian'],
+  ['add a child', '/family/add'],
+];
+const parentSeed = () => {
+  const d = (n, h) => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+  const blankish = { rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null, messages: [], blocked: [],
+    cohortOpen: true, listMode: null, seenConfirmed: [], requests: [] };
+  const session = { userId: 'guardian-me', phone: '6505550101', isGuardian: true };
+  const bday = new Date(); bday.setFullYear(bday.getFullYear() - 11); bday.setMonth(bday.getMonth() - 3);
+  return {
+    self: { ...blankish, session, profile: null },
+    family: {
+      kids: [{ id: 'kid-mia', createdAt: d(-30, 9) }], acting: null, self: null,
+      worlds: { 'kid-mia': { ...blankish, session, runByParent: true, profile: {
+        displayName: 'Mia', lastInitial: 'T', dateOfBirth: bday.toISOString().slice(0, 10), levelValue: 3.5, levelSource: 'estimated',
+        homeCourtId: 'c-mitchell', availabilityMask: 8 | 16, lookingToHitUntil: d(5, 9), lastActiveAt: new Date().toISOString(),
+        guardianEmail: 'you', guardianVerified: true, guardianSentAt: null, guardianOpenedAt: null, rosterName: null,
+        playFormat: 'either', maxPartnerAgeGap: 2,
+      } } },
+    },
+  };
+};
 
 // Buttons whose whole job is to leave, reset or destroy. Pressing them tells us nothing
 // about the screen under test and wrecks the seeded state for every button after them.
-const SKIP = /^(sign out|reset demo|delete my account|open the parent's view)$/i;
+const SKIP = /^(sign out|reset demo|delete my account|open the parent's view|remove .*account|delete my account)$/i;
 
 const main = async () => {
   let chromium;
@@ -148,7 +174,11 @@ const main = async () => {
   });
 
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded' });
-  await page.evaluate(s => localStorage.setItem('hits.demo.v4', JSON.stringify(s)), seeded());
+  const parent = process.env.CRAWL_PARENT === '1';
+  const seed = () => parent
+    ? page.evaluate(({ self, family }) => { localStorage.setItem('hits.demo.v4', JSON.stringify(self)); localStorage.setItem('hits.demo.family.v1', JSON.stringify(family)); }, parentSeed())
+    : page.evaluate(s => localStorage.setItem('hits.demo.v4', JSON.stringify(s)), seeded());
+  await seed();
 
   // Toggle state, as one string, so flipping a switch counts as something happening.
   const CHECKS = `window.checkState = () => [...document.querySelectorAll('[role=switch],[aria-checked],input[type=checkbox]')]
@@ -156,6 +186,8 @@ const main = async () => {
   await page.addInitScript(CHECKS);
 
   const land = async path => {
+    // A parent's buttons add or switch children; start each press from the same family.
+    if (parent) await seed();
     await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1800);
     await page.evaluate(CHECKS);
@@ -194,7 +226,7 @@ const main = async () => {
 
   // CRAWL_ONLY="confirmed hit" runs one screen, for chasing a single finding.
   const only = process.env.CRAWL_ONLY;
-  for (const [screen, path] of SCREENS.filter(([n]) => !only || n === only)) {
+  for (const [screen, path] of (parent ? PARENT_SCREENS : SCREENS).filter(([n]) => !only || n === only)) {
     await land(path);
     const items = await inventory();
     console.log(`\n=== ${screen}  (${items.length} pressables)`);

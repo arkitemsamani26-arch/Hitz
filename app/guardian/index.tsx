@@ -15,6 +15,8 @@ import { Loading } from '@/ui/Loading';
 import { Avatar } from '@/ui/Avatar';
 import { Wordmark } from '@/ui/Wordmark';
 import { MemberCard } from '@/ui/MemberCard';
+import { Field } from '@/ui/Field';
+import { Header } from '@/ui/Header';
 import { OptionSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { font, hit, radius, space } from '@/theme/tokens';
@@ -38,7 +40,13 @@ export default function Family() {
   const router = useRouter();
   const t = useTheme();
   const s = useS();
-  const { tick, refresh, session, setSession, setProfile } = useSession();
+  const { tick, refresh, session, setSession, setProfile, setActing } = useSession();
+  // Children this parent runs: switch to them, hand them a sign-in, or remove them.
+  const run = useAsync(() => api.runChildren(), [tick]);
+  const [adding, setAdding] = useState(false);
+  const [handing, setHanding] = useState(false);
+  const [kidPhone, setKidPhone] = useState('');
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
   const toast = useToast();
   const kids = useAsync(() => api.guardianChildren(), [tick]);
   const links = useAsync(() => api.guardianLinks(), [tick]);
@@ -62,6 +70,13 @@ export default function Family() {
     catch (e: any) { toast(e?.message ?? "That didn't go through."); }
   };
   const link = useMemo(() => (links.data ?? []).find(l => l.childId === k?.profile.id) ?? null, [links.data, k]);
+  const runK = (run.data ?? []).find(r => r.id === k?.profile.id) ?? null;
+  const useAs = async (id: string) => { await setActing(id); router.replace('/(tabs)'); };
+  const handOff = async () => {
+    if (!runK) return;
+    try { await api.startHandoff(runK.id, kidPhone); setHanding(false); setKidPhone(''); await run.reload(); toast(`Sent. When ${runK.displayName} signs in with that number, the account is theirs.`); }
+    catch (e: any) { toast(e?.message ?? "That didn't go through."); }
+  };
 
   const setGap = async (gap: number | null) => {
     if (!k || saving) return;
@@ -93,7 +108,7 @@ export default function Family() {
     <Screen onRefresh={refresh}>
       <Centered>
         <View style={{ marginTop: space.md }}>
-          <Wordmark />
+          {session && !session.isGuardian ? <Header backLabel="Profile" /> : <Wordmark />}
           <T v="eyebrow" tone="muted" style={{ marginTop: space.lg }}>Your family</T>
           <T v="display" style={{ marginTop: 12, marginBottom: 10 }} accessibilityRole="header">They find the hit.{'\n'}<T v="display" italic>You approve the meeting.</T></T>
         </View>
@@ -102,6 +117,7 @@ export default function Family() {
           <>
             {/* Everyone in the family, and a way to add the next one. */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.strip}>
+              <View style={st.tabs} accessibilityRole="tablist" accessibilityLabel="Your children">
               {all.map(x => {
                 const on = x.profile.id === sel;
                 const n = x.pendingApprovals.length + pendingCoach.filter(c => c.childId === x.profile.id).length;
@@ -117,10 +133,11 @@ export default function Family() {
                   </Tap>
                 );
               })}
-              <Tap onPress={shareSteps} style={[s.kid, s.add]} scaleTo={0.97} accessibilityRole="button" accessibilityLabel="Add another child">
+              </View>
+              <Tap onPress={() => setAdding(true)} style={[s.kid, s.add]} scaleTo={0.97} accessibilityRole="button" accessibilityLabel="Add another child">
                 <View style={s.addIcon}><Icon name="plus" size={22} color={t.ink} /></View>
                 <T v="smallM" style={{ marginTop: 8 }}>Add a child</T>
-                <T v="meta" tone="muted">Send the steps</T>
+                <T v="meta" tone="muted">Run it or link it</T>
               </Tap>
             </ScrollView>
 
@@ -144,6 +161,33 @@ export default function Family() {
                 <Icon name="clock-3" size={15} color={t.ink} />
                 <T v="small" style={{ flex: 1 }}>{waiting === 1 ? 'One thing needs your OK.' : `${waiting} things need your OK.`}</T>
               </View>
+            )}
+
+            {k && runK && (
+              <Card style={{ gap: space.sm, marginTop: space.md }}>
+                <T v="smallM">You run {k.profile.displayName}'s account</T>
+                <T v="meta" tone="muted" style={{ lineHeight: 18 }}>Switch to {k.profile.displayName} to find a hit, send it and chat as them. What you send or accept counts as your OK.</T>
+                <Button title={`Use Hits as ${k.profile.displayName}`} arrow onPress={() => void useAs(k.profile.id)} />
+                {runK.handoffLast4 ? (
+                  <View style={st.handoff}>
+                    <T v="meta" tone="muted" style={{ flex: 1 }}>Waiting for {k.profile.displayName} to sign in with the number ending {runK.handoffLast4}.</T>
+                    <Button title="Cancel" kind="ghost" small onPress={async () => { try { await api.cancelHandoff(runK.id); await run.reload(); } catch (e: any) { toast(e?.message ?? "That didn't go through."); } }} />
+                  </View>
+                ) : runK.age >= 13 ? (
+                  handing ? (
+                    <View style={{ gap: space.sm }}>
+                      <Field label={`${k.profile.displayName}'s phone number`} value={kidPhone} onChangeText={setKidPhone} placeholder="(650) 555-0137" keyboardType="phone-pad" inputMode="tel" accessibilityLabel={`${k.profile.displayName}'s phone number`} />
+                      <T v="meta" tone="muted" style={{ lineHeight: 18 }}>They sign in to Hits with this number. Their profile, hits and messages move to them, and you stay their parent: you still approve every hit.</T>
+                      <View style={{ flexDirection: 'row', gap: space.sm }}>
+                        <Button title="Hand it over" small onPress={handOff} disabled={kidPhone.replace(/\D/g, '').length < 10} />
+                        <Button title="Not now" kind="ghost" small onPress={() => setHanding(false)} />
+                      </View>
+                    </View>
+                  ) : <Button title={`Give ${k.profile.displayName} their own sign-in`} kind="line" small onPress={() => setHanding(true)} style={{ alignSelf: 'flex-start' }} />
+                ) : (
+                  <T v="meta" tone="muted">At 13 you can give {k.profile.displayName} a sign-in of their own.</T>
+                )}
+              </Card>
             )}
 
             {k && (
@@ -270,7 +314,11 @@ export default function Family() {
                   </>
                 )}
 
-                {link && (
+                {runK ? (
+                  <Tap onPress={() => setRemoving({ id: runK.id, name: runK.displayName })} style={st.remove} accessibilityRole="button" accessibilityLabel={`Remove ${runK.displayName}'s account`}>
+                    <T v="small" tone="danger">Remove {runK.displayName}'s account</T>
+                  </Tap>
+                ) : link && (
                   <Tap onPress={() => setRevoking({ id: link.id, childName: link.childName })} style={st.remove} accessibilityRole="button" accessibilityLabel={`Remove your link to ${link.childName}`}>
                     <T v="small" tone="danger">Remove your link to {link.childName}</T>
                   </Tap>
@@ -280,9 +328,10 @@ export default function Family() {
 
             {all.length === 0 && (
               <Card style={{ gap: space.sm, marginTop: space.md }}>
-                <T v="h2">No children linked yet.</T>
-                <T v="small" tone="muted">Your child signs up on their own phone and enters your number when it asks for a parent. You get a text; tap it to link.</T>
-                <Button title="Send them the steps" kind="line" small onPress={shareSteps} style={{ alignSelf: 'flex-start' }} />
+                <T v="h2">Add your child.</T>
+                <T v="small" tone="muted">Set up their account here and run it from your phone: they don't need a phone of their own, and under 13 this is the only way in. Or, if they are 13 or older with a phone, they sign up and enter your number when it asks for a parent.</T>
+                <Button title="Add your child" arrow onPress={() => router.push('/family/add')} />
+                <Button title="Send them the steps instead" kind="line" small onPress={shareSteps} style={{ alignSelf: 'flex-start' }} />
               </Card>
             )}
           </>
@@ -290,6 +339,15 @@ export default function Family() {
 
         <T v="meta" tone="muted" style={{ lineHeight: 18, marginTop: space.lg }}>You see every invitation and every message on your children's accounts, in full. No adult can find or contact an under-18 on Hits. The database enforces it.</T>
 
+        <OptionSheet open={adding} onClose={() => setAdding(false)} title="Add a child" options={[
+          { label: 'Set up their account here', sub: 'You run it from your phone. Any age from 4.', onPress: () => router.push('/family/add') },
+          { label: 'They have their own phone', sub: '13 and up. They sign up and enter your number.', onPress: () => void shareSteps() },
+        ]} />
+        <OptionSheet open={!!removing} onClose={() => setRemoving(null)} title={`Remove ${removing?.name ?? ''}'s account?`} options={[
+          { label: `Remove ${removing?.name ?? 'their'} account`, sub: 'Their profile, hits, messages and entries are deleted. This cannot be undone.', danger: true,
+            onPress: async () => { if (!removing) return; try { await api.removeChild(removing.id); setSel(null); await refresh(); await kids.reload(); await run.reload(); toast(`${removing.name}'s account is gone.`); } catch (e: any) { toast(e?.message ?? "That didn't go through."); } } },
+          { label: 'Keep it', onPress: () => {} },
+        ]} />
         <OptionSheet open={!!revoking} onClose={() => setRevoking(null)} title={`Remove your link to ${revoking?.childName ?? ''}?`} options={[
           { label: 'Remove the link', sub: 'Every open hit is cancelled. They can invite you again later.', danger: true,
             onPress: async () => { if (!revoking) return; try { await api.guardianRevoke(revoking.id); await refresh(); await kids.reload(); await links.reload(); toast('Removed.'); } catch (e: any) { toast(e.message); } } },
@@ -342,6 +400,8 @@ const st = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: 12, gap: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   remove: { minHeight: hit.min, justifyContent: 'center', alignItems: 'center', marginTop: space.md },
+  handoff: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  tabs: { flexDirection: 'row', gap: 10 },
   plusText: { color: '#173D2B', fontFamily: font.bold, fontSize: 10, lineHeight: 13, letterSpacing: 1.4 },
 });
 const useS = makeStyles(c => ({

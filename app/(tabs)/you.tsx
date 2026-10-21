@@ -15,6 +15,7 @@ import { Field } from '@/ui/Field';
 import { Score } from '@/ui/Score';
 import { Icon, type IconName } from '@/ui/Icon';
 import { MemberCard, cardStats } from '@/ui/MemberCard';
+import { ActingSwitcher } from '@/ui/ActingSwitcher';
 import { OptionSheet } from '@/ui/Sheet';
 import { AvailabilityGrid } from '@/ui/Availability';
 import { useToast } from '@/ui/Toast';
@@ -114,7 +115,8 @@ export default function ClubCard() {
   return (
     <Screen>
       <Centered>
-        <T v="eyebrow" tone="muted" style={{ marginTop: 10 }}>Profile</T>
+        <View style={{ marginTop: 10 }}><ActingSwitcher /></View>
+        <T v="eyebrow" tone="muted">Profile</T>
         <T v="display" style={st.h} accessibilityRole="header">Your game.{'\n'}<T v="display" italic>Your people.</T></T>
         <T v="small" tone="muted" style={st.sub}>This card is what other players see when they open your profile.</T>
 
@@ -184,12 +186,20 @@ export default function ClubCard() {
         {profile.band === 'minor' && (
           <>
             <T v="micro" tone="muted" style={st.k}>Family</T>
-            <Row icon="shield" k="Parent" v={profile.guardianVerified ? 'Linked' : profile.guardianOpenedAt ? 'Opened the link' : profile.guardianPending ? 'Sent' : 'Not linked'}
-              onPress={!profile.guardianVerified && !profile.guardianPending ? () => router.push('/onboarding/guardian') : () => router.push('/guardian/link?preview=1')} />
+            {profile.runByParent
+              ? <Row icon="shield" k="Account" v="You run it" onPress={() => router.push('/guardian')} />
+              : <Row icon="shield" k="Parent" v={profile.guardianVerified ? 'Linked' : profile.guardianOpenedAt ? 'Opened the link' : profile.guardianPending ? 'Sent' : 'Not linked'}
+                  onPress={!profile.guardianVerified && !profile.guardianPending ? () => router.push('/onboarding/guardian') : () => router.push('/guardian/link?preview=1')} />}
             <Row icon="users" k="Who you can hit with" v={profile.maxPartnerAgeGap ? `Within ${profile.maxPartnerAgeGap} ${profile.maxPartnerAgeGap === 1 ? 'year' : 'years'} of you` : 'Any player under 18'} />
             <T v="meta" tone="muted" style={{ marginTop: 8, lineHeight: 18 }}>
-              {profile.maxPartnerAgeGap ? 'Your parent set this. ' : ''}You only ever see other players under 18. Discover starts with players around your age; widen it in Filters.
+              {profile.runByParent ? 'Set it in your family view. ' : profile.maxPartnerAgeGap ? 'Your parent set this. ' : ''}{profile.runByParent ? 'Only players under 18 ever appear.' : 'You only ever see other players under 18. Discover starts with players around your age; widen it in Filters.'}
             </T>
+          </>
+        )}
+        {profile.band === 'adult' && (
+          <>
+            <T v="micro" tone="muted" style={st.k}>Family</T>
+            <Row icon="users" k="Your kids" v="Set up an account you run" onPress={() => router.push('/family/add')} />
           </>
         )}
         <T v="meta" tone="muted" style={{ marginTop: 12, lineHeight: 18 }}>
@@ -264,7 +274,7 @@ export default function ClubCard() {
           ); })()}
           <Button title="Sign out" kind="ghost" icon="log-out" onPress={async () => { await api.signOut(); setSession(null); setProfile(null); router.replace('/onboarding/phone'); }} small style={{ alignSelf: 'flex-start' }} />
           <Tap onPress={() => router.push('/delete-account')} style={st.danger} accessibilityRole="button">
-            <T v="small" tone="danger">Delete my account</T>
+            <T v="small" tone="danger">{profile.runByParent ? `Remove ${profile.displayName}'s account` : 'Delete my account'}</T>
           </Tap>
         </View>
 

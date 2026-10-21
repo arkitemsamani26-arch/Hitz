@@ -36,7 +36,12 @@ export default function Birthday() {
         <T v="display" style={{ marginTop: 12 }}>When's your{'\n'}<T v="display" italic>birthday?</T></T>
         <T v="small" tone="muted" style={{ marginTop: space.md, marginBottom: space.lg, lineHeight: 21 }}>Nobody sees this. We match you by level, not age. Under 18, a parent approves each meetup.</T>
         <Field big value={v} onChangeText={onChange} placeholder="MM / DD / YYYY" keyboardType="number-pad" inputMode="numeric" autoFocus accessibilityLabel="Birthday, month day year" onSubmitEditing={go} />
-        {tooYoung && <T v="body" tone="danger" style={{ marginTop: space.lg }}>Hits is for 13 and up. Come back on your birthday.</T>}
+        {tooYoung && (
+          <Card style={{ marginTop: space.lg, gap: 4 }}>
+            <T v="bodyM">Under 13, a parent sets up your account.</T>
+            <T v="meta" tone="muted">Ask them to get Hits on their phone and choose "This is for my kid". They add you, and you play from their phone.</T>
+          </Card>
+        )}
         {dob && !tooYoung && (
           <Card style={{ marginTop: space.lg }}>
             {minor

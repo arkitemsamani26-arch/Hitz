@@ -88,7 +88,29 @@ const seeded = () => ({
   entries: { 't-pjo': { me: { division: '16U', singles: false, doubles: true, wantsPartner: true } } },
 });
 
+// A parent with no player profile who runs one child's account (Mia, 11), for the family
+// view, adding a child, and the app used as the child.
+const parentSeed = () => {
+  const blankish = { rosters: [], invites: [], pushToken: null, reports: [], utrClaim: null, messages: [], blocked: [],
+    cohortOpen: true, listMode: null, seenConfirmed: [], requests: [] };
+  const session = { userId: 'guardian-me', phone: '6505550101', isGuardian: true };
+  const bday = new Date(); bday.setFullYear(bday.getFullYear() - 11); bday.setMonth(bday.getMonth() - 3);
+  return {
+    self: { ...blankish, session, profile: null },
+    family: {
+      kids: [{ id: 'kid-mia', createdAt: iso(day(-30, 9)) }], acting: null, self: null,
+      worlds: { 'kid-mia': { ...blankish, session, runByParent: true, profile: {
+        displayName: 'Mia', lastInitial: 'T', dateOfBirth: bday.toISOString().slice(0, 10), levelValue: 3.5, levelSource: 'estimated',
+        homeCourtId: 'c-mitchell', availabilityMask: 8 | 16, lookingToHitUntil: iso(day(5, 9)), lastActiveAt: iso(new Date()),
+        guardianEmail: 'you', guardianVerified: true, guardianSentAt: null, guardianOpenedAt: null, rosterName: null,
+        playFormat: 'either', maxPartnerAgeGap: 2,
+      } } },
+    },
+  };
+};
+
 const SCREENS = [
+  ['who is this for', '/onboarding/phone'],
   ['sign in', '/'],
   ['discover', '/(tabs)'],
   ['courts', '/(tabs)/courts'],
@@ -152,9 +174,40 @@ const main = async () => {
       for (const n of v.nodes.slice(0, 3)) console.log(`          ${n.html.slice(0, 160)}`);
     }
   }
+  // The parent who runs a child's account.
+  const ps = parentSeed();
+  await page.evaluate(({ self, family }) => {
+    localStorage.setItem('hits.demo.v4', JSON.stringify(self));
+    localStorage.setItem('hits.demo.family.v1', JSON.stringify(family));
+  }, ps);
+  const audit = async name => {
+    await page.waitForTimeout(2200);
+    await page.addScriptTag({ content: axeSource });
+    const r = await page.evaluate(async () =>
+      await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } }));
+    if (!r.violations.length) { console.log(`  ok    ${name}`); return; }
+    violations += r.violations.length;
+    console.log(`  FAIL  ${name}`);
+    for (const v of r.violations) {
+      console.log(`        ${v.id} (${v.impact}) — ${v.help}`);
+      for (const n of v.nodes.slice(0, 3)) console.log(`          ${n.html.slice(0, 160)}`);
+    }
+  };
+  for (const [name, path] of [['family view, a child you run', '/guardian'], ['add a child', '/family/add']]) {
+    await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: 'networkidle' });
+    await audit(name);
+  }
+  // Switch to Mia from the family view: Discover with the "using Hits as" bar, then her Profile.
+  await page.goto(`http://localhost:${PORT}/guardian`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  await page.getByText('Use Hits as Mia', { exact: true }).first().click();
+  await audit('discover, as a child you run');
+  await page.getByLabel(/using Hits as Mia/).first().click();
+  await audit('switcher sheet');
+
   await browser.close();
   server.close();
-  console.log(violations ? `\n${violations} violations` : `\nclean: ${SCREENS.length} screens, zero violations`);
+  console.log(violations ? `\n${violations} violations` : `\nclean: ${SCREENS.length + 4} screens, zero violations`);
   process.exit(violations ? 1 : 0);
 };
 

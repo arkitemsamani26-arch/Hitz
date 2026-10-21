@@ -1,6 +1,6 @@
 import type {
   Approval, Assurance, AutoMatch, PlusRequest, PlusStatus, SavedSearch, Stats, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, Coaching, CoachPairing, Court, CourtStats, GuardianCoachLink, HitPlan, InboxEntry, MyCoach, Pairing, RosterMember, Roster, DeclineReason, DiscoverFilters, GuardianChild, HitRequest,
-  Invite, MarketStatus, Message, Player, Profile, ProfileInput, Session, UtrClaim, UtrStatus,
+  ChildInput, Invite, MarketStatus, Message, Player, Profile, ProfileInput, RunChild, Session, UtrClaim, UtrStatus,
 } from './types';
 
 // The one interface the screens talk to. Two implementations: `supabase` for the real
@@ -150,6 +150,21 @@ export interface HitsApi {
   guardianAccept(linkId: string): Promise<void>;
   guardianRevoke(linkId: string): Promise<void>;
   guardianLinks(): Promise<{ id: string; childName: string; childId: string | null; verifiedAt: string | null }[]>;
+
+  // Parent-run accounts. A parent adds a child, then uses the app as them: every call after
+  // actAs(child) is that child's, checked by the server on each request. actAs(null) is you.
+  runChildren(): Promise<RunChild[]>;
+  addChild(input: ChildInput): Promise<string>;
+  actAs(childId: string | null): void;
+  actingAs(): string | null;
+  // Deletes a child's account and everything in it. Only for a child you run.
+  removeChild(childId: string): Promise<void>;
+  // A child of 13 or more gets their own sign-in: they sign in with this number and the
+  // profile moves to them, with you staying on as their parent.
+  startHandoff(childId: string, phone: string): Promise<void>;
+  cancelHandoff(childId: string): Promise<void>;
+  // Which of these players a parent runs, so a conversation can say so.
+  parentRun(ids: string[]): Promise<string[]>;
   assurance(hitId: string): Promise<Assurance | null>;
 
   // subscriptions (lightweight; demo uses a tick)

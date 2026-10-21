@@ -37,7 +37,9 @@ export default function Plus() {
   const toast = useToast();
   const t = useTheme();
   const s = useS();
-  const { profile, session, refresh, tick } = useSession();
+  const { profile, session, refresh, tick, setActing } = useSession();
+  // A parent switched to a child they run buys on their own account, as themselves.
+  const runChild = !!profile?.runByParent;
   const status = useAsync(() => api.myPlus(), [tick]);
   const [busy, setBusy] = useState<null | 'buy' | 'restore' | 'ask'>(null);
   const minor = profile?.band === 'minor';
@@ -95,7 +97,7 @@ export default function Plus() {
         <View style={st.mark}><View style={s.badge}><T v="micro" style={st.badgeText}>Plus</T></View></View>
         <T v="eyebrow" tone="muted">Hits Plus</T>
         <T v="display" style={st.h} accessibilityRole="header">
-          {plus ? <>You have{'\n'}<T v="display" italic>Plus.</T></> : minor ? <>More hits.{'\n'}<T v="display" italic>Ask your parent.</T></> : <>More hits,{'\n'}<T v="display" italic>less waiting.</T></>}
+          {plus ? <>You have{'\n'}<T v="display" italic>Plus.</T></> : runChild ? <>More hits,{'\n'}<T v="display" italic>for the family.</T></> : minor ? <>More hits.{'\n'}<T v="display" italic>Ask your parent.</T></> : <>More hits,{'\n'}<T v="display" italic>less waiting.</T></>}
         </T>
 
         {reason && !plus && (
@@ -115,6 +117,12 @@ export default function Plus() {
             {!status.data?.viaParent && status.data?.source !== 'promo' && api.mode !== 'demo' && (
               <Button title="Manage subscription" kind="line" small onPress={async () => { if (!(await manageSubscription())) toast("Couldn't open your store account."); }} style={{ alignSelf: 'flex-start' }} />
             )}
+          </Card>
+        ) : runChild ? (
+          <Card style={{ gap: space.sm }}>
+            <T v="smallM">Plus goes on your own account</T>
+            <T v="small" tone="muted">You're using Hits as {profile?.displayName}. One plan on your account covers every child you run. Switch back to yourself to get it.</T>
+            <Button title="Switch to me" arrow onPress={() => void setActing(null)} />
           </Card>
         ) : minor ? (
           <Card style={{ gap: space.sm }}>

@@ -9,7 +9,7 @@ import { ApiError, type HitsApi, type SendDoubles } from './api';
 import type {
   Approval, Assurance, AutoMatch, Handedness, PlayStyle, PlusRequest, PlusStatus, SavedSearch, Stats, Coaching, DoublesMember, DoublesRole, DoublesSuggestion, PlayFormat, Tournament, TournamentEntry, TournamentPlayer, CoachPairing, CoachStatus, Court, CourtStats, GuardianCoachLink, HitPlan, Roster, DeclineReason,
   DiscoverFilters, GuardianChild, HitRequest, HitState, InboxEntry, Invite, MarketStatus, Message, MyCoach, Pairing, Player,
-  Profile, ProfileInput, RosterMember, Session, UtrClaim,
+  ChildInput, Profile, ProfileInput, RosterMember, RunChild, Session, UtrClaim,
 } from './types';
 import { DECLINE_COPY, hasPlusFilters } from './types';
 import { slotBit } from '@/lib/match';
@@ -17,6 +17,17 @@ import { notifyLocal } from '@/lib/push';
 import { midpointCourt } from '@/lib/courts';
 
 const KEY = 'hits.demo.v4';
+// Children a demo parent runs. Each one is a whole world of their own (their hits, their
+// messages), swapped in when the parent switches to them.
+const FAMILY_KEY = 'hits.demo.family.v1';
+type Family = {
+  kids: { id: string; createdAt: string; handedOff?: boolean; handoff?: { last4: string; expiresAt: string } | null }[];
+  worlds: Record<string, State>;
+  acting: string | null;
+  self: State | null;
+};
+// Under 13, a parent runs the account: these seeds are shown that way in a conversation.
+const PARENT_RUN_SEEDS = new Set(['p-sam', 'p-iris', 'p-caleb']);
 const ME = 'me';
 const GUARDIAN = 'guardian-me';
 
@@ -206,6 +217,8 @@ type State = {
   cohortOpen: boolean;
   listMode: boolean | null;
   seenConfirmed: string[];
+  // This world is a child the demo parent runs.
+  runByParent?: boolean;
 };
 
 const blank = (): State => ({
@@ -255,6 +268,7 @@ export class DemoApi implements HitsApi {
   private listeners = new Set<() => void>();
   private timers: ReturnType<typeof setTimeout>[] = [];
   private advancing = false;
+  private fam: Family = { kids: [], worlds: {}, acting: null, self: null };
 
   // ---- plumbing ----------------------------------------------------------------
   // A cold start from a deep link calls this three times in the same tick. The promise
@@ -269,6 +283,9 @@ export class DemoApi implements HitsApi {
     try {
       const raw = await AsyncStorage.getItem(KEY);
       if (raw) this.s = { ...blank(), ...JSON.parse(raw) };
+      const fam = await AsyncStorage.getItem(FAMILY_KEY);
+      // Every launch starts as yourself, as the real app does.
+      if (fam) this.fam = { ...JSON.parse(fam), acting: null, self: null };
     } catch { /* fresh state */ }
     // Simulated replies are timers; a reload would drop them. Settle anything that has
     // been waiting long enough, and keep settling in the background.
@@ -292,6 +309,10 @@ export class DemoApi implements HitsApi {
         if (seed && (seed.accept ?? 0.7) < 0.5 && r.id.charCodeAt(0) % 3 === 0) { r.state = 'declined'; r.declineReason = DECLINE_COPY.not_this_week; r.awaitingId = null; }
         else this.onAccepted(r, true);
         changed = true;
+      }
+      // A parent using the app as their child decides as they go: their side is approved.
+      if (this.s.runByParent) {
+        for (const a of r.approvals) if (a.minorId === ME && a.decision == null) { a.decision = true; a.decidedAt = iso(new Date()); changed = true; }
       }
       if (r.state === 'accepted') {
         for (const a of r.approvals) {
@@ -323,11 +344,21 @@ export class DemoApi implements HitsApi {
     return changed;
   }
   private save() {
-    void AsyncStorage.setItem(KEY, JSON.stringify(this.s)).catch(() => {});
+    if (this.fam.acting) this.fam.worlds[this.fam.acting] = this.s;
+    const own = this.fam.acting ? this.fam.self : this.s;
+    void AsyncStorage.setItem(KEY, JSON.stringify(own)).catch(() => {});
+    void AsyncStorage.setItem(FAMILY_KEY, JSON.stringify({ ...this.fam, self: null })).catch(() => {});
     this.listeners.forEach(l => l());
   }
+  // Run something against one world (yourself, or a child), whichever is showing.
+  private inWorld<T>(w: State, fn: () => T): T {
+    const cur = this.s; this.s = w;
+    try { return fn(); } finally { this.s = cur; }
+  }
   private later(ms: number, fn: () => void) {
-    const t = setTimeout(() => { fn(); this.save(); }, ms);
+    // Whoever's world this was scheduled in, even if the parent has switched since.
+    const w = this.s;
+    const t = setTimeout(() => { this.inWorld(w, fn); this.save(); }, ms);
     this.timers.push(t);
   }
   private wait(ms = 120) { return new Promise(r => setTimeout(r, ms)); }
@@ -392,20 +423,22 @@ export class DemoApi implements HitsApi {
       age: bandOf(p.dateOfBirth) === 'minor' ? ageOf(p.dateOfBirth) : null,
       maxPartnerAgeGap: p.maxPartnerAgeGap ?? null,
       playFormat: p.playFormat ?? 'either',
-      plus: this.isPlus(), plusUntil: this.isPlus() ? this.s.plus!.until : null, plusViaParent: this.isPlus() && bandOf(p.dateOfBirth) === 'minor',
+      plus: this.isPlus(), plusUntil: this.isPlus() ? this.plusRow()!.until : null, plusViaParent: this.isPlus() && bandOf(p.dateOfBirth) === 'minor',
       playStyle: p.playStyle ?? null, handedness: p.handedness ?? null, bio: p.bio ?? null,
       actionPhotoUrl: p.actionPhoto ?? null, actionPhotoPendingUrl: p.actionPhotoPending ?? null,
       phoneVerified: true,
       guardianVerified: p.guardianVerified,
       guardianPending: !!p.guardianEmail && !p.guardianVerified,
       guardianSentAt: p.guardianSentAt, guardianOpenedAt: p.guardianOpenedAt, rosterName: p.rosterName, photoPendingUrl: p.photoPending ?? null,
+      runByParent: !!this.s.runByParent,
     };
   }
   async me() { await this.load(); return this.meProfile(); }
-  private isPlus(): boolean { return !!this.s.plus && new Date(this.s.plus.until).getTime() > Date.now(); }
+  private plusRow() { return this.s.plus ?? (this.s.runByParent && this.fam.acting ? this.fam.self?.plus ?? null : null); }
+  private isPlus(): boolean { const p = this.plusRow(); return !!p && new Date(p.until).getTime() > Date.now(); }
   private needPlus(why: string, msg: string) { if (!this.isPlus()) throw new ApiError(`plus_required:${why} ${msg}`); }
   // The demo's store: a switch on the paywall. Says "demo" everywhere it shows.
-  setDemoPlus(on: boolean) { this.s.plus = on ? { until: iso(new Date(Date.now() + 30 * 86400000)), source: 'promo' } : null; if (on) this.s.plusAsked = null; this.save(); }
+  setDemoPlus(on: boolean) { if (this.s.runByParent) return; this.s.plus = on ? { until: iso(new Date(Date.now() + 30 * 86400000)), source: 'promo' } : null; if (on) this.s.plusAsked = null; this.save(); }
 
   async createProfile(input: ProfileInput) {
     await this.load(); await this.wait();
@@ -580,7 +613,9 @@ export class DemoApi implements HitsApi {
     const otherId = r.fromId === ME ? r.toId : r.fromId;
     const seed = SEED.find(p => p.id === otherId);
     if (seed?.band === 'minor') minors.push({ id: seed.id, name: seed.name });
-    r.approvals = minors.map(m => ({ hitId: r.id, minorId: m.id, minorName: m.name, guardianUserId: m.id === ME ? GUARDIAN : `g-${m.id}`, decision: null, decidedAt: null, createdAt: iso(new Date()) }));
+    r.approvals = minors.map(m => ({ hitId: r.id, minorId: m.id, minorName: m.name, guardianUserId: m.id === ME ? GUARDIAN : `g-${m.id}`,
+      // A parent running the account said yes by sending or accepting it themselves.
+      decision: m.id === ME && this.s.runByParent ? true : null, decidedAt: m.id === ME && this.s.runByParent ? iso(new Date()) : null, createdAt: iso(new Date()) }));
     if (r.approvals.length === 0) { r.state = 'confirmed'; r.confirmedAt = iso(new Date()); }
     else if (settled) { /* the background reconcile settles the other parent */ }
     else {
@@ -1018,11 +1053,12 @@ export class DemoApi implements HitsApi {
   // ---- Hits Plus -----------------------------------------------------------------
   async myPlus(): Promise<PlusStatus> {
     await this.load();
-    return { plus: this.isPlus(), plusUntil: this.isPlus() ? this.s.plus!.until : null, viaParent: this.isPlus() && this.myBand() === 'minor', source: this.isPlus() ? 'promo' : null };
+    return { plus: this.isPlus(), plusUntil: this.isPlus() ? this.plusRow()!.until : null, viaParent: this.isPlus() && this.myBand() === 'minor', source: this.isPlus() ? 'promo' : null };
   }
   async beginPurchase() {
     await this.load();
-    if (this.myBand() === 'minor') throw new ApiError('Your parent buys Plus for you. Ask them from Profile.');
+    if (this.s.runByParent) throw new ApiError('Switch back to yourself to buy Plus. It covers every child you run.');
+    if (this.s.profile && this.myBand() === 'minor') throw new ApiError('Your parent buys Plus for you. Ask them from Profile.');
     return ME;
   }
   async requestPlusFromParent() {
@@ -1158,15 +1194,133 @@ export class DemoApi implements HitsApi {
     this.later(8000, () => { if (this.s.profile) { this.s.profile.guardianVerified = true; void notifyLocal('Your parent said yes', 'You can reach out now.'); } });
     this.save();
   }
+  // ---- parent-run accounts ----------------------------------------------------------
+  async runChildren(): Promise<RunChild[]> {
+    await this.load();
+    return this.fam.kids.filter(k => !k.handedOff && this.fam.worlds[k.id]?.profile).map(k => {
+      const p = this.fam.worlds[k.id].profile!;
+      const live = k.handoff && new Date(k.handoff.expiresAt).getTime() > Date.now() ? k.handoff : null;
+      return { id: k.id, displayName: p.displayName, lastInitial: p.lastInitial || null, photoUrl: p.photo ?? null, age: ageOf(p.dateOfBirth) ?? 0,
+        handoffLast4: live?.last4 ?? null, handoffExpiresAt: live?.expiresAt ?? null };
+    }).sort((a, b) => a.age - b.age);
+  }
+  async addChild(input: ChildInput) {
+    await this.load(); await this.wait();
+    if (this.fam.acting) throw new ApiError('Switch back to yourself to add a child.');
+    if (this.s.profile && this.myBand() === 'minor') throw new ApiError('A parent adds a child. Ask yours to set this up.');
+    const name = input.displayName.trim().replace(/\s+/g, ' ');
+    if (!name) throw new ApiError('Add their first name.');
+    const age = ageOf(input.dateOfBirth) ?? 0;
+    if (age >= 18) throw new ApiError('Someone who is 18 signs up themselves.');
+    if (age < 4) throw new ApiError('Check the birthday. Hits is for kids four and up.');
+    if (this.fam.kids.filter(k => !k.handedOff).length >= 6) throw new ApiError('That is six children already.');
+    const id = `kid-${Math.random().toString(36).slice(2, 9)}`;
+    const w = blank();
+    w.session = this.s.session; w.runByParent = true; w.cohortOpen = this.s.cohortOpen;
+    w.levels = input.levelValue != null ? [{ at: iso(new Date()), level: input.levelValue }] : [];
+    w.profile = {
+      displayName: name, lastInitial: (input.lastInitial ?? '').toUpperCase(), dateOfBirth: input.dateOfBirth,
+      levelValue: input.levelValue ?? 3, levelSource: input.levelSource ?? 'estimated', homeCourtId: input.homeCourtId ?? COURTS[0].id,
+      availabilityMask: input.availabilityMask, lookingToHitUntil: iso(new Date(Date.now() + 3 * 86400000)), lastActiveAt: iso(new Date()),
+      guardianEmail: 'you', guardianVerified: true, guardianSentAt: null, guardianOpenedAt: null, rosterName: null,
+      playFormat: input.playFormat, maxPartnerAgeGap: age < 13 ? 2 : null,
+    };
+    this.fam.worlds[id] = w;
+    this.fam.kids.push({ id, createdAt: iso(new Date()) });
+    // A parent with no player profile of their own lands in the family view from now on.
+    if (this.s.session && !this.s.profile) this.s.session = { ...this.s.session, userId: GUARDIAN, isGuardian: true };
+    // Somebody their age says hello soon after, so their week is not empty.
+    const band = bandOf(input.dateOfBirth);
+    const first = SEED.filter(x => x.band === band && x.looking && Math.abs((x.age ?? 0) - age) <= 2)[0];
+    if (first) {
+      this.later(6000, () => {
+        const ww = this.fam.worlds[id]; if (!ww) return;
+        const hitId = this.inWorld(ww, () => {
+          if (this.s.requests.some(r => r.fromId === first.id)) return null;
+          const start = nextSlot(first.avail & input.availabilityMask || first.avail, 2);
+          const r0 = row(first.id, ME, first.court, start, 'Want to hit this week?', ME);
+          this.s.requests.push(r0);
+          return r0.id;
+        });
+        if (hitId) void notifyLocal(`${name}: ${first.name} wants to hit`, COURTS.find(c => c.id === first.court)?.name ?? 'Nearby', { hit: hitId, as: id });
+      });
+    }
+    this.save();
+    return id;
+  }
+  actAs(childId: string | null) {
+    const cur = this.fam.acting;
+    if (cur === childId) return;
+    if (childId && !this.fam.worlds[childId]) return;
+    if (cur) this.fam.worlds[cur] = this.s; else this.fam.self = this.s;
+    if (childId) { this.s = this.fam.worlds[childId]; this.s.session = this.fam.self?.session ?? this.s.session; this.fam.acting = childId; }
+    else { this.s = this.fam.self ?? this.s; this.fam.acting = null; this.fam.self = null; }
+    this.save();
+  }
+  actingAs() { return this.fam.acting; }
+  async removeChild(childId: string) {
+    await this.load(); await this.wait();
+    if (!this.fam.worlds[childId]) throw new ApiError('not an account you run');
+    if (this.fam.acting === childId) this.actAs(null);
+    delete this.fam.worlds[childId];
+    this.fam.kids = this.fam.kids.filter(k => k.id !== childId);
+    this.save();
+  }
+  async startHandoff(childId: string, phone: string) {
+    await this.load(); await this.wait();
+    const kid = this.fam.kids.find(k => k.id === childId); const p = this.fam.worlds[childId]?.profile;
+    if (!kid || !p) throw new ApiError('not an account you run');
+    if ((ageOf(p.dateOfBirth) ?? 0) < 13) throw new ApiError('Kids get their own sign-in from 13.');
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) throw new ApiError('That number does not look complete. Include the area code.');
+    kid.handoff = { last4: digits.slice(-4), expiresAt: iso(new Date(Date.now() + 7 * 86400000)) };
+    // In the demo, the child signs in a few seconds later.
+    this.later(9000, () => {
+      const k = this.fam.kids.find(x => x.id === childId); if (!k?.handoff) return;
+      k.handedOff = true; k.handoff = null;
+      const ww = this.fam.worlds[childId]; if (ww) ww.runByParent = false;
+      if (this.fam.acting === childId) this.actAs(null);
+      void notifyLocal(`${p.displayName} is signed in on their own phone`, 'You are still their parent: you approve their hits.', { family: true });
+    });
+    this.save();
+  }
+  async cancelHandoff(childId: string) {
+    await this.load();
+    const kid = this.fam.kids.find(k => k.id === childId); if (kid) kid.handoff = null;
+    this.save();
+  }
+  async parentRun(ids: string[]) {
+    await this.load();
+    return ids.filter(id => PARENT_RUN_SEEDS.has(id) || (this.fam.worlds[id] && !this.fam.kids.find(k => k.id === id)?.handedOff));
+  }
+
+  // A child the parent runs, as the family view sees them: their world, under their id.
+  private runChild(id: string): GuardianChild | null {
+    const w = this.fam.worlds[id]; if (!w) return null;
+    const kid = this.fam.kids.find(k => k.id === id);
+    return this.inWorld(w, () => {
+      const p = this.meProfile(); if (!p) return null;
+      const rows = this.s.requests;
+      const pending = rows.flatMap(r => r.approvals.filter(a => a.minorId === ME && a.decision == null).map(a => ({ ...a, minorId: id, request: this.toRequest(r) })));
+      const upcoming = rows.filter(r => r.state === 'confirmed' && new Date(r.windowEnd) > new Date()).map(r => this.toRequest(r));
+      return { profile: { ...p, id, runByParent: !kid?.handedOff }, pendingApprovals: pending, upcoming };
+    });
+  }
+  private worldWithHit(hitId: string): State | null {
+    if (this.s.requests.some(r => r.id === hitId)) return this.s;
+    const all = [this.fam.self, ...Object.values(this.fam.worlds)].filter((w): w is State => !!w);
+    return all.find(w => w.requests.some(r => r.id === hitId)) ?? null;
+  }
   async guardianChildren(): Promise<GuardianChild[]> {
     await this.load();
-    const me = this.meProfile(); if (!me || me.band !== 'minor') return [];
+    const run = this.fam.kids.map(k => this.runChild(k.id)).filter((x): x is GuardianChild => !!x);
+    const me = this.meProfile(); if (!me || me.band !== 'minor') return run;
     const rows = this.s.requests.filter(r => r.fromId === ME || r.toId === ME);
     const pending = rows.flatMap(r => r.approvals.filter(a => a.minorId === ME && a.decision == null).map(a => ({ ...a, request: this.toRequest(r) })));
     const upcoming = rows.filter(r => r.state === 'confirmed' && new Date(r.windowEnd) > new Date()).map(r => this.toRequest(r));
     const kids: GuardianChild[] = [{ profile: me, pendingApprovals: pending, upcoming }];
     if (me.guardianVerified && !this.s.siblingRevoked) kids.push({ profile: this.sibling(), pendingApprovals: [], upcoming: this.siblingRows().map(r => this.toRequest(r, SIBLING.id)) });
-    return kids;
+    return [...kids, ...run];
   }
   private sibling(): Profile {
     return {
@@ -1175,7 +1329,7 @@ export class DemoApi implements HitsApi {
       lastActiveAt: hoursAgo(5), lookingToHitUntil: null, responseRate: 1, acceptRate: 0.9, hitsConfirmed: 4,
       phoneVerified: true, guardianVerified: true, guardianPending: false, guardianSentAt: null, guardianOpenedAt: null,
       rosterName: null, prefers: 'Rally & drills', age: SIBLING.age, maxPartnerAgeGap: this.s.siblingGap === undefined ? 2 : this.s.siblingGap,
-      playFormat: 'either', plus: this.isPlus(), plusUntil: this.isPlus() ? this.s.plus!.until : null, plusViaParent: this.isPlus(),
+      playFormat: 'either', plus: this.isPlus(), plusUntil: this.isPlus() ? this.plusRow()!.until : null, plusViaParent: this.isPlus(),
       playStyle: null, handedness: null, bio: null, actionPhotoUrl: null,
     };
   }
@@ -1192,16 +1346,23 @@ export class DemoApi implements HitsApi {
   async setChildAgeGap(childId: string, gap: number | null) {
     await this.load();
     if (gap != null && (gap < 1 || gap > 5)) throw new ApiError('Pick between one and five years, or anyone under 18.');
+    const w = this.fam.worlds[childId];
     if (childId === SIBLING.id) this.s.siblingGap = gap;
+    else if (w?.profile) w.profile.maxPartnerAgeGap = gap;
     else if (this.s.profile) this.s.profile.maxPartnerAgeGap = gap;
     this.save();
   }
   async guardianDecide(hitId: string, minorId: string, decision: boolean) {
     await this.load(); await this.wait();
-    const r = this.find(hitId);
-    const a = r.approvals.find(x => x.minorId === minorId); if (!a) throw new ApiError('Nothing to approve');
-    a.decision = decision; a.decidedAt = iso(new Date());
-    if (decision) this.maybeConfirm(r); else { r.state = 'declined'; r.declineReason = 'A parent passed on this one'; }
+    const w = this.worldWithHit(hitId) ?? this.s;
+    const run = this.fam.worlds[minorId] === w;
+    const a = this.inWorld(w, () => {
+      const r = this.find(hitId);
+      const x = r.approvals.find(y => y.minorId === (run ? ME : minorId)); if (!x) throw new ApiError('Nothing to approve');
+      x.decision = decision; x.decidedAt = iso(new Date());
+      if (decision) this.maybeConfirm(r); else { r.state = 'declined'; r.declineReason = 'A parent passed on this one'; }
+      return x;
+    });
     this.save(); return a;
   }
   async guardianBlock(_childId: string, profileId: string) { await this.block(profileId); }
@@ -1242,8 +1403,13 @@ export class DemoApi implements HitsApi {
       { id: 'sm1', hitId, senderId: 'p-iris', body: 'Want to rally Saturday morning?', createdAt: hoursAgo(30) },
       { id: 'sm2', hitId, senderId: SIBLING.id, body: 'Yes! My mom can drive me.', createdAt: hoursAgo(29) },
     ], child: this.sibling() };
-    const r = this.s.requests.find(x => x.id === hitId); if (!r) return null;
-    return { request: this.toRequest(r), messages: this.s.messages.filter(m => m.hitId === hitId), child: this.meProfile()! };
+    const w = this.worldWithHit(hitId); if (!w) return null;
+    const id = Object.entries(this.fam.worlds).find(([, x]) => x === w)?.[0];
+    return this.inWorld(w, () => {
+      const r = this.s.requests.find(x => x.id === hitId)!;
+      const child = this.meProfile()!;
+      return { request: this.toRequest(r), messages: this.s.messages.filter(m => m.hitId === hitId), child: id ? { ...child, id, runByParent: true } : child };
+    });
   }
 }
 

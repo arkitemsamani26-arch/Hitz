@@ -6,14 +6,16 @@ stylesheet and no build step.
 
 ## Fastest way to get real URLs (free, ten minutes)
 
-1. Fill in every `[bracket]` in `index.html`, `privacy.html`, `terms.html` and
-   `support.html`. There are about twenty. **Do not publish them with brackets still in.**
+1. The brackets are filled in (October 21, 2026). Re-check them whenever these pages change.
 2. Push to GitHub.
-3. Repository → Settings → Pages → Source: *Deploy from a branch* → branch `main`, folder
-   `/ (root)` → Save.
+3. Repository → Settings → Pages → Source: *Deploy from a branch* → branch
+   `claude/hits-tennis-matchmaking-7wi3q9` (the repo's default branch), folder `/ (root)` → Save.
 4. A minute later the pages are live at:
-   - `https://<your-github-username>.github.io/Hitz/legal/privacy.html`
-   - `https://<your-github-username>.github.io/Hitz/legal/support.html`
+   - `https://arkitemsamani26-arch.github.io/Hitz/legal/privacy.html`
+   - `https://arkitemsamani26-arch.github.io/Hitz/legal/support.html`
+   - `https://arkitemsamani26-arch.github.io/Hitz/legal/terms.html`
+5. The app links to them through `EXPO_PUBLIC_LEGAL_URL=https://arkitemsamani26-arch.github.io/Hitz/legal`
+   (already in `.env.example`; add it to the EAS production environment too).
 
 That is good enough for a first submission. A domain of your own looks better later, and
 these files move to one unchanged.

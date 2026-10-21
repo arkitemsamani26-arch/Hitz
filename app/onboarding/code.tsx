@@ -39,6 +39,7 @@ export default function Code() {
       setProfile(me);
       if (s.isGuardian) router.replace('/guardian');
       else if (me) router.replace('/(tabs)');
+      else if (draft.forKid) router.replace('/family/add?first=1');
       else router.replace('/onboarding/court');
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }

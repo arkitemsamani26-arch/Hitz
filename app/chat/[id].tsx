@@ -58,6 +58,8 @@ export default function Chat() {
   const [focus, setFocus] = useState(false);
   const scroll = useRef<ScrollView>(null);
   const input = useRef<TextInput>(null);
+  // Whether a parent runs the other player's account, so the thread can say who is typing.
+  const parentRun = useAsync(() => (data?.request ? api.parentRun([data.request.other.id]) : Promise.resolve([] as string[])), [data?.request?.other.id]);
   const r = data?.request;
   const msgs = data?.messages ?? [];
 
@@ -205,7 +207,10 @@ export default function Chat() {
           {!confirmed && open && (
             <T v="meta" tone="muted" style={st.center}>You can share phone numbers once the hit is confirmed.</T>
           )}
-          {profile.band === 'minor' && <T v="meta" tone="muted" style={st.center}>Your parent can read this conversation.</T>}
+          {profile.runByParent
+            ? <T v="meta" tone="muted" style={st.center}>You're writing as {profile.displayName}.</T>
+            : profile.band === 'minor' && <T v="meta" tone="muted" style={st.center}>Your parent can read this conversation.</T>}
+          {(parentRun.data ?? []).includes(r.other.id) && <T v="meta" tone="muted" style={st.center}>A parent runs {who}'s account, so a parent may be the one writing.</T>}
 
           {rows.length === 0 && (
             <View style={{ alignItems: 'center', paddingVertical: space.xl, gap: 6 }}>
